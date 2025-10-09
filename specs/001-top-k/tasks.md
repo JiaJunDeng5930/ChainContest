@@ -116,9 +116,9 @@
 
 **Purpose**: 文档、性能与安全加固
 
-- [ ] T033 [Polish] 更新 `specs/001-top-k/quickstart.md` 补充实际部署地址、测试命令与常见故障排查
-- [ ] T034 [P] [Polish] 添加 `contracts/scripts/report-gas.ts` 与 Hardhat gas reporter 配置，输出 swap/settle/updateLeaders gas 指标
-- [ ] T035 [Polish] 在 `docs/security/contest.md` 编写安全审计清单：失败降级流程、事件重放校验、权限移交步骤
+- [X] T033 [Polish] 更新 `specs/001-top-k/quickstart.md` 补充实际部署地址、测试命令与常见故障排查
+- [X] T034 [P] [Polish] 添加 `contracts/scripts/report-gas.ts` 与 Hardhat gas reporter 配置，输出 swap/settle/updateLeaders gas 指标
+- [X] T035 [Polish] 在 `docs/security/contest.md` 编写安全审计清单：失败降级流程、事件重放校验、权限移交步骤
 
 ---
 

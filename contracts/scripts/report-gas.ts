@@ -8,6 +8,22 @@ type GasLog = {
 const ENTRY_AMOUNT = 1_000_000n;
 const BONUS_ALICE = 500_000n;
 const BONUS_BOB = 200_000n;
+const REGISTER_DURATION = 600n;
+const LIVE_DURATION = 3_600n;
+const CLAIM_DURATION = 7_200n;
+
+const USDC_UNIT = 10n ** 6n;
+const WETH_UNIT = 10n ** 18n;
+const POOL_USDC_LIQUIDITY = 5_000_000n * USDC_UNIT;
+const POOL_WETH_LIQUIDITY = 3_000n * WETH_UNIT;
+
+function pushGas(logs: GasLog[], label: string, receipt: { gasUsed?: bigint } | null | undefined) {
+  const gas = receipt?.gasUsed;
+  if (!gas) {
+    throw new Error(`无法获取 ${label} 的 gas 消耗`);
+  }
+  logs.push({ label, gasUsed: gas });
+}
 
 async function deployScenario() {
   const [deployer, alice, bob, carol] = await ethers.getSigners();
@@ -39,10 +55,10 @@ async function deployScenario() {
   const factory = await VaultFactory.deploy(await vaultImpl.getAddress(), await contest.getAddress());
   await factory.waitForDeployment();
 
-  const now = Math.floor(Date.now() / 1000);
-  const registeringEnds = BigInt(now + 600);
-  const liveEnds = registeringEnds + 3_600n;
-  const claimEnds = liveEnds + 7_200n;
+  const now = BigInt(Math.floor(Date.now() / 1000));
+  const registeringEnds = now + REGISTER_DURATION;
+  const liveEnds = registeringEnds + LIVE_DURATION;
+  const claimEnds = liveEnds + CLAIM_DURATION;
   const payoutSchedule = Array<number>(32).fill(0);
   payoutSchedule[0] = 7_000;
   payoutSchedule[1] = 3_000;
@@ -70,6 +86,9 @@ async function deployScenario() {
     owner: deployer.address,
   } as unknown as Parameters<typeof contest.initialize>[0]);
 
+  await usdc.mint(await pool.getAddress(), POOL_USDC_LIQUIDITY);
+  await weth.mint(await pool.getAddress(), POOL_WETH_LIQUIDITY);
+
   const participants = [alice, bob, carol];
   const bonuses = [BONUS_ALICE, BONUS_BOB, 0n];
   const vaults: string[] = [];
@@ -87,64 +106,109 @@ async function deployScenario() {
 
   await usdc.mint(await contest.getAddress(), ENTRY_AMOUNT * BigInt(participants.length));
 
-  await network.provider.send("evm_setNextBlockTimestamp", [Number(liveEnds) + 5]);
-  await network.provider.send("evm_mine", []);
-
   return {
     contest,
     usdc,
+    weth,
+    pool,
+    priceSource,
     participants,
     vaults,
     operator: deployer,
+    registeringEnds,
+    liveEnds,
+    claimEnds,
   };
 }
 
 async function main() {
-  const { contest, participants, vaults, operator } = await deployScenario();
+  const {
+    contest,
+    priceSource,
+    participants,
+    vaults,
+    operator,
+    registeringEnds,
+    liveEnds,
+  } = await deployScenario();
   const [alice, bob, carol] = participants;
   const gasReport: GasLog[] = [];
 
+  await network.provider.send("evm_setNextBlockTimestamp", [Number(registeringEnds) + 1]);
+  await network.provider.send("evm_mine", []);
+  await (await contest.connect(operator).syncState()).wait();
+  await (await priceSource.update()).wait();
+
+  const aliceVault = await ethers.getContractAt("Vault", vaults[0]!);
+  const swapReceipt = await (
+    await aliceVault
+      .connect(alice)
+      .swapExact(ENTRY_AMOUNT / 2n, 0, true, Number(liveEnds - 60n))
+  ).wait();
+  pushGas(gasReport, "Vault.swapExact()", swapReceipt);
+
+  await network.provider.send("evm_setNextBlockTimestamp", [Number(liveEnds) + 5]);
+  await network.provider.send("evm_mine", []);
+
   const freezeReceipt = await (await contest.connect(operator).freeze()).wait();
-  gasReport.push({ label: "freeze()", gasUsed: freezeReceipt!.gasUsed! });
+  pushGas(gasReport, "Contest.freeze()", freezeReceipt);
 
   const settleAlice = await (await contest.connect(operator).settle(alice.address)).wait();
-  gasReport.push({ label: "settle(alice)", gasUsed: settleAlice!.gasUsed! });
+  pushGas(gasReport, "Contest.settle(alice)", settleAlice);
   const settleBob = await (await contest.connect(operator).settle(bob.address)).wait();
-  gasReport.push({ label: "settle(bob)", gasUsed: settleBob!.gasUsed! });
+  pushGas(gasReport, "Contest.settle(bob)", settleBob);
   const settleCarol = await (await contest.connect(operator).settle(carol.address)).wait();
-  gasReport.push({ label: "settle(carol)", gasUsed: settleCarol!.gasUsed! });
+  pushGas(gasReport, "Contest.settle(carol)", settleCarol);
 
   const aliceVaultId = await contest.participantVaults(alice.address);
   const bobVaultId = await contest.participantVaults(bob.address);
+  const carolVaultId = await contest.participantVaults(carol.address);
+
+  const aliceNav = await contest.vaultNavs(aliceVaultId);
+  const bobNav = await contest.vaultNavs(bobVaultId);
+  const carolNav = await contest.vaultNavs(carolVaultId);
+  const aliceRoi = await contest.vaultRoiBps(aliceVaultId);
+  const bobRoi = await contest.vaultRoiBps(bobVaultId);
+  const carolRoi = await contest.vaultRoiBps(carolVaultId);
+
+  const config = await contest.getConfig();
+  const topK = Number(config.topK);
+  const leaderCandidates = [
+    { vaultId: aliceVaultId, nav: aliceNav, roiBps: aliceRoi },
+    { vaultId: bobVaultId, nav: bobNav, roiBps: bobRoi },
+    { vaultId: carolVaultId, nav: carolNav, roiBps: carolRoi },
+  ];
+
+  leaderCandidates.sort((a, b) => {
+    if (a.nav === b.nav) {
+      return 0;
+    }
+    return a.nav > b.nav ? -1 : 1;
+  });
+
+  const updatePayload = leaderCandidates.slice(0, topK).map((entry) => ({
+    vaultId: entry.vaultId,
+    nav: entry.nav,
+    roiBps: entry.roiBps,
+  }));
 
   const updateReceipt = await (
-    await contest.connect(operator).updateLeaders([
-      {
-        vaultId: aliceVaultId,
-        nav: ENTRY_AMOUNT + BONUS_ALICE,
-        roiBps: 5_000,
-      },
-      {
-        vaultId: bobVaultId,
-        nav: ENTRY_AMOUNT + BONUS_BOB,
-        roiBps: 2_000,
-      },
-    ])
+    await contest.connect(operator).updateLeaders(updatePayload)
   ).wait();
-  gasReport.push({ label: "updateLeaders(2)", gasUsed: updateReceipt!.gasUsed! });
+  pushGas(gasReport, "Contest.updateLeaders(2)", updateReceipt);
 
   const sealReceipt = await (await contest.connect(operator).seal()).wait();
-  gasReport.push({ label: "seal()", gasUsed: sealReceipt!.gasUsed! });
+  pushGas(gasReport, "Contest.seal()", sealReceipt);
 
   const claimReceipt = await (await contest.connect(alice).claim()).wait();
-  gasReport.push({ label: "claim(winner)", gasUsed: claimReceipt!.gasUsed! });
+  pushGas(gasReport, "Contest.claim(winner)", claimReceipt);
 
   const exitReceipt = await (await contest.connect(carol).exit()).wait();
-  gasReport.push({ label: "exit(loser)", gasUsed: exitReceipt!.gasUsed! });
+  pushGas(gasReport, "Contest.exit(loser)", exitReceipt);
 
   console.log("Gas Usage Summary (wei):");
   gasReport.forEach((entry) => {
-    console.log(`${entry.label.padEnd(22)} ${entry.gasUsed.toString()}`);
+    console.log(`${entry.label.padEnd(28)} ${entry.gasUsed.toString()}`);
   });
 }
 

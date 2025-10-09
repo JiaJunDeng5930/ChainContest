@@ -16,6 +16,15 @@ pnpm --filter contracts install
 pnpm --filter frontend install
 ```
 
+## 合约地址（截至 2025-10-09）
+
+| 环境 | Contest | VaultFactory | Vault Implementation | PriceSource | Entry Asset (USDC) | Quote Asset (WETH) |
+|------|---------|--------------|----------------------|-------------|--------------------|--------------------|
+| Hardhat (localhost) | 0xCf7Ed3AccA5a467e9e704C703E8D87F634fB0Fc9 | 0x0165878A594ca255338adfa4d48449f69242Eb8F | 0xDc64a140Aa3E981100a9becA4E685f962f0cF6C9 | 0x5FC8d32690cc91D4c39d9d3abcBD16989F875707 | 0x5FbDB2315678afecb367f032d93F642f64180aa3 | 0xe7f1725E7734CE288F8367e1Bb143E90bb3F0512 |
+| Sepolia（待发布） | — | — | — | — | — | — |
+
+> 使用 `pnpm --filter @bc/contracts exec -- hardhat run scripts/e2e/register-setup.ts` 可快速生成上述本地地址 JSON 输出。完成 Sepolia 部署后，请将产物复制到 `frontend/src/config/contracts/` 并同步更新本表。
+
 ## 合约工作流
 1. 复制 `contracts/.env.example` 为 `.env` 并填入 RPC 与私钥。
 2. 编译与生成类型：
@@ -26,6 +35,8 @@ pnpm --filter frontend install
 3. 运行测试与 gas 报告：
    ```bash
    pnpm --filter contracts hardhat test
+   REPORT_GAS=true pnpm --filter contracts hardhat test --grep "Contest"
+   pnpm --filter contracts exec -- hardhat run scripts/report-gas.ts
    pnpm --filter contracts hardhat test --network sepolia --grep "fork"  # 分叉测试
    ```
 4. 本地模拟完整结算链路（可选）：
@@ -70,3 +81,5 @@ pnpm --filter frontend install
 - 价格源异常：`settle` revert 时提示重试或延迟，必要时通过 `pause` 暂停入口。
 - RPC 故障：前端自动切换备用终结点；如均不可用，提示用户稍后重试。
 - 安全事件：在 `LIVE` 阶段触发 `freeze`（等同时间到达），进入 `FROZEN` 并暂停 swap。
+- Gas 报告为空：确认在执行测试或脚本时已设置 `REPORT_GAS=true`，并确保安装了 `hardhat-gas-reporter` 依赖；若仍为空，先运行 `pnpm --filter contracts hardhat clean && pnpm --filter contracts hardhat compile` 再重新执行。
+- Hardhat 脚本报错 `ContestInvalidParam(\"unsorted\")`：通常是排行榜输入未按 NAV 降序排序，先运行 `scripts/report-gas.ts` 或参考测试产出的排行榜顺序再手动调用。
