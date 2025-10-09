@@ -85,20 +85,26 @@ export async function hydrateRegistrations(config: Config, options?: HydrateOpti
     toBlock,
   });
 
-  const records: RegistrationRecord[] = logs.map((log) => {
-    const args = log.args as unknown as {
-      participant: Address;
-      vault: Address;
-      amount: bigint;
-    };
-    return {
+  const records: RegistrationRecord[] = [];
+  for (const log of logs) {
+    const args = log.args as
+      | {
+          participant: Address;
+          vault: Address;
+          amount: bigint;
+        }
+      | undefined;
+    if (!args) {
+      continue;
+    }
+    records.push({
       participant: args.participant,
       vault: args.vault,
       amount: args.amount,
       txHash: log.transactionHash ?? undefined,
       blockNumber: log.blockNumber ?? undefined,
-    };
-  });
+    });
+  }
 
   store.hydrate(records);
 }
@@ -116,11 +122,16 @@ export function subscribeRegistrations(config: Config): () => void {
     (logs) => {
       const append = useContestStore.getState().upsert;
       for (const log of logs) {
-        const args = log.args as unknown as {
-          participant: Address;
-          vault: Address;
-          amount: bigint;
-        };
+        const args = log.args as
+          | {
+              participant: Address;
+              vault: Address;
+              amount: bigint;
+            }
+          | undefined;
+        if (!args) {
+          continue;
+        }
         append({
           participant: args.participant,
           vault: args.vault,
