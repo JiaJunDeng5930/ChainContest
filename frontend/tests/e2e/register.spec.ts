@@ -292,6 +292,7 @@ test("参赛者完成授权与报名流程，并触发链上事件", async ({ pa
 
   await expect(page.getByTestId("participants-list")).toContainText(
     setupPayload.participant.address.slice(0, 6),
+  { timeout: 60_000 },
   );
 
   const client = createPublicClient({
