@@ -74,6 +74,7 @@ export async function fetchContestOverview(config: Config): Promise<ContestOverv
       maxParticipants: number;
       topK: number;
     };
+    console.log("fetchContestOverview:config", configStruct);
 
     const timelineStruct = rawTimeline as {
       registeringEnds: bigint;
