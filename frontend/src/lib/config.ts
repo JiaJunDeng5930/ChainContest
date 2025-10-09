@@ -1,5 +1,5 @@
 const ADDRESS_REGEX = /^0x[a-fA-F0-9]{40}$/;
-const RPC_TIMEOUT_MS = 500;
+const RPC_TIMEOUT_MS = 2_500;
 
 export type ContestAddresses = {
   contest: string;
