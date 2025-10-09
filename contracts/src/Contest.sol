@@ -14,6 +14,10 @@ interface IVaultFactory {
     function predictVaultAddress(address participant) external view returns (address);
 }
 
+interface IVaultInitializer {
+    function initialize(address owner, address contest, uint256 entryAmount) external;
+}
+
 contract Contest is Ownable2Step, Pausable, ReentrancyGuard {
     using SafeERC20 for IERC20;
 
@@ -216,6 +220,7 @@ contract Contest is Ownable2Step, Pausable, ReentrancyGuard {
         address vault = factory.deployVault(msg.sender, config.entryAmount);
 
         config.entryAsset.safeTransferFrom(msg.sender, vault, config.entryAmount);
+        IVaultInitializer(vault).initialize(msg.sender, address(this), config.entryAmount);
 
         participantVaults[msg.sender] = vaultId;
         vaultOwners[vaultId] = msg.sender;

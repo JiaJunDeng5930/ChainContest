@@ -15,10 +15,12 @@ contract VaultFactory is Ownable2Step {
 
     event VaultImplementationUpdated(address indexed previousImplementation, address indexed newImplementation);
     event ContestAddressUpdated(address indexed previousContest, address indexed newContest);
-    event VaultDeployed(bytes32 indexed vaultId, address indexed participant, address vault);
+    event VaultDeployed(bytes32 indexed vaultId, address indexed participant, address vault, uint256 entryAmount);
 
     error VaultFactoryInvalidImplementation();
     error VaultFactoryInvalidContest();
+    error VaultFactoryInvalidParticipant();
+    error VaultFactoryInvalidEntryAmount();
     error VaultFactoryUnauthorized(address account);
 
     modifier onlyContest() {
@@ -66,9 +68,14 @@ contract VaultFactory is Ownable2Step {
     }
 
     function deployVault(address participant, uint256 entryAmount) external onlyContest returns (address vault) {
+        if (participant == address(0)) {
+            revert VaultFactoryInvalidParticipant();
+        }
+        if (entryAmount == 0) {
+            revert VaultFactoryInvalidEntryAmount();
+        }
         bytes32 salt = keccak256(abi.encode(participant, contest, implementation));
         vault = Clones.cloneDeterministic(implementation, salt);
-        IVaultInitializer(vault).initialize(participant, contest, entryAmount);
-        emit VaultDeployed(keccak256(abi.encode(contest, participant)), participant, vault);
+        emit VaultDeployed(keccak256(abi.encode(contest, participant)), participant, vault, entryAmount);
     }
 }

@@ -81,7 +81,7 @@ async function deployContestFixture() {
 
 describe("Contest.register", () => {
   it("should register a participant and deploy a vault", async () => {
-    const { contest, participant, factory } = await loadFixture(deployContestFixture);
+    const { contest, participant, factory, usdc } = await loadFixture(deployContestFixture);
 
     const contestId = await contest.contestId();
     const predictedVault = await factory.predictVaultAddress(participant.address);
@@ -95,6 +95,12 @@ describe("Contest.register", () => {
 
     const prizePool = await contest.prizePool();
     expect(prizePool).to.equal(ENTRY_AMOUNT);
+
+    const vault = await ethers.getContractAt("Vault", predictedVault);
+    expect(await vault.owner()).to.equal(participant.address);
+    expect(await vault.contest()).to.equal(await contest.getAddress());
+    expect(await vault.baseBalance()).to.equal(ENTRY_AMOUNT);
+    expect(await usdc.balanceOf(predictedVault)).to.equal(ENTRY_AMOUNT);
   });
 
   it("should reject duplicate registration", async () => {
