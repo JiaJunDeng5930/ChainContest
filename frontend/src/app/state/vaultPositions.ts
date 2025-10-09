@@ -63,7 +63,7 @@ const computeMetrics = (
   const baseBalance = balances.baseBalance;
   const quoteBalance = balances.quoteBalance;
   const quoteInBaseDecimals = adjustDecimals(quoteBalance, context.quoteDecimals, context.baseDecimals);
-  const quoteValue = price === 0n ? 0n : (quoteInBaseDecimals * price) / ONE_E18;
+  const quoteValue = price === 0n ? 0n : (quoteInBaseDecimals * ONE_E18) / price;
   const nav = baseBalance + quoteValue;
   const roiNumerator = nav >= context.entryAmount ? nav - context.entryAmount : context.entryAmount - nav;
   const roiSign = nav >= context.entryAmount ? 1 : -1;
