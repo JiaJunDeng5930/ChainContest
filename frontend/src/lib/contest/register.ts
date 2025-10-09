@@ -64,53 +64,55 @@ export async function fetchContestOverview(config: Config): Promise<ContestOverv
       }),
     ]);
 
-    const configStruct = rawConfig as {
-      entryAsset: Address;
-      entryAmount: bigint;
-      priceSource: Address;
-      swapPool: Address;
-      priceToleranceBps: number;
-      settlementWindow: number;
-      maxParticipants: number;
-      topK: number;
-    };
-    console.log("fetchContestOverview:config", configStruct);
-    console.log(
-      "fetchContestOverview:entryAsset",
-      (configStruct as unknown as { entryAsset?: Address }).entryAsset,
-    );
+    const [
+      entryAsset,
+      entryAmount,
+      priceSource,
+      swapPool,
+      priceToleranceBps,
+      settlementWindow,
+      maxParticipants,
+      topK,
+    ] = rawConfig as [
+      Address,
+      bigint,
+      Address,
+      Address,
+      number,
+      number,
+      number,
+      number,
+    ];
+    console.log("fetchContestOverview:config", rawConfig);
+    console.log("fetchContestOverview:entryAsset", entryAsset);
 
-    const timelineStruct = rawTimeline as {
-      registeringEnds: bigint;
-      liveEnds: bigint;
-      claimEnds: bigint;
-    };
+    const [registeringEnds, liveEnds, claimEnds] = rawTimeline as [bigint, bigint, bigint];
 
     const [symbol, decimals] = await Promise.all([
       readContract(config, {
         abi: erc20Abi,
-        address: configStruct.entryAsset,
+        address: entryAsset,
         functionName: "symbol",
       }),
       readContract(config, {
         abi: erc20Abi,
-        address: configStruct.entryAsset,
+        address: entryAsset,
         functionName: "decimals",
       }),
     ]);
     console.log("fetchContestOverview:done");
 
     return {
-      entryAsset: configStruct.entryAsset,
-      entryAmount: configStruct.entryAmount,
+      entryAsset,
+      entryAmount,
       entrySymbol: symbol as string,
       entryDecimals: Number(decimals),
-      maxParticipants: Number(configStruct.maxParticipants),
+      maxParticipants: Number(maxParticipants),
       participantCount: BigInt(rawParticipantCount),
       state: rawState as ContestState,
-      registeringEnds: timelineStruct.registeringEnds,
-      liveEnds: timelineStruct.liveEnds,
-      claimEnds: timelineStruct.claimEnds,
+      registeringEnds,
+      liveEnds,
+      claimEnds,
     };
   } catch (error) {
     console.error("fetchContestOverview:error", error);
