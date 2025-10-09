@@ -123,6 +123,7 @@ export default function RegisterCard(): JSX.Element {
       const result = await registerForContest(wagmiConfig, address);
       setRegisterHash(result.txHash);
       await overviewQuery.refetch();
+      await hydrateRegistrations(wagmiConfig);
     } catch (err) {
       setError((err as Error).message);
     } finally {
