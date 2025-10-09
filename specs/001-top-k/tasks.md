@@ -96,7 +96,7 @@
 
 ### Tests for User Story 3
 
-- [ ] T025 [US3] 编写 Hardhat 测试 `contracts/test/contest.settle.spec.ts` 覆盖冻结、结算、Top-K 更新、重复调用幂等、领奖/退出
+- [X] T025 [US3] 编写 Hardhat 测试 `contracts/test/contest.settle.spec.ts` 覆盖冻结、结算、Top-K 更新、重复调用幂等、领奖/退出
 - [ ] T026 [P] [US3] 编写 Playwright 场景 `frontend/tests/e2e/settle-claim.spec.ts` 覆盖任意用户触发结算、查看榜单、领奖与退出
 
 ### Implementation for User Story 3
