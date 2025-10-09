@@ -1,7 +1,7 @@
 import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { WagmiConfig, createConfig, http, reconnect } from "wagmi";
+import { WagmiConfig, createConfig, http } from "wagmi";
 import { hardhat, sepolia } from "wagmi/chains";
 import { injected, mock, walletConnect } from "wagmi/connectors";
 import { fallback } from "viem";
@@ -50,10 +50,9 @@ const wagmiConfig = createConfig({
     [targetChain.id]: rpcTransports,
   },
   connectors,
+  autoConnect: true,
   ssr: false,
 });
-
-reconnect(wagmiConfig);
 
 const rootElement = document.getElementById("root");
 if (!rootElement) {
