@@ -40,72 +40,77 @@ export type ContestOverview = {
 export async function fetchContestOverview(config: Config): Promise<ContestOverview> {
   const contestAddress = contestAddresses.contest as Address;
   console.log("fetchContestOverview:start", contestAddress);
-  const [rawConfig, rawParticipantCount, rawState, rawTimeline] = await Promise.all([
-    readContract(config, {
-      abi: contestAbi,
-      address: contestAddress,
-      functionName: "config",
-    }),
-    readContract(config, {
-      abi: contestAbi,
-      address: contestAddress,
-      functionName: "participantCount",
-    }),
-    readContract(config, {
-      abi: contestAbi,
-      address: contestAddress,
-      functionName: "state",
-    }),
-    readContract(config, {
-      abi: contestAbi,
-      address: contestAddress,
-      functionName: "timeline",
-    }),
-  ]);
+  try {
+    const [rawConfig, rawParticipantCount, rawState, rawTimeline] = await Promise.all([
+      readContract(config, {
+        abi: contestAbi,
+        address: contestAddress,
+        functionName: "config",
+      }),
+      readContract(config, {
+        abi: contestAbi,
+        address: contestAddress,
+        functionName: "participantCount",
+      }),
+      readContract(config, {
+        abi: contestAbi,
+        address: contestAddress,
+        functionName: "state",
+      }),
+      readContract(config, {
+        abi: contestAbi,
+        address: contestAddress,
+        functionName: "timeline",
+      }),
+    ]);
 
-  const configStruct = rawConfig as {
-    entryAsset: Address;
-    entryAmount: bigint;
-    priceSource: Address;
-    swapPool: Address;
-    priceToleranceBps: number;
-    settlementWindow: number;
-    maxParticipants: number;
-    topK: number;
-  };
+    const configStruct = rawConfig as {
+      entryAsset: Address;
+      entryAmount: bigint;
+      priceSource: Address;
+      swapPool: Address;
+      priceToleranceBps: number;
+      settlementWindow: number;
+      maxParticipants: number;
+      topK: number;
+    };
 
-  const timelineStruct = rawTimeline as {
-    registeringEnds: bigint;
-    liveEnds: bigint;
-    claimEnds: bigint;
-  };
+    const timelineStruct = rawTimeline as {
+      registeringEnds: bigint;
+      liveEnds: bigint;
+      claimEnds: bigint;
+    };
 
-  const [symbol, decimals] = await Promise.all([
-    readContract(config, {
-      abi: erc20Abi,
-      address: configStruct.entryAsset,
-      functionName: "symbol",
-    }),
-    readContract(config, {
-      abi: erc20Abi,
-      address: configStruct.entryAsset,
-      functionName: "decimals",
-    }),
-  ]);
-  console.log("fetchContestOverview:done");
+    const [symbol, decimals] = await Promise.all([
+      readContract(config, {
+        abi: erc20Abi,
+        address: configStruct.entryAsset,
+        functionName: "symbol",
+      }),
+      readContract(config, {
+        abi: erc20Abi,
+        address: configStruct.entryAsset,
+        functionName: "decimals",
+      }),
+    ]);
+    console.log("fetchContestOverview:done");
 
-  return {
-    entryAsset: configStruct.entryAsset,
-    entryAmount: configStruct.entryAmount,
-    entrySymbol: symbol as string,
-    entryDecimals: Number(decimals),
-    maxParticipants: Number(configStruct.maxParticipants),
-    participantCount: BigInt(rawParticipantCount),
-    state: rawState as ContestState,
-    registeringEnds: timelineStruct.registeringEnds,
-    liveEnds: timelineStruct.liveEnds,
-    claimEnds: timelineStruct.claimEnds,
-  };
+    return {
+      entryAsset: configStruct.entryAsset,
+      entryAmount: configStruct.entryAmount,
+      entrySymbol: symbol as string,
+      entryDecimals: Number(decimals),
+      maxParticipants: Number(configStruct.maxParticipants),
+      participantCount: BigInt(rawParticipantCount),
+      state: rawState as ContestState,
+      registeringEnds: timelineStruct.registeringEnds,
+      liveEnds: timelineStruct.liveEnds,
+      claimEnds: timelineStruct.claimEnds,
+    };
+  } catch (error) {
+    console.error("fetchContestOverview:error", error);
+    throw error;
+  }
 }
 
 export async function getEntryAllowance(
