@@ -262,6 +262,9 @@ test("参赛者完成授权与报名流程，并触发链上事件", async ({ pa
   page.on("console", (msg) => {
     console.log(`PAGE_CONSOLE: ${msg.type()} ${msg.text()}`);
   });
+  page.on("pageerror", (err) => {
+    console.log(`PAGE_ERROR: ${err.name} ${err.message}`);
+  });
   await page.goto(VITE_URL);
   await page.waitForTimeout(1000);
   console.log("PAGE_CONTENT_START");
