@@ -321,6 +321,7 @@ test("参赛者完成授权与报名流程，并触发链上事件", async ({ pa
     }
     await sleep(500);
   }
+  console.log("contestLogs", logs);
 
   const hasParticipantLog = logs.some(
     (log) => log.args?.participant?.toLowerCase() === setupPayload.participant.address.toLowerCase(),
