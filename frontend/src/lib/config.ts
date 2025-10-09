@@ -1,5 +1,5 @@
 const ADDRESS_REGEX = /^0x[a-fA-F0-9]{40}$/;
-const RPC_TIMEOUT_MS = 2_500;
+const RPC_TIMEOUT_MS = 5_000;
 
 export type ContestAddresses = {
   contest: string;
@@ -83,6 +83,9 @@ export async function resolveRpcEndpoint(): Promise<string> {
     return cachedRpcUrl;
   }
 
+  // TODO: 当前仅按顺序探测 primary/fallback，并把第一个可用地址缓存；
+  // 本地调试时若网络抖动或者节点响应慢，可能依旧出现超时。
+  // 后续可考虑更智能的选择策略（例如并发探测、重试或允许手动切换）。
   if (await probeRpc(primaryRpc)) {
     cachedRpcUrl = primaryRpc;
     return cachedRpcUrl;
