@@ -63,7 +63,7 @@ export default function App(): JSX.Element {
               <li key={connector.uid} style={{ marginBottom: "0.5rem" }}>
                 <button
                   type="button"
-                  disabled={!connector.ready || isLoading}
+                  disabled={(connector.id !== "mock" && !connector.ready) || isLoading}
                   data-testid={`connector-${connector.id}`}
                   onClick={() => connect({ connector })}
                 >
