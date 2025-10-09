@@ -73,7 +73,7 @@
 ### Tests for User Story 2
 
 - [X] T017 [US2] 编写 Hardhat 测试 `contracts/test/vault.swap.spec.ts` 覆盖合法 swap、TWAP 超界/状态非法的拒绝场景
-- [ ] T018 [P] [US2] 编写 Playwright 场景 `frontend/tests/e2e/swap.spec.ts` 覆盖 LIVE 阶段合法交易与违规提示
+- [X] T018 [P] [US2] 编写 Playwright 场景 `frontend/tests/e2e/swap.spec.ts` 覆盖 LIVE 阶段合法交易与违规提示
 
 ### Implementation for User Story 2
 
