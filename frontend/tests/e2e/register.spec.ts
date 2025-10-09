@@ -259,17 +259,7 @@ test.afterAll(async () => {
 });
 
 test("参赛者完成授权与报名流程，并触发链上事件", async ({ page }) => {
-  page.on("console", (msg) => {
-    console.log(`PAGE_CONSOLE: ${msg.type()} ${msg.text()}`);
-  });
-  page.on("pageerror", (err) => {
-    console.log(`PAGE_ERROR: ${err.name} ${err.message}`);
-  });
   await page.goto(VITE_URL);
-  await page.waitForTimeout(1000);
-  console.log("PAGE_CONTENT_START");
-  console.log(await page.content());
-  console.log("PAGE_CONTENT_END");
 
   const connectorButton = page.locator('button[data-testid^="connector-"]').first();
   await connectorButton.waitFor({ timeout: 60_000 });
@@ -321,7 +311,6 @@ test("参赛者完成授权与报名流程，并触发链上事件", async ({ pa
     }
     await sleep(500);
   }
-  console.log("contestLogs", logs);
 
   const participantTopic = `0x000000000000000000000000${setupPayload.participant.address.slice(2).toLowerCase()}`;
   const hasParticipantLog = logs.some((log) => log.topics?.[2]?.toLowerCase() === participantTopic);

@@ -80,7 +80,6 @@ export async function hydrateRegistrations(config: Config, options?: HydrateOpti
     event: contestRegisteredEvent,
     fromBlock: 0n,
   });
-  console.log("hydrateRegistrations:logs", logs.length);
 
   const records: RegistrationRecord[] = logs.map((log) => {
     const args = log.args as unknown as {
@@ -97,9 +96,7 @@ export async function hydrateRegistrations(config: Config, options?: HydrateOpti
     };
   });
 
-  console.log("hydrateRegistrations:records", records);
   store.hydrate(records);
-  console.log("hydrateRegistrations:store", useContestStore.getState().registrations);
 }
 
 export function subscribeRegistrations(config: Config): () => void {

@@ -39,7 +39,6 @@ export type ContestOverview = {
 
 export async function fetchContestOverview(config: Config): Promise<ContestOverview> {
   const contestAddress = contestAddresses.contest as Address;
-  console.log("fetchContestOverview:start", contestAddress);
   try {
     const [rawConfig, rawParticipantCount, rawState, rawTimeline] = await Promise.all([
       readContract(config, {
@@ -83,10 +82,6 @@ export async function fetchContestOverview(config: Config): Promise<ContestOverv
       number,
       number,
     ];
-    console.log("fetchContestOverview:config", rawConfig);
-    console.log("fetchContestOverview:entryAsset", entryAsset);
-
-    console.log("fetchContestOverview:timeline", rawTimeline);
     const [registeringEnds, liveEnds, claimEnds] = (Array.isArray(rawTimeline)
       ? rawTimeline
       : [rawTimeline.registeringEnds, rawTimeline.liveEnds, rawTimeline.claimEnds]) as [
@@ -107,7 +102,6 @@ export async function fetchContestOverview(config: Config): Promise<ContestOverv
         functionName: "decimals",
       }),
     ]);
-    console.log("fetchContestOverview:done");
 
     return {
       entryAsset,
@@ -122,7 +116,6 @@ export async function fetchContestOverview(config: Config): Promise<ContestOverv
       claimEnds,
     };
   } catch (error) {
-    console.error("fetchContestOverview:error", error);
     throw error;
   }
 }
