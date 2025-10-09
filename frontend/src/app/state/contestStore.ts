@@ -102,6 +102,8 @@ export function subscribeRegistrations(config: Config): () => void {
       abi: contestAbi,
       address: contestAddresses.contest as Address,
       eventName: "ContestRegistered",
+      poll: true,
+      pollingInterval: 1_000,
     },
     (logs) => {
       const append = useContestStore.getState().upsert;
