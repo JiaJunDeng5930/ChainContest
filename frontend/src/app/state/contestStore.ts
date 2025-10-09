@@ -99,6 +99,7 @@ export async function hydrateRegistrations(config: Config, options?: HydrateOpti
 
   console.log("hydrateRegistrations:records", records);
   store.hydrate(records);
+  console.log("hydrateRegistrations:store", useContestStore.getState().registrations);
 }
 
 export function subscribeRegistrations(config: Config): () => void {
