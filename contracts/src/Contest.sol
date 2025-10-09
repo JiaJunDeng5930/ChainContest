@@ -69,6 +69,8 @@ contract Contest is Ownable2Step, Pausable, ReentrancyGuard {
 
     mapping(address => bytes32) public participantVaults;
     mapping(bytes32 => address) public vaultOwners;
+    mapping(address => bytes32) public vaultIdsByAddress;
+    mapping(bytes32 => address) public vaultAddresses;
     uint256 public participantCount;
 
     event ContestInitialized(
@@ -98,6 +100,7 @@ contract Contest is Ownable2Step, Pausable, ReentrancyGuard {
     error ContestRegistrationClosedError(uint64 deadline, uint64 currentTimestamp);
     error ContestInsufficientStake(uint256 balance, uint256 required);
     error ContestInsufficientAllowance(uint256 allowance, uint256 required);
+    error ContestUnknownVault(address vault);
 
     modifier onlyState(ContestState expected) {
         if (state != expected) {
@@ -187,7 +190,32 @@ contract Contest is Ownable2Step, Pausable, ReentrancyGuard {
         );
     }
 
+    function syncState() public {
+        if (state == ContestState.Registering && uint64(block.timestamp) > timeline.registeringEnds) {
+            state = ContestState.Live;
+            emit ContestRegistrationClosed(contestId, timeline.registeringEnds);
+            emit ContestLiveStarted(contestId, timeline.liveEnds);
+        }
+    }
+
+    function getConfig() external view returns (ContestConfig memory) {
+        return config;
+    }
+
+    function getTimeline() external view returns (ContestTimeline memory) {
+        return timeline;
+    }
+
+    function getVaultContext(address vault) external view returns (bytes32 vaultId, address owner) {
+        vaultId = vaultIdsByAddress[vault];
+        if (vaultId == bytes32(0)) {
+            revert ContestUnknownVault(vault);
+        }
+        owner = vaultOwners[vaultId];
+    }
+
     function register() external whenNotPaused nonReentrant returns (bytes32 vaultId) {
+        syncState();
         if (state != ContestState.Registering) {
             revert ContestInvalidState(ContestState.Registering, state);
         }
@@ -224,6 +252,8 @@ contract Contest is Ownable2Step, Pausable, ReentrancyGuard {
 
         participantVaults[msg.sender] = vaultId;
         vaultOwners[vaultId] = msg.sender;
+        vaultIdsByAddress[vault] = vaultId;
+        vaultAddresses[vaultId] = vault;
         participantCount += 1;
         prizePool += config.entryAmount;
 
