@@ -280,7 +280,7 @@ test("参赛者在 LIVE 阶段完成合法换仓并拒绝违规请求", async ({
   await expect(page.getByTestId("contest-state")).toHaveText("当前状态：Live");
 
   const amountInput = page.getByTestId("swap-amount-input");
-  await amountInput.fill("200");
+  await amountInput.fill("0.2");
   await page.getByTestId("swap-submit-button").click();
   await expect(page.getByTestId("swap-status")).toContainText("换仓交易已提交");
 
@@ -313,7 +313,7 @@ test("参赛者在 LIVE 阶段完成合法换仓并拒绝违规请求", async ({
 
   expect(logs.length).toBeGreaterThan(0);
 
-  await expect(page.getByTestId("vault-base-balance")).toContainText("800");
+  await expect(page.getByTestId("vault-base-balance")).toContainText("3.8");
 
   const walletClient = createWalletClient({
     account: privateKeyToAccount(setupPayload.deployer.privateKey as `0x${string}`),
@@ -336,7 +336,7 @@ test("参赛者在 LIVE 阶段完成合法换仓并拒绝违规请求", async ({
     args: [120],
   });
 
-  await amountInput.fill("150");
+  await amountInput.fill("0.15");
   await page.getByTestId("swap-submit-button").click();
   await expect(page.getByTestId("swap-error")).toContainText("价格偏离超出容忍度");
 });

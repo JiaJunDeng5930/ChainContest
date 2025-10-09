@@ -3,6 +3,7 @@ import type { Connector } from "wagmi";
 import { useAccount, useConnect, useDisconnect } from "wagmi";
 import { configuredChainName } from "./lib/config";
 import RegisterCard from "./components/RegisterCard";
+import VaultSwapPanel from "./components/VaultSwapPanel";
 
 export default function App(): JSX.Element {
   const { address, isConnecting, isConnected } = useAccount();
@@ -78,6 +79,9 @@ export default function App(): JSX.Element {
         </section>
       )}
       <RegisterCard />
+      <div style={{ marginTop: "2rem" }}>
+        <VaultSwapPanel />
+      </div>
     </main>
   );
 }
