@@ -19,8 +19,32 @@ const rpcTransports = fallback(
 );
 
 const testAccountAddress = import.meta.env.VITE_TEST_ACCOUNT_ADDRESS;
+const testAccountsEnv = import.meta.env.VITE_TEST_ACCOUNTS as string | undefined;
+const parsedTestAccounts = (testAccountsEnv ?? "")
+  .split(",")
+  .map((value) => value.trim())
+  .filter((value) => /^0x[a-fA-F0-9]{40}$/.test(value));
+
+if (typeof testAccountAddress === "string" && /^0x[a-fA-F0-9]{40}$/.test(testAccountAddress)) {
+  if (parsedTestAccounts.length === 0) {
+    parsedTestAccounts.push(testAccountAddress);
+  }
+}
+
+const mockConnectors = parsedTestAccounts.map((account, index) =>
+  mock({
+    id: `mock-${index}`,
+    name: `测试账户 ${index + 1}`,
+    accounts: [account as `0x${string}`],
+    features: {
+      defaultConnected: index === 0,
+      reconnect: true,
+    },
+  }),
+);
 
 const connectors = [
+  ...mockConnectors,
   injected({ shimDisconnect: true }),
   walletConnect({
     projectId: "demo",
@@ -31,18 +55,6 @@ const connectors = [
 ];
 
 const targetChain = configuredChainId === hardhat.id ? hardhat : sepolia;
-
-if (typeof testAccountAddress === "string" && /^0x[a-fA-F0-9]{40}$/.test(testAccountAddress)) {
-  connectors.unshift(
-    mock({
-      accounts: [testAccountAddress as `0x${string}`],
-      features: {
-        defaultConnected: false,
-        reconnect: true,
-      },
-    }),
-  );
-}
 
 const wagmiConfig = createConfig({
   chains: [targetChain],

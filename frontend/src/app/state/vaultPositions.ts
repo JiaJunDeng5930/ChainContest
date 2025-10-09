@@ -1,8 +1,10 @@
 import { create } from "zustand";
-import { watchContractEvent } from "@wagmi/core";
+import { readContract, watchContractEvent } from "@wagmi/core";
 import type { Config } from "wagmi";
 import type { Address, Hex } from "viem";
 import { vaultAbi } from "../../lib/abi/vault";
+import { contestAbi } from "../../lib/abi/contest";
+import { contestAddresses } from "../../lib/config";
 import useContestStore, { type RegistrationRecord } from "./contestStore";
 import {
   fetchPriceSnapshot,
@@ -16,10 +18,12 @@ import {
 type VaultPosition = {
   participant: Address;
   vault: Address;
+  vaultId: Hex;
   baseBalance: bigint;
   quoteBalance: bigint;
   nav: bigint;
   roiBps: number;
+  rank: number;
   lastPriceE18?: bigint;
   lastPriceImpactBps?: number;
   lastAmountIn?: bigint;
@@ -106,6 +110,7 @@ export default useVaultPositionsStore;
 
 const contextCache = new Map<string, SwapContext>();
 const participantToVault = new Map<string, string>();
+const contestAddress = contestAddresses.contest as Address;
 
 async function ensureContext(config: Config, participant: Address): Promise<SwapContext | null> {
   const participantKey = participant.toLowerCase();
@@ -133,6 +138,13 @@ async function loadPosition(
     return null;
   }
 
+  const vaultContext = (await readContract(config, {
+    abi: contestAbi,
+    address: contestAddress,
+    functionName: "getVaultContext",
+    args: [context.vault],
+  })) as readonly [Hex, Address];
+
   const [balances, priceSnapshot] = await Promise.all([
     fetchVaultBalances(config, context.vault),
     context.priceSource !== "0x0000000000000000000000000000000000000000"
@@ -142,14 +154,23 @@ async function loadPosition(
 
   const price = priceSnapshot?.priceE18 ?? 0n;
   const metrics = computeMetrics(context, balances, price);
+  const scoreResult = (await readContract(config, {
+    abi: vaultAbi,
+    address: context.vault,
+    functionName: "score",
+  })) as readonly [bigint, number, number];
+
+  const rank = Number(scoreResult[2]);
 
   return {
     participant: record.participant,
     vault: context.vault,
+    vaultId: vaultContext[0]!,
     baseBalance: balances.baseBalance,
     quoteBalance: balances.quoteBalance,
     nav: metrics.nav,
     roiBps: metrics.roiBps,
+    rank,
     lastPriceE18: price,
     updatedAt: priceSnapshot?.updatedAt,
   };
@@ -225,13 +246,29 @@ async function attachWatcher(config: Config, record: RegistrationRecord): Promis
               ? "BASE_TO_QUOTE"
               : "QUOTE_TO_BASE";
 
+          const [vaultContext, scoreResult] = await Promise.all([
+            readContract(config, {
+              abi: contestAbi,
+              address: contestAddress,
+              functionName: "getVaultContext",
+              args: [context.vault],
+            }) as Promise<readonly [Hex, Address]>,
+            readContract(config, {
+              abi: vaultAbi,
+              address: context.vault,
+              functionName: "score",
+            }) as Promise<readonly [bigint, number, number]>,
+          ]);
+
           useVaultPositionsStore.getState().upsert({
             participant: args.participant,
             vault: context.vault,
+            vaultId: vaultContext[0]!,
             baseBalance: balances.baseBalance,
             quoteBalance: balances.quoteBalance,
             nav: metrics.nav,
             roiBps: metrics.roiBps,
+            rank: Number(scoreResult[2]),
             lastPriceE18: args.twap,
             lastPriceImpactBps:
               typeof args.priceImpactBps === "bigint"
