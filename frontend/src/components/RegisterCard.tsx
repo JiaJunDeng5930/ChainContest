@@ -124,7 +124,7 @@ export default function RegisterCard(): JSX.Element {
       setRegisterHash(result.txHash);
       console.log("registerForContest:tx", result);
       await overviewQuery.refetch();
-      await hydrateRegistrations(wagmiConfig);
+      await hydrateRegistrations(wagmiConfig, { force: true });
     } catch (err) {
       setError((err as Error).message);
     } finally {

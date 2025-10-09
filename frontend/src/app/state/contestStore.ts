@@ -60,9 +60,13 @@ const useContestStore = create<ContestStoreState>((set, get) => ({
 
 export default useContestStore;
 
-export async function hydrateRegistrations(config: Config): Promise<void> {
+type HydrateOptions = {
+  force?: boolean;
+};
+
+export async function hydrateRegistrations(config: Config, options?: HydrateOptions): Promise<void> {
   const store = useContestStore.getState();
-  if (store.initialized) {
+  if (store.initialized && !options?.force) {
     return;
   }
 
