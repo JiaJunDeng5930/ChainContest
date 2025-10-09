@@ -2,10 +2,10 @@ import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { WagmiConfig, createConfig, http, reconnect } from "wagmi";
-import { sepolia } from "wagmi/chains";
-import { injected, walletConnect } from "wagmi/connectors";
+import { hardhat, sepolia } from "wagmi/chains";
+import { injected, mock, walletConnect } from "wagmi/connectors";
 import { fallback } from "viem";
-import { getRpcCandidates } from "./lib/config";
+import { configuredChainId, getRpcCandidates } from "./lib/config";
 import App from "./App";
 
 const queryClient = new QueryClient();
@@ -18,20 +18,38 @@ const rpcTransports = fallback(
   ),
 );
 
-const wagmiConfig = createConfig({
-  chains: [sepolia],
-  transports: {
-    [sepolia.id]: rpcTransports,
-  },
-  connectors: [
-    injected({ shimDisconnect: true }),
-    walletConnect({
-      projectId: "demo",
-      qrModalOptions: {
-        themeMode: "dark",
+const testAccountAddress = import.meta.env.VITE_TEST_ACCOUNT_ADDRESS;
+
+const connectors = [
+  injected({ shimDisconnect: true }),
+  walletConnect({
+    projectId: "demo",
+    qrModalOptions: {
+      themeMode: "dark",
+    },
+  }),
+];
+
+const targetChain = configuredChainId === hardhat.id ? hardhat : sepolia;
+
+if (typeof testAccountAddress === "string" && /^0x[a-fA-F0-9]{40}$/.test(testAccountAddress)) {
+  connectors.unshift(
+    mock({
+      accounts: [testAccountAddress as `0x${string}`],
+      features: {
+        defaultConnected: false,
+        reconnect: true,
       },
     }),
-  ],
+  );
+}
+
+const wagmiConfig = createConfig({
+  chains: [targetChain],
+  transports: {
+    [targetChain.id]: rpcTransports,
+  },
+  connectors,
   ssr: false,
 });
 
