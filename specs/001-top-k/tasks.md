@@ -101,9 +101,9 @@
 
 ### Implementation for User Story 3
 
-- [ ] T027 [US3] 在 `contracts/Contest.sol` 实现 `freeze()` 与 `settle(address participant)`：按 Δ TWAP 估值写入 score，并发射 `ContestFrozen`/`VaultSettled`
-- [ ] T028 [P] [US3] 在 `contracts/Contest.sol` 实现 Top-K 最小堆结构与 `updateLeaders()`，批量处理 ≤16 条并发射 `LeadersUpdated`
-- [ ] T029 [US3] 在 `contracts/Contest.sol` 实现 `seal()`, `claim()`, `claimFor()`, `exit()`，分配奖池/返还余额，发射 `RewardClaimed` 与 `VaultExited`
+- [X] T027 [US3] 在 `contracts/Contest.sol` 实现 `freeze()` 与 `settle(address participant)`：按 Δ TWAP 估值写入 score，并发射 `ContestFrozen`/`VaultSettled`
+- [X] T028 [P] [US3] 在 `contracts/Contest.sol` 实现 Top-K 最小堆结构与 `updateLeaders()`，批量处理 ≤16 条并发射 `LeadersUpdated`
+- [X] T029 [US3] 在 `contracts/Contest.sol` 实现 `seal()`, `claim()`, `claimFor()`, `exit()`，分配奖池/返还余额，发射 `RewardClaimed` 与 `VaultExited`
 - [ ] T030 [P] [US3] 在 `frontend/src/components/Leaderboard.tsx` 展示 Top-K 榜单、排名变更与奖池份额
 - [ ] T031 [P] [US3] 在 `frontend/src/components/AdminActions.tsx` 提供冻结/结算/封榜按钮（任何用户可见），含重试与失败提示
 - [ ] T032 [US3] 在 `frontend/src/lib/contest/payout.ts` 实现领奖与退出交易封装，处理重复调用幂等响应

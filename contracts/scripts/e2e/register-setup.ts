@@ -38,6 +38,8 @@ async function main() {
   const registeringEnds = BigInt(now + LIVE_DURATION);
   const liveEnds = registeringEnds + BigInt(LIVE_DURATION);
   const claimEnds = liveEnds + BigInt(CLAIM_DURATION);
+  const payoutSchedule = Array<number>(32).fill(0);
+  payoutSchedule[0] = 10_000;
 
   await contest.initialize({
     contestId: ethers.encodeBytes32String("contest-001"),
@@ -56,6 +58,7 @@ async function main() {
       liveEnds,
       claimEnds,
     },
+    payoutSchedule,
     vaultImplementation: await vaultImpl.getAddress(),
     vaultFactory: await factory.getAddress(),
     owner: deployer.address,

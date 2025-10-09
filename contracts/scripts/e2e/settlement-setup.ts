@@ -84,6 +84,8 @@ async function main() {
     }
   }
 
+  await usdc.mint(await contest.getAddress(), ENTRY_AMOUNT * BigInt(participants.length));
+
   await network.provider.send("evm_setNextBlockTimestamp", [Number(registeringEnds) + 1]);
   await contest.syncState();
 

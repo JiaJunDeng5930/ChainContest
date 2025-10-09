@@ -95,6 +95,7 @@ contract Vault is Pausable, ReentrancyGuard, IUniswapV3SwapCallback {
     error VaultSwapExpired(uint256 deadline, uint256 current);
     error VaultSwapInsufficientOutput(uint256 amountOut, uint256 minAmountOut);
     error VaultUnknownPool(address pool);
+    error VaultAlreadySettled();
 
     struct SwapCallbackData {
         address pool;
@@ -167,6 +168,20 @@ contract Vault is Pausable, ReentrancyGuard, IUniswapV3SwapCallback {
     function syncBalances(uint256 baseBalance_, uint256 quoteBalance_) external onlyContest {
         baseBalance = baseBalance_;
         quoteBalance = quoteBalance_;
+    }
+
+    function finalizeSettlement(uint256 nav, int32 roiBps) external onlyContest {
+        if (isSettled) {
+            revert VaultAlreadySettled();
+        }
+        score = Score({nav: nav, roiBps: roiBps, rank: 0});
+        isSettled = true;
+        lastSettleBlock = block.number;
+        emit VaultSettled(contest, nav, roiBps, score.rank);
+    }
+
+    function updateRank(uint16 rank) external onlyContest {
+        score.rank = rank;
     }
 
     function withdraw(address recipient, uint256 baseAmount, uint256 quoteAmount) external onlyContest nonReentrant {
