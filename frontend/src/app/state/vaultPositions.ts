@@ -228,17 +228,22 @@ async function attachWatcher(config: Config, record: RegistrationRecord): Promis
     async (logs) => {
       for (const log of logs) {
         try {
-          const args = log.args as unknown as {
-            contest: Address;
-            participant: Address;
-            pool: Address;
-            tokenIn: Address;
-            tokenOut: Address;
-            amountIn: bigint;
-            amountOut: bigint;
-            twap: bigint;
-            priceImpactBps: bigint | number;
-          };
+          const args = log.args as
+            | {
+                contest: Address;
+                participant: Address;
+                pool: Address;
+                tokenIn: Address;
+                tokenOut: Address;
+                amountIn: bigint;
+                amountOut: bigint;
+                twap: bigint;
+                priceImpactBps: bigint | number;
+              }
+            | undefined;
+          if (!args) {
+            continue;
+          }
           const balances = await fetchVaultBalances(config, context.vault);
           const metrics = computeMetrics(context, balances, args.twap);
           const direction: SwapDirection =
