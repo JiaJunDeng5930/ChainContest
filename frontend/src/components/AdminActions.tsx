@@ -30,6 +30,7 @@ export default function AdminActions(): JSX.Element {
     queryKey: ["contest-prize-pool"],
     queryFn: () => fetchPrizePool(wagmiConfig),
     staleTime: 5_000,
+    refetchOnWindowFocus: false,
   });
 
   const topK = useMemo(() => {
@@ -188,7 +189,9 @@ export default function AdminActions(): JSX.Element {
       </p>
       <p style={{ marginTop: "0.5rem" }}>
         当前奖池剩余：
-        <span data-testid="prize-pool-amount">{prizePool.toString()}</span>
+        <span data-testid="prize-pool-amount">
+          {prizePoolQuery.isLoading ? "加载中..." : prizePoolQuery.data?.toString() ?? "--"}
+        </span>
       </p>
     </section>
   );
