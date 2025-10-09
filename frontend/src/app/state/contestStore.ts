@@ -97,6 +97,7 @@ export async function hydrateRegistrations(config: Config, options?: HydrateOpti
     };
   });
 
+  console.log("hydrateRegistrations:records", records);
   store.hydrate(records);
 }
 
