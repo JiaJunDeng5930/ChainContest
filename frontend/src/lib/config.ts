@@ -8,6 +8,19 @@ export type ContestAddresses = {
 
 let cachedRpcUrl: string | null = null;
 
+const DEFAULT_CHAIN_ID = 11155111;
+
+const chainIdEnv = import.meta.env.VITE_CHAIN_ID;
+const parsedChainId = chainIdEnv ? Number(chainIdEnv) : DEFAULT_CHAIN_ID;
+
+if (!Number.isInteger(parsedChainId) || parsedChainId <= 0) {
+  throw new Error(`链 ID 配置无效：${chainIdEnv}`);
+}
+
+export const configuredChainId = parsedChainId;
+export const configuredChainName =
+  configuredChainId === 31337 ? "Hardhat (localhost)" : "Sepolia";
+
 const primaryRpc = import.meta.env.VITE_PRIMARY_RPC ?? "";
 const fallbackRpc = import.meta.env.VITE_FALLBACK_RPC ?? "";
 

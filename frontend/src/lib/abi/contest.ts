@@ -1,0 +1,68 @@
+export const contestAbi = [
+  {
+    type: "function",
+    name: "config",
+    stateMutability: "view",
+    inputs: [],
+    outputs: [
+      { internalType: "address", name: "entryAsset", type: "address" },
+      { internalType: "uint256", name: "entryAmount", type: "uint256" },
+      { internalType: "address", name: "priceSource", type: "address" },
+      { internalType: "address", name: "swapPool", type: "address" },
+      { internalType: "uint16", name: "priceToleranceBps", type: "uint16" },
+      { internalType: "uint32", name: "settlementWindow", type: "uint32" },
+      { internalType: "uint16", name: "maxParticipants", type: "uint16" },
+      { internalType: "uint16", name: "topK", type: "uint16" },
+    ],
+  },
+  {
+    type: "function",
+    name: "participantCount",
+    stateMutability: "view",
+    inputs: [],
+    outputs: [{ internalType: "uint256", name: "", type: "uint256" }],
+  },
+  {
+    type: "function",
+    name: "state",
+    stateMutability: "view",
+    inputs: [],
+    outputs: [{ internalType: "uint8", name: "", type: "uint8" }],
+  },
+  {
+    type: "function",
+    name: "timeline",
+    stateMutability: "view",
+    inputs: [],
+    outputs: [
+      {
+        components: [
+          { internalType: "uint64", name: "registeringEnds", type: "uint64" },
+          { internalType: "uint64", name: "liveEnds", type: "uint64" },
+          { internalType: "uint64", name: "claimEnds", type: "uint64" },
+        ],
+        internalType: "struct Contest.ContestTimeline",
+        name: "",
+        type: "tuple",
+      },
+    ],
+  },
+  {
+    type: "function",
+    name: "register",
+    stateMutability: "nonpayable",
+    inputs: [],
+    outputs: [{ internalType: "bytes32", name: "", type: "bytes32" }],
+  },
+  {
+    type: "event",
+    name: "ContestRegistered",
+    inputs: [
+      { indexed: true, internalType: "bytes32", name: "contestId", type: "bytes32" },
+      { indexed: true, internalType: "address", name: "participant", type: "address" },
+      { indexed: false, internalType: "address", name: "vault", type: "address" },
+      { indexed: false, internalType: "uint256", name: "amount", type: "uint256" },
+    ],
+    anonymous: false,
+  },
+] as const;
