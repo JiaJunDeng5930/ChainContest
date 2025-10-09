@@ -86,7 +86,14 @@ export async function fetchContestOverview(config: Config): Promise<ContestOverv
     console.log("fetchContestOverview:config", rawConfig);
     console.log("fetchContestOverview:entryAsset", entryAsset);
 
-    const [registeringEnds, liveEnds, claimEnds] = rawTimeline as [bigint, bigint, bigint];
+    console.log("fetchContestOverview:timeline", rawTimeline);
+    const [registeringEnds, liveEnds, claimEnds] = (Array.isArray(rawTimeline)
+      ? rawTimeline
+      : [rawTimeline.registeringEnds, rawTimeline.liveEnds, rawTimeline.claimEnds]) as [
+      bigint,
+      bigint,
+      bigint,
+    ];
 
     const [symbol, decimals] = await Promise.all([
       readContract(config, {
