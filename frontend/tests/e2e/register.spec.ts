@@ -306,13 +306,21 @@ test("参赛者完成授权与报名流程，并触发链上事件", async ({ pa
     transport: http(HARDHAT_URL),
   });
 
-  const logs = await client.getLogs({
-    address: setupPayload.contest as `0x${string}`,
-    event: parseAbiItem(
-      "event ContestRegistered(bytes32 contestId, address participant, address vault, uint256 amount)",
-    ),
-    fromBlock: 0n,
-  });
+  const contestRegisteredEvent = parseAbiItem(
+    "event ContestRegistered(bytes32 contestId, address participant, address vault, uint256 amount)",
+  );
+  let logs = [] as Awaited<ReturnType<typeof client.getLogs>>;
+  for (let attempt = 0; attempt < 20; attempt += 1) {
+    logs = await client.getLogs({
+      address: setupPayload.contest as `0x${string}`,
+      event: contestRegisteredEvent,
+      fromBlock: 0n,
+    });
+    if (logs.length > 0) {
+      break;
+    }
+    await sleep(500);
+  }
 
   const hasParticipantLog = logs.some(
     (log) => log.args?.participant?.toLowerCase() === setupPayload.participant.address.toLowerCase(),
