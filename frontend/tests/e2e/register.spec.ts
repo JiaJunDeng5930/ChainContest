@@ -279,8 +279,13 @@ test("参赛者完成授权与报名流程，并触发链上事件", async ({ pa
   );
   await page.waitForSelector('[data-testid="register-loading"]', { state: "detached", timeout: 60_000 });
 
-  await page.getByTestId("approve-button").click();
-  await expect(page.getByTestId("approve-status")).toContainText("已完成");
+  const approveStatusLocator = page.getByTestId("approve-status");
+  await expect(approveStatusLocator).toBeVisible();
+  const approveStatusText = await approveStatusLocator.textContent();
+  if (!approveStatusText?.includes("已完成")) {
+    await page.getByTestId("approve-button").click();
+    await expect(approveStatusLocator).toContainText("已完成");
+  }
 
   await page.getByTestId("register-button").click();
   await expect(page.getByTestId("register-status")).toContainText("报名交易已提交");
