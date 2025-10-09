@@ -13,7 +13,8 @@ const queryClient = new QueryClient();
 const rpcTransports = fallback(
   getRpcCandidates().map((url) =>
     http(url, {
-      timeout: 500,
+      timeout: 5_000,
+      // TODO: 本地通过 SSH 转发时延迟较高，后续可考虑根据环境动态调整或提供可配置项。
     }),
   ),
 );
