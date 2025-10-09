@@ -4,6 +4,8 @@ Auto-generated from all feature plans. Last updated: 2025-10-08
 
 ## Active Technologies
 - Solidity ^0.8.x（合约）、TypeScript 5.x（前端 SPA） + Hardhat（编译/测试/部署）、Ethers.js（前端 RPC 交互）、Uniswap v3 TWAP 接口、OpenZeppelin 库（待确认具体模块） (001-top-k)
+- Node.js 20 (server), TypeScript 5.x 构建脚本，HTML5 + htmx 1.9 (客户端) + Express 5 beta（服务器端路由与模板响应）、ethers 6.x（链上交互）、htmx 1.9.x（前端局部刷新）、lucide 图标集（可选，待评估） (002-html-css-htmx)
+- N/A（所有状态实时来自链上或临时内存缓存） (002-html-css-htmx)
 
 ## Project Structure
 ```
@@ -18,6 +20,7 @@ npm test [ONLY COMMANDS FOR ACTIVE TECHNOLOGIES][ONLY COMMANDS FOR ACTIVE TECHNO
 Solidity ^0.8.x（合约）、TypeScript 5.x（前端 SPA）: Follow standard conventions
 
 ## Recent Changes
+- 002-html-css-htmx: Added Node.js 20 (server), TypeScript 5.x 构建脚本，HTML5 + htmx 1.9 (客户端) + Express 5 beta（服务器端路由与模板响应）、ethers 6.x（链上交互）、htmx 1.9.x（前端局部刷新）、lucide 图标集（可选，待评估）
 - 001-top-k: Added Solidity ^0.8.x（合约）、TypeScript 5.x（前端 SPA） + Hardhat（编译/测试/部署）、Ethers.js（前端 RPC 交互）、Uniswap v3 TWAP 接口、OpenZeppelin 库（待确认具体模块）
 
 <!-- MANUAL ADDITIONS START -->
