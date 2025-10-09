@@ -27,6 +27,7 @@ export type SwapContext = {
   priceSource: Address;
   priceToleranceBps: number;
   pool: Address;
+  entryAmount: bigint;
 };
 
 export type VaultBalances = {
@@ -157,6 +158,7 @@ export async function loadSwapContext(config: Config, participant: Address): Pro
     priceSource,
     priceToleranceBps,
     pool,
+    entryAmount: rawConfig[1],
   };
 }
 
@@ -285,6 +287,9 @@ export function getSwapErrorMessage(error: unknown): string {
     }
     if (errorName.includes("VaultUnauthorized")) {
       return "仅参赛者本人可执行换仓";
+    }
+    if (errorName.includes("VaultInvalidParameter")) {
+      return "输入参数无效，请检查可用余额与金额";
     }
     if (errorName) {
       return `换仓失败：${errorName}`;

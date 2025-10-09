@@ -11,19 +11,18 @@ import {
 import {
   executeVaultSwap,
   fetchPriceSnapshot,
-  fetchVaultBalances,
   getSwapErrorMessage,
   loadSwapContext,
   simulateVaultSwap,
   type SwapDirection,
   type SwapSimulation,
-  type VaultBalances,
 } from "../lib/contest/swap";
-
-const directionLabels: Record<SwapDirection, string> = {
-  BASE_TO_QUOTE: "卖出报名资产 (USDC → WETH)",
-  QUOTE_TO_BASE: "买回报名资产 (WETH → USDC)",
-};
+import useVaultPositionsStore, {
+  hydrateVaultPositions,
+  refreshVaultPosition,
+  subscribeVaultPositions,
+} from "../app/state/vaultPositions";
+import { hydrateRegistrations } from "../app/state/contestStore";
 
 const ZERO_ADDRESS = "0x0000000000000000000000000000000000000000";
 
@@ -54,6 +53,7 @@ export default function VaultSwapPanel(): JSX.Element {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [status, setStatus] = useState<string | null>(null);
+  const [positionsHydrating, setPositionsHydrating] = useState(false);
   const [previewError, setPreviewError] = useState<string | null>(null);
 
   const overviewQuery = useQuery({
@@ -78,19 +78,41 @@ export default function VaultSwapPanel(): JSX.Element {
 
   const context = contextQuery.data;
 
-  const balancesQuery = useQuery({
-    queryKey: ["vault-balances", context?.vault],
-    queryFn: () => {
-      if (!context) {
-        return null;
-      }
-      return fetchVaultBalances(wagmiConfig, context.vault);
-    },
-    enabled: Boolean(context?.vault),
-    staleTime: 5_000,
-  });
+  useEffect(() => {
+    let unsubscribe: (() => void) | null = null;
+    let cancelled = false;
 
-  const balances = balancesQuery.data as VaultBalances | null;
+    const bootstrap = async () => {
+      try {
+        await hydrateRegistrations(wagmiConfig);
+        setPositionsHydrating(true);
+        await hydrateVaultPositions(wagmiConfig);
+      } catch (err) {
+        console.warn("初始化 Vault 头寸失败：", err);
+      } finally {
+        if (!cancelled) {
+          setPositionsHydrating(false);
+        }
+      }
+      unsubscribe = subscribeVaultPositions(wagmiConfig);
+    };
+
+    void bootstrap();
+
+    return () => {
+      cancelled = true;
+      if (unsubscribe) {
+        unsubscribe();
+      }
+    };
+  }, [wagmiConfig]);
+
+  const position = useVaultPositionsStore((state) => {
+    if (!context) {
+      return undefined;
+    }
+    return state.positions[context.vault.toLowerCase()];
+  });
 
   const priceSnapshotQuery = useQuery({
     queryKey: ["price-snapshot", context?.priceSource],
@@ -172,13 +194,13 @@ export default function VaultSwapPanel(): JSX.Element {
   }, [amountInput, context]);
 
   const canSubmit = useMemo(() => {
-    if (!isConnected || !context || !overview) {
+    if (!isConnected || !context || !overview || !position) {
       return false;
     }
     if (overview.state !== ContestState.Live) {
       return false;
     }
-    if (balancesQuery.isFetching || isSubmitting || isSimulating) {
+    if (positionsHydrating || isSubmitting || isSimulating) {
       return false;
     }
     if (!amountIsValid) {
@@ -189,32 +211,65 @@ export default function VaultSwapPanel(): JSX.Element {
     isConnected,
     context,
     overview,
-    balancesQuery.isFetching,
+    position,
+    positionsHydrating,
     isSubmitting,
     isSimulating,
     amountIsValid,
   ]);
 
   const baseBalanceLabel = useMemo(() => {
-    if (!context || !balances) {
+    if (!context || !position) {
       return "--";
     }
-    return `${formatUnits(balances.baseBalance, context.baseDecimals)} ${context.baseSymbol}`;
-  }, [context, balances]);
+    return `${formatUnits(position.baseBalance, context.baseDecimals)} ${context.baseSymbol}`;
+  }, [context, position]);
 
   const quoteBalanceLabel = useMemo(() => {
-    if (!context || !balances) {
+    if (!context || !position) {
       return "--";
     }
-    return `${formatUnits(balances.quoteBalance, context.quoteDecimals)} ${context.quoteSymbol}`;
-  }, [context, balances]);
+    return `${formatUnits(position.quoteBalance, context.quoteDecimals)} ${context.quoteSymbol}`;
+  }, [context, position]);
 
   const priceLabel = useMemo(() => {
-    if (!priceSnapshot) {
+    const twap = position?.lastPriceE18 ?? priceSnapshot?.priceE18;
+    if (!twap || twap === 0n) {
       return "--";
     }
-    return formatUnits(priceSnapshot.priceE18, 18);
-  }, [priceSnapshot]);
+    return formatUnits(twap, 18);
+  }, [position?.lastPriceE18, priceSnapshot?.priceE18]);
+
+  const navLabel = useMemo(() => {
+    if (!context || !position) {
+      return "--";
+    }
+    return `${formatUnits(position.nav, context.baseDecimals)} ${context.baseSymbol}`;
+  }, [context, position]);
+
+  const roiLabel = useMemo(() => {
+    if (!position) {
+      return "--";
+    }
+    const percent = position.roiBps / 100;
+    if (!Number.isFinite(percent)) {
+      return "--";
+    }
+    return `${percent.toFixed(2)}%`;
+  }, [position]);
+
+  const directionLabels = useMemo(() => {
+    if (!context) {
+      return {
+        BASE_TO_QUOTE: "卖出报名资产",
+        QUOTE_TO_BASE: "买回报名资产",
+      } satisfies Record<SwapDirection, string>;
+    }
+    return {
+      BASE_TO_QUOTE: `卖出报名资产 (${context.baseSymbol} → ${context.quoteSymbol})`,
+      QUOTE_TO_BASE: `买回报名资产 (${context.quoteSymbol} → ${context.baseSymbol})`,
+    } satisfies Record<SwapDirection, string>;
+  }, [context]);
 
   const handleSubmit = async () => {
     if (!context || !address) {
@@ -239,8 +294,8 @@ export default function VaultSwapPanel(): JSX.Element {
       });
       setStatus(`换仓交易已提交：${result.txHash.slice(0, 10)}...`);
       setAmountInput("");
-      await balancesQuery.refetch();
       await priceSnapshotQuery.refetch();
+      await refreshVaultPosition(wagmiConfig, address as Address);
     } catch (err) {
       setError(getSwapErrorMessage(err));
     } finally {
@@ -269,6 +324,7 @@ export default function VaultSwapPanel(): JSX.Element {
             当前状态：
             <strong>{contestStateLabel[overview.state]}</strong>
           </p>
+          {positionsHydrating && <p data-testid="swap-hydrating">正在同步 Vault 头寸...</p>}
           <p>
             价格容忍度：±{context.priceToleranceBps / 100}%（TWAP 更新时间：
             {humanizeTimestamp(priceSnapshot?.updatedAt ?? 0n)}）
@@ -334,6 +390,9 @@ export default function VaultSwapPanel(): JSX.Element {
           >
             {isSubmitting ? "换仓中..." : "执行换仓"}
           </button>
+          <p data-testid="vault-nav" style={{ marginTop: "0.75rem" }}>
+            头寸估值：{navLabel}（ROI：{roiLabel}）
+          </p>
           {status && (
             <p data-testid="swap-status" style={{ marginTop: "0.75rem", color: "#1b5e20" }}>
               {status}

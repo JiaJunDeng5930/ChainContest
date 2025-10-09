@@ -82,7 +82,7 @@
 - [X] T021 [US2] 在 `contracts/Contest.sol` 实现 LIVE 阶段进入逻辑（时间驱动）、提供仅授权 Vault 方可调用的 swap 入口检查
 - [X] T022 [P] [US2] 在 `frontend/src/lib/contest/swap.ts` 编写 swap 事务封装（含价格校验、gas 预算提示）
 - [X] T023 [P] [US2] 在 `frontend/src/components/VaultSwapPanel.tsx` 实现 UI，展示池价/容忍度、输入输出估算与错误提示
-- [ ] T024 [US2] 在 `frontend/src/app/state/vaultPositions.ts` 根据 `VaultSwapped` 事件维护 Vault 头寸与 ROI 预估
+- [X] T024 [US2] 在 `frontend/src/app/state/vaultPositions.ts` 根据 `VaultSwapped` 事件维护 Vault 头寸与 ROI 预估
 
 **Checkpoint**: 换仓旅程可独立验证，违规请求 fail-closed
 
