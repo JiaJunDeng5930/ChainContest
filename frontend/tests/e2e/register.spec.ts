@@ -260,6 +260,10 @@ test.afterAll(async () => {
 
 test("参赛者完成授权与报名流程，并触发链上事件", async ({ page }) => {
   await page.goto(VITE_URL);
+  await page.waitForTimeout(1000);
+  console.log("PAGE_CONTENT_START");
+  console.log(await page.content());
+  console.log("PAGE_CONTENT_END");
 
   const connectorButton = page.locator('button[data-testid^="connector-"]').first();
   await connectorButton.waitFor({ timeout: 60_000 });
