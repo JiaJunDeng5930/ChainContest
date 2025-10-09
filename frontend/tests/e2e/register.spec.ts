@@ -259,6 +259,9 @@ test.afterAll(async () => {
 });
 
 test("参赛者完成授权与报名流程，并触发链上事件", async ({ page }) => {
+  page.on("console", (msg) => {
+    console.log(`PAGE_CONSOLE: ${msg.type()} ${msg.text()}`);
+  });
   await page.goto(VITE_URL);
   await page.waitForTimeout(1000);
   console.log("PAGE_CONTENT_START");
