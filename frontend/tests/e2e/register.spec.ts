@@ -277,6 +277,7 @@ test("参赛者完成授权与报名流程，并触发链上事件", async ({ pa
   await expect(page.getByTestId("connected-address")).toContainText(
     setupPayload.participant.address.slice(2, 6),
   );
+  await page.waitForSelector('[data-testid="register-loading"]', { state: "detached", timeout: 60_000 });
 
   await page.getByTestId("approve-button").click();
   await expect(page.getByTestId("approve-status")).toContainText("已完成");
