@@ -76,6 +76,7 @@ export async function hydrateRegistrations(config: Config): Promise<void> {
     event: contestRegisteredEvent,
     fromBlock: 0n,
   });
+  console.log("hydrateRegistrations:logs", logs.length);
 
   const records: RegistrationRecord[] = logs.map((log) => {
     const args = log.args as unknown as {
