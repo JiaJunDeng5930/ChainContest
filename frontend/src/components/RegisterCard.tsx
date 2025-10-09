@@ -28,6 +28,7 @@ export default function RegisterCard(): JSX.Element {
   const subscriptionRef = useRef<(() => void) | null>(null);
 
   const registrations = useContestStore((state) => state.registrations);
+  const upsertRegistration = useContestStore((state) => state.upsert);
 
   const overviewQuery = useQuery({
     queryKey: ["contest-overview"],
@@ -124,6 +125,12 @@ export default function RegisterCard(): JSX.Element {
       setRegisterHash(result.txHash);
       console.log("registerForContest:tx", result);
       await overviewQuery.refetch();
+      upsertRegistration({
+        participant: address as Address,
+        vault: result.vault,
+        amount: result.amount,
+        txHash: result.txHash,
+      });
       await hydrateRegistrations(wagmiConfig, { force: true });
     } catch (err) {
       setError((err as Error).message);
