@@ -1,9 +1,10 @@
 import { create } from "zustand";
 import type { Config } from "wagmi";
-import { getLogs, watchContractEvent } from "@wagmi/core";
+import { getPublicClient, watchContractEvent } from "@wagmi/core";
 import type { Address, Hex } from "viem";
+import { parseAbiItem } from "viem";
 import { contestAbi } from "../../lib/abi/contest";
-import { contestAddresses } from "../../lib/config";
+import { contestAddresses, configuredChainId } from "../../lib/config";
 
 export type RegistrationRecord = {
   participant: Address;
@@ -65,10 +66,14 @@ export async function hydrateRegistrations(config: Config): Promise<void> {
     return;
   }
 
-  const logs = await getLogs(config, {
-    abi: contestAbi,
+  const publicClient = getPublicClient(config, { chainId: configuredChainId });
+  const contestRegisteredEvent = parseAbiItem(
+    "event ContestRegistered(bytes32 contestId, address participant, address vault, uint256 amount)",
+  );
+
+  const logs = await publicClient.getLogs({
     address: contestAddresses.contest as Address,
-    eventName: "ContestRegistered",
+    event: contestRegisteredEvent,
     fromBlock: 0n,
   });
 
