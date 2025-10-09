@@ -1,0 +1,15 @@
+{
+  "compilerOptions": {
+    "target": "ES2020",
+    "module": "CommonJS",
+    "moduleResolution": "Node",
+    "esModuleInterop": true,
+    "strict": true,
+    "resolveJsonModule": true,
+    "outDir": "./dist",
+    "baseUrl": ".",
+    "types": ["node", "hardhat"]
+  },
+  "include": ["hardhat.config.ts", "scripts", "test", "src", "ignition"],
+  "exclude": ["node_modules", "dist"]
+}
