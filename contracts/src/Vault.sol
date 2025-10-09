@@ -5,8 +5,49 @@ import {ReentrancyGuard} from "@openzeppelin/contracts/utils/ReentrancyGuard.sol
 import {Pausable} from "@openzeppelin/contracts/utils/Pausable.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
+import {IUniswapV3Pool} from "@uniswap/v3-core/contracts/interfaces/IUniswapV3Pool.sol";
+import {IUniswapV3SwapCallback} from "@uniswap/v3-core/contracts/interfaces/callback/IUniswapV3SwapCallback.sol";
+import {TickMath} from "./libraries/TickMath.sol";
 
-contract Vault is Pausable, ReentrancyGuard {
+import {PriceSource} from "./PriceSource.sol";
+
+interface IContestMinimal {
+    enum ContestState {
+        Uninitialized,
+        Registering,
+        Live,
+        Frozen,
+        Sealed,
+        Closed
+    }
+
+    struct ContestConfig {
+        IERC20 entryAsset;
+        uint256 entryAmount;
+        address priceSource;
+        address swapPool;
+        uint16 priceToleranceBps;
+        uint32 settlementWindow;
+        uint16 maxParticipants;
+        uint16 topK;
+    }
+
+    struct ContestTimeline {
+        uint64 registeringEnds;
+        uint64 liveEnds;
+        uint64 claimEnds;
+    }
+
+    function state() external view returns (ContestState);
+
+    function getTimeline() external view returns (ContestTimeline memory);
+
+    function getConfig() external view returns (ContestConfig memory);
+
+    function getVaultContext(address vault) external view returns (bytes32 vaultId, address owner);
+}
+
+contract Vault is Pausable, ReentrancyGuard, IUniswapV3SwapCallback {
     using SafeERC20 for IERC20;
 
     struct Score {
@@ -50,6 +91,16 @@ contract Vault is Pausable, ReentrancyGuard {
     error VaultUnauthorized(address account);
     error VaultInvalidParameter(string field);
     error VaultWithdrawForbidden();
+    error VaultSwapInvalidState(uint8 state);
+    error VaultSwapExpired(uint256 deadline, uint256 current);
+    error VaultSwapInsufficientOutput(uint256 amountOut, uint256 minAmountOut);
+    error VaultUnknownPool(address pool);
+
+    struct SwapCallbackData {
+        address pool;
+        IERC20 token0;
+        IERC20 token1;
+    }
 
     modifier onlyContest() {
         if (msg.sender != contest) {
@@ -149,5 +200,134 @@ contract Vault is Pausable, ReentrancyGuard {
         withdrawn = baseBalance == 0 && quoteBalance == 0;
 
         emit VaultWithdrawn(contest, owner, baseAmount, quoteAmount);
+    }
+
+    function swapExact(uint256 amountIn, uint256 minAmountOut, bool swapBaseForQuote, uint256 deadline)
+        external
+        whenNotPaused
+        nonReentrant
+        returns (uint256 amountOut, int32 priceImpactBps)
+    {
+        if (!_initialized) {
+            revert VaultInvalidParameter("uninitialized");
+        }
+        if (msg.sender != owner) {
+            revert VaultUnauthorized(msg.sender);
+        }
+        if (amountIn == 0) {
+            revert VaultInvalidParameter("amountIn");
+        }
+        if (block.timestamp > deadline) {
+            revert VaultSwapExpired(deadline, block.timestamp);
+        }
+
+        IContestMinimal contestContract = IContestMinimal(contest);
+        {
+            IContestMinimal.ContestState contestState = contestContract.state();
+            if (contestState != IContestMinimal.ContestState.Live) {
+                revert VaultSwapInvalidState(uint8(contestState));
+            }
+        }
+
+        {
+            IContestMinimal.ContestTimeline memory contestTimeline = contestContract.getTimeline();
+            if (block.timestamp >= contestTimeline.liveEnds) {
+                revert VaultSwapInvalidState(uint8(IContestMinimal.ContestState.Frozen));
+            }
+        }
+
+        contestContract.getVaultContext(address(this));
+
+        address priceSourceAddress;
+        address poolAddress;
+        uint16 toleranceBps;
+        {
+            IContestMinimal.ContestConfig memory contestConfig = contestContract.getConfig();
+            priceSourceAddress = contestConfig.priceSource;
+            poolAddress = contestConfig.swapPool;
+            toleranceBps = contestConfig.priceToleranceBps;
+        }
+
+        if (priceSourceAddress == address(0)) {
+            revert VaultInvalidParameter("priceSource");
+        }
+        if (poolAddress == address(0)) {
+            revert VaultInvalidParameter("swapPool");
+        }
+
+        IUniswapV3Pool pool = IUniswapV3Pool(poolAddress);
+        address token0 = pool.token0();
+        address token1 = pool.token1();
+
+        bool zeroForOne;
+        if (token0 == address(baseAsset) && token1 == address(quoteAsset)) {
+            zeroForOne = swapBaseForQuote;
+        } else if (token0 == address(quoteAsset) && token1 == address(baseAsset)) {
+            zeroForOne = !swapBaseForQuote;
+        } else {
+            revert VaultUnknownPool(poolAddress);
+        }
+
+        IERC20 tokenIn = swapBaseForQuote ? baseAsset : quoteAsset;
+        IERC20 tokenOut = swapBaseForQuote ? quoteAsset : baseAsset;
+
+        uint256 balanceInBefore = tokenIn.balanceOf(address(this));
+        uint256 balanceOutBefore = tokenOut.balanceOf(address(this));
+        if (amountIn > balanceInBefore) {
+            revert VaultInvalidParameter("amountInBalance");
+        }
+        pool.swap(
+            address(this),
+            zeroForOne,
+            int256(amountIn),
+            zeroForOne ? TickMath.MIN_SQRT_RATIO + 1 : TickMath.MAX_SQRT_RATIO - 1,
+            abi.encode(SwapCallbackData({pool: poolAddress, token0: IERC20(token0), token1: IERC20(token1)}))
+        );
+
+        uint256 spent = balanceInBefore - tokenIn.balanceOf(address(this));
+        amountOut = tokenOut.balanceOf(address(this)) - balanceOutBefore;
+
+        if (spent == 0) {
+            revert VaultInvalidParameter("amountInBalance");
+        }
+        if (amountOut < minAmountOut) {
+            revert VaultSwapInsufficientOutput(amountOut, minAmountOut);
+        }
+
+        PriceSource priceSource = PriceSource(priceSourceAddress);
+        (int32 impact, uint256 twapPriceE18) =
+            priceSource.requireWithinTolerance(spent, amountOut, swapBaseForQuote, toleranceBps);
+        priceImpactBps = impact;
+
+        baseBalance = baseAsset.balanceOf(address(this));
+        quoteBalance = quoteAsset.balanceOf(address(this));
+
+        emit VaultSwapped(
+            contest,
+            owner,
+            poolAddress,
+            tokenIn,
+            tokenOut,
+            spent,
+            amountOut,
+            twapPriceE18,
+            priceImpactBps
+        );
+
+        return (amountOut, priceImpactBps);
+    }
+
+    function uniswapV3SwapCallback(int256 amount0Delta, int256 amount1Delta, bytes calldata data) external override {
+        SwapCallbackData memory decoded = abi.decode(data, (SwapCallbackData));
+        if (msg.sender != decoded.pool) {
+            revert VaultUnauthorized(msg.sender);
+        }
+
+        if (amount0Delta > 0) {
+            decoded.token0.safeTransfer(msg.sender, uint256(amount0Delta));
+        }
+        if (amount1Delta > 0) {
+            decoded.token1.safeTransfer(msg.sender, uint256(amount1Delta));
+        }
     }
 }
