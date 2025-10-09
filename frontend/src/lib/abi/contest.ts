@@ -24,6 +24,27 @@ export const contestAbi = [
   },
   {
     type: "function",
+    name: "participantVaults",
+    stateMutability: "view",
+    inputs: [{ internalType: "address", name: "", type: "address" }],
+    outputs: [{ internalType: "bytes32", name: "", type: "bytes32" }],
+  },
+  {
+    type: "function",
+    name: "vaultAddresses",
+    stateMutability: "view",
+    inputs: [{ internalType: "bytes32", name: "", type: "bytes32" }],
+    outputs: [{ internalType: "address", name: "", type: "address" }],
+  },
+  {
+    type: "function",
+    name: "vaultFactory",
+    stateMutability: "view",
+    inputs: [],
+    outputs: [{ internalType: "address", name: "", type: "address" }],
+  },
+  {
+    type: "function",
     name: "state",
     stateMutability: "view",
     inputs: [],

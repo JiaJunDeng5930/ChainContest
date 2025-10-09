@@ -80,7 +80,7 @@
 - [X] T019 [US2] 在 `contracts/PriceSource.sol` 实现 TWAP 读取、±0.5% 容忍度校验与缓存结构，发射 `PriceUpdated` 事件
 - [X] T020 [P] [US2] 在 `contracts/Vault.sol` 实现 `swapExact()`：校验 Contest 状态、调用 `PriceSource` 校验、与 Uniswap v3 池交互并发射 `VaultSwapped`
 - [X] T021 [US2] 在 `contracts/Contest.sol` 实现 LIVE 阶段进入逻辑（时间驱动）、提供仅授权 Vault 方可调用的 swap 入口检查
-- [ ] T022 [P] [US2] 在 `frontend/src/lib/contest/swap.ts` 编写 swap 事务封装（含价格校验、gas 预算提示）
+- [X] T022 [P] [US2] 在 `frontend/src/lib/contest/swap.ts` 编写 swap 事务封装（含价格校验、gas 预算提示）
 - [ ] T023 [P] [US2] 在 `frontend/src/components/VaultSwapPanel.tsx` 实现 UI，展示池价/容忍度、输入输出估算与错误提示
 - [ ] T024 [US2] 在 `frontend/src/app/state/vaultPositions.ts` 根据 `VaultSwapped` 事件维护 Vault 头寸与 ROI 预估
 
