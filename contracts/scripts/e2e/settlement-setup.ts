@@ -1,4 +1,5 @@
 import { ethers, network } from "hardhat";
+import { time } from "@nomicfoundation/hardhat-network-helpers";
 
 const ENTRY_AMOUNT = 1_000_000n;
 const BONUS_ALICE = 500_000n;
@@ -37,8 +38,8 @@ async function main() {
   const factory = await VaultFactory.deploy(await vaultImpl.getAddress(), await contest.getAddress());
   await factory.waitForDeployment();
 
-  const now = Math.floor(Date.now() / 1000);
-  const registeringEnds = BigInt(now + REGISTER_DURATION);
+  const current = await time.latest();
+  const registeringEnds = BigInt(current + REGISTER_DURATION);
   const liveEnds = registeringEnds + BigInt(LIVE_DURATION);
   const claimEnds = liveEnds + BigInt(CLAIM_DURATION);
 
@@ -57,17 +58,17 @@ async function main() {
       settlementWindow: 1_800,
       maxParticipants: 1_024,
       topK: 2,
-      payoutSchedule,
     },
     timeline: {
       registeringEnds,
       liveEnds,
       claimEnds,
     },
+    payoutSchedule,
     vaultImplementation: await vaultImpl.getAddress(),
     vaultFactory: await factory.getAddress(),
     owner: deployer.address,
-  } as unknown as Parameters<typeof contest.initialize>[0]);
+  });
 
   const participants = [alice, bob, carol];
   const bonuses = [BONUS_ALICE, BONUS_BOB, 0n];

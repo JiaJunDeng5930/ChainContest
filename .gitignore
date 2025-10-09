@@ -9,3 +9,4 @@ contracts/artifacts/
 contracts/cache/
 contracts/types/
 frontend/node_modules/
+frontend/.env.local
