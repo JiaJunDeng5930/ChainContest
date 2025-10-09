@@ -75,10 +75,14 @@ export async function hydrateRegistrations(config: Config, options?: HydrateOpti
     "event ContestRegistered(bytes32 contestId, address participant, address vault, uint256 amount)",
   );
 
+  const toBlock = await publicClient.getBlockNumber();
+  const fromBlock = toBlock > 1_000_000n ? toBlock - 1_000_000n : 0n;
+
   const logs = await publicClient.getLogs({
     address: contestAddresses.contest as Address,
     event: contestRegisteredEvent,
-    fromBlock: 0n,
+    fromBlock,
+    toBlock,
   });
 
   const records: RegistrationRecord[] = logs.map((log) => {
