@@ -39,6 +39,7 @@ export type ContestOverview = {
 
 export async function fetchContestOverview(config: Config): Promise<ContestOverview> {
   const contestAddress = contestAddresses.contest as Address;
+  console.log("fetchContestOverview:start", contestAddress);
   const [rawConfig, rawParticipantCount, rawState, rawTimeline] = await Promise.all([
     readContract(config, {
       abi: contestAbi,
@@ -91,6 +92,7 @@ export async function fetchContestOverview(config: Config): Promise<ContestOverv
       functionName: "decimals",
     }),
   ]);
+  console.log("fetchContestOverview:done");
 
   return {
     entryAsset: configStruct.entryAsset,
