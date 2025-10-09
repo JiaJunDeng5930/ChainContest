@@ -323,9 +323,8 @@ test("参赛者完成授权与报名流程，并触发链上事件", async ({ pa
   }
   console.log("contestLogs", logs);
 
-  const hasParticipantLog = logs.some(
-    (log) => log.args?.participant?.toLowerCase() === setupPayload.participant.address.toLowerCase(),
-  );
+  const participantTopic = `0x000000000000000000000000${setupPayload.participant.address.slice(2).toLowerCase()}`;
+  const hasParticipantLog = logs.some((log) => log.topics?.[2]?.toLowerCase() === participantTopic);
   expect(hasParticipantLog).toBeTruthy();
 
   const participantCount = (await client.readContract({
