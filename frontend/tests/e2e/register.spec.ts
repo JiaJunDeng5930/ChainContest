@@ -261,7 +261,9 @@ test.afterAll(async () => {
 test("参赛者完成授权与报名流程，并触发链上事件", async ({ page }) => {
   await page.goto(VITE_URL);
 
-  await page.getByTestId("connector-mock").click();
+  const connectorButton = page.locator('button[data-testid^="connector-"]').first();
+  await connectorButton.waitFor({ timeout: 60_000 });
+  await connectorButton.click();
   await expect(page.getByTestId("connected-address")).toContainText(
     setupPayload.participant.address.slice(2, 6),
   );
