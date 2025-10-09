@@ -75,6 +75,10 @@ export async function fetchContestOverview(config: Config): Promise<ContestOverv
       topK: number;
     };
     console.log("fetchContestOverview:config", configStruct);
+    console.log(
+      "fetchContestOverview:entryAsset",
+      (configStruct as unknown as { entryAsset?: Address }).entryAsset,
+    );
 
     const timelineStruct = rawTimeline as {
       registeringEnds: bigint;
