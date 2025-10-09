@@ -73,9 +73,12 @@ contract Vault is Pausable, ReentrancyGuard {
         quoteAsset = quoteAsset_;
     }
 
-    function initialize(address owner_, address contest_, uint256 entryAmount) external {
+    function initialize(address owner_, address contest_, uint256 entryAmount) external whenNotPaused {
         if (_initialized) {
             revert VaultAlreadyInitialized();
+        }
+        if (msg.sender != contest_) {
+            revert VaultUnauthorized(msg.sender);
         }
         if (owner_ == address(0)) {
             revert VaultInvalidParameter("owner");
@@ -87,9 +90,15 @@ contract Vault is Pausable, ReentrancyGuard {
             revert VaultInvalidParameter("entryAmount");
         }
 
+        uint256 currentBase = baseAsset.balanceOf(address(this));
+        if (currentBase != entryAmount) {
+            revert VaultInvalidParameter("entryAmountBalanceMismatch");
+        }
+
         owner = owner_;
         contest = contest_;
-        baseBalance = entryAmount;
+        baseBalance = currentBase;
+        quoteBalance = quoteAsset.balanceOf(address(this));
         lastSettleBlock = block.number;
         _initialized = true;
 
@@ -107,5 +116,38 @@ contract Vault is Pausable, ReentrancyGuard {
     function syncBalances(uint256 baseBalance_, uint256 quoteBalance_) external onlyContest {
         baseBalance = baseBalance_;
         quoteBalance = quoteBalance_;
+    }
+
+    function withdraw(address recipient, uint256 baseAmount, uint256 quoteAmount) external onlyContest nonReentrant {
+        if (withdrawn) {
+            revert VaultWithdrawForbidden();
+        }
+        if (recipient == address(0)) {
+            revert VaultInvalidParameter("recipient");
+        }
+
+        uint256 currentBase = baseAsset.balanceOf(address(this));
+        uint256 currentQuote = quoteAsset.balanceOf(address(this));
+        if (baseAmount > currentBase) {
+            revert VaultInvalidParameter("baseAmount");
+        }
+        if (quoteAmount > currentQuote) {
+            revert VaultInvalidParameter("quoteAmount");
+        }
+
+        if (baseAmount > 0) {
+            baseAsset.safeTransfer(recipient, baseAmount);
+            currentBase -= baseAmount;
+        }
+        if (quoteAmount > 0) {
+            quoteAsset.safeTransfer(recipient, quoteAmount);
+            currentQuote -= quoteAmount;
+        }
+
+        baseBalance = currentBase;
+        quoteBalance = currentQuote;
+        withdrawn = baseBalance == 0 && quoteBalance == 0;
+
+        emit VaultWithdrawn(contest, owner, baseAmount, quoteAmount);
     }
 }
