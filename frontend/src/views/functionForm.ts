@@ -2,6 +2,7 @@ import type {
   ContractDescriptor,
   ContractFunction,
   ContractFunctionParam,
+  CallStatus,
 } from "../lib/types";
 
 const addressPattern = /^0x[a-fA-F0-9]{40}$/;
@@ -35,6 +36,7 @@ export class FunctionFormView {
   private controls: Map<string, InputElement> = new Map();
   private valueControl: HTMLInputElement | null = null;
   private messageBox: HTMLDivElement;
+  private statusBadge: HTMLSpanElement;
 
   constructor(root: HTMLElement, options: FunctionFormViewOptions = {}) {
     this.root = root;
@@ -67,6 +69,11 @@ export class FunctionFormView {
 
     actions.appendChild(submitButton);
 
+    this.statusBadge = document.createElement("span");
+    this.statusBadge.classList.add("function-form__status");
+    this.statusBadge.dataset.state = "idle";
+    this.statusBadge.textContent = "未执行";
+
     this.form.append(this.fieldset, this.messageBox, actions);
     this.root.replaceChildren(this.form);
 
@@ -84,6 +91,7 @@ export class FunctionFormView {
     }
 
     this.renderInputs(context);
+    this.setStatus("validated", "待执行");
   }
 
   reset(): void {
@@ -92,6 +100,7 @@ export class FunctionFormView {
     });
     this.valueControl = null;
     this.messageBox.hidden = true;
+    this.setStatus("validated", "待执行");
   }
 
   private renderPlaceholder(): void {
@@ -100,6 +109,9 @@ export class FunctionFormView {
     placeholder.textContent = "请选择要调用的合约函数。";
     placeholder.classList.add("function-form__placeholder");
     this.fieldset.appendChild(placeholder);
+    this.statusBadge.dataset.state = "idle";
+    this.statusBadge.textContent = "未执行";
+    this.messageBox.hidden = true;
   }
 
   private renderInputs(context: FunctionFormContext): void {
@@ -112,7 +124,7 @@ export class FunctionFormView {
     title.textContent = `${context.contract.name} · ${context.fn.signature}`;
     title.classList.add("function-form__title");
 
-    header.appendChild(title);
+    header.append(title, this.statusBadge);
     this.fieldset.appendChild(header);
 
     if (context.fn.inputs.length === 0) {
@@ -297,6 +309,16 @@ export class FunctionFormView {
     this.options.onSubmit?.(payload);
   }
 
+  setStatus(status: CallStatus, detail?: string): void {
+    this.statusBadge.dataset.state = status;
+    this.statusBadge.textContent = status;
+
+    if (detail) {
+      this.messageBox.hidden = false;
+      this.messageBox.textContent = detail;
+    }
+  }
+
   private parseValue(
     raw: string,
     type: string,
@@ -352,6 +374,8 @@ export class FunctionFormView {
   private displayErrors(errors: string[]): void {
     this.messageBox.hidden = false;
     this.messageBox.textContent = errors.join("；");
+    this.statusBadge.dataset.state = "rejected";
+    this.statusBadge.textContent = "rejected";
   }
 
   private resolveArgumentKey(

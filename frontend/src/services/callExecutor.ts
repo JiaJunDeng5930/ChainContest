@@ -6,6 +6,7 @@ import type {
   ContractFunction,
   ErrorDetail,
   LogLevel,
+  LogSource,
 } from "../lib/types";
 
 import { AbiRegistry } from "./abiRegistry";
@@ -33,6 +34,7 @@ export interface CallStatusEvent {
 export interface CallLogEvent {
   requestId: string;
   level: LogLevel;
+  source: LogSource;
   message: string;
   context?: Record<string, unknown>;
 }
@@ -109,12 +111,13 @@ export class CallExecutor {
         status: "confirmed",
       });
 
-      args.onLog?.({
-        requestId: args.requestId,
-        level: "info",
-        message: `${fn.signature} 调用成功`,
-        context: { contractId: descriptor.id },
-      });
+    args.onLog?.({
+      requestId: args.requestId,
+      level: "info",
+      source: "rpc",
+      message: `${fn.signature} 调用成功`,
+      context: { contractId: descriptor.id },
+    });
 
       return {
         kind: "read",
@@ -132,6 +135,7 @@ export class CallExecutor {
       args.onLog?.({
         requestId: args.requestId,
         level: "error",
+        source: "rpc",
         message: `${fn.signature} 调用失败`,
         context: { contractId: descriptor.id, error: detail },
       });
@@ -170,6 +174,7 @@ export class CallExecutor {
         args.onLog?.({
           requestId: args.requestId,
           level: "info",
+          source: "rpc",
           message: `${args.fn.signature} 已提交，等待确认`,
           context: { contractId: args.descriptor.id, txHash: response.hash },
         });
@@ -186,6 +191,7 @@ export class CallExecutor {
         args.onLog?.({
           requestId: args.requestId,
           level: "info",
+          source: "rpc",
           message: `${args.fn.signature} 已确认`,
           context: { contractId: args.descriptor.id, txHash: response.hash },
         });
@@ -207,6 +213,7 @@ export class CallExecutor {
         args.onLog?.({
           requestId: args.requestId,
           level: "error",
+          source: "rpc",
           message: `${args.fn.signature} 发送失败`,
           context: {
             contractId: args.descriptor.id,

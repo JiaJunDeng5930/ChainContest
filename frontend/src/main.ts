@@ -9,6 +9,7 @@ import type {
   ContractFunctionParam,
 } from "./lib/types";
 import { CallHistoryView, type CallHistoryRecord } from "./views/callHistory";
+import { LogPanelView } from "./views/logPanel";
 import {
   FunctionFormContext,
   FunctionFormSubmitPayload,
@@ -26,6 +27,8 @@ import {
   CallExecutor,
   type CallExecutionResult,
 } from "./services/callExecutor";
+import { StatusTracker } from "./services/statusTracker";
+import { LogPipeline } from "./services/logPipeline";
 
 async function bootstrap(): Promise<void> {
   const root = document.querySelector<HTMLElement>("#app-root");
@@ -41,8 +44,9 @@ async function bootstrap(): Promise<void> {
   const functionFormEl = root.querySelector<HTMLElement>("#function-form");
   const historyEl = root.querySelector<HTMLElement>("#history-panel");
   const statusEl = root.querySelector<HTMLElement>("#status-panel");
+  const logEl = root.querySelector<HTMLElement>("#log-panel");
 
-  if (!contractListEl || !functionFormEl || !historyEl || !statusEl) {
+  if (!contractListEl || !functionFormEl || !historyEl || !statusEl || !logEl) {
     throw new Error("Base template missing required containers");
   }
 
@@ -57,9 +61,17 @@ async function bootstrap(): Promise<void> {
     });
 
     const historyView = new CallHistoryView(historyEl);
+    const logPanelView = new LogPanelView(logEl);
+    const statusTracker = new StatusTracker();
+    const logPipeline = new LogPipeline();
+
+    logPipeline.subscribe((entry) => {
+      logPanelView.append(entry);
+    });
 
     let activeContext: FunctionFormContext | null = null;
     const records = new Map<string, CallHistoryRecord>();
+    const activeRequestRef: { id: string | null } = { id: null };
 
     const contractListView = new ContractListView(contractListEl, {
       onSelect: ({ contract, fn }) => {
@@ -78,11 +90,15 @@ async function bootstrap(): Promise<void> {
 
         handleExecution(
           executor,
+          statusTracker,
+          logPipeline,
           activeContext,
           payload,
           records,
           historyView,
           statusEl,
+          functionFormView,
+          activeRequestRef,
         ).catch((error) => {
           if (error instanceof CallExecutionError) {
             updateStatus(statusEl, error.detail.message, "error");
@@ -96,6 +112,24 @@ async function bootstrap(): Promise<void> {
       onValidationError: (errors) => {
         updateStatus(statusEl, errors.join("；"), "error");
       },
+    });
+
+    statusTracker.subscribe((event) => {
+      let record = records.get(event.request.id);
+      if (!record) {
+        record = { request: event.request };
+        records.set(event.request.id, record);
+      } else {
+        record.request = event.request;
+      }
+
+      historyView.upsertRecord(record);
+      historyView.updateStatus(event.request.id, event.request.status);
+
+      if (activeRequestRef.id === event.request.id) {
+        const detail = event.request.error?.message;
+        functionFormView.setStatus(event.request.status, detail);
+      }
     });
 
     const items = await buildContractListItems(config.contracts, registry);
@@ -164,13 +198,17 @@ async function buildContractListItems(
 
 async function handleExecution(
   executor: CallExecutor,
+  tracker: StatusTracker,
+  logger: LogPipeline,
   context: FunctionFormContext,
   payload: FunctionFormSubmitPayload,
   records: Map<string, CallHistoryRecord>,
   historyView: CallHistoryView,
   statusEl: HTMLElement,
+  functionFormView: FunctionFormView,
+  activeRequestRef: { id: string | null },
 ): Promise<void> {
-  const request: CallRequest = {
+  const baseRequest: CallRequest = {
     id: crypto.randomUUID(),
     contractId: context.contract.id,
     functionSignature: context.fn.signature,
@@ -181,15 +219,20 @@ async function handleExecution(
     updatedAt: new Date(),
   };
 
-  const record: CallHistoryRecord = { request };
-  records.set(request.id, record);
+  const tracked = tracker.register(baseRequest);
+  const record: CallHistoryRecord = { request: tracked };
+  records.set(tracked.id, record);
   historyView.upsertRecord(record);
+  historyView.updateStatus(tracked.id, tracked.status);
+  functionFormView.setStatus(tracked.status, "待执行");
+
+  activeRequestRef.id = tracked.id;
 
   updateStatus(statusEl, `已发起 ${context.fn.signature}`, "info");
 
   try {
     const result = await executor.execute({
-      requestId: request.id,
+      requestId: tracked.id,
       descriptor: context.contract,
       fn: context.fn,
       orderedArguments: payload.orderedArguments,
@@ -197,62 +240,97 @@ async function handleExecution(
         value: payload.value,
       },
       onStatusChange: (event) => {
-        request.status = event.status;
-        request.updatedAt = new Date();
-
-        if (event.txHash) {
-          request.txHash = event.txHash;
-        }
-
-        if (event.error) {
-          request.error = event.error;
-          updateStatus(statusEl, event.error.message, "error");
-        }
+        tracker.update({
+          requestId: event.requestId,
+          status: event.status,
+          txHash: event.txHash,
+          error: event.error,
+        });
 
         if (event.receipt) {
-          record.response = event.receipt;
+          const target = records.get(event.requestId);
+          if (target) {
+            target.response = event.receipt;
+            historyView.upsertRecord(target);
+          }
         }
 
-        historyView.upsertRecord(record);
+        if (event.status === "failed" && event.error) {
+          updateStatus(statusEl, event.error.message, "error");
+        }
       },
       onLog: (event) => {
+        logger.push({
+          level: event.level,
+          source: event.source,
+          message: event.message,
+          context: { ...event.context, requestId: tracked.id },
+        });
+
         if (event.level === "error") {
           updateStatus(statusEl, event.message, "error");
         }
       },
     });
 
-    request.updatedAt = new Date();
-
     if (result.kind === "read") {
-      record.response = result.result;
-      request.status = "confirmed";
+      const target = records.get(tracked.id);
+      if (target) {
+        target.response = result.result;
+        historyView.upsertRecord(target);
+      }
+      tracker.update({
+        requestId: tracked.id,
+        status: "confirmed",
+      });
       updateStatus(statusEl, "读取成功", "success");
+      functionFormView.setStatus("confirmed", "读取成功");
     } else {
-      record.response = result.receipt;
-      request.txHash = result.txHash;
-      request.status = "confirmed";
+      const target = records.get(tracked.id);
+      if (target) {
+        target.response = result.receipt;
+        historyView.upsertRecord(target);
+      }
+      tracker.update({
+        requestId: tracked.id,
+        status: "confirmed",
+        txHash: result.txHash,
+      });
       updateStatus(statusEl, `交易 ${result.txHash} 已确认`, "success");
+      functionFormView.setStatus("confirmed", "交易已确认");
     }
-
-    historyView.upsertRecord(record);
   } catch (error) {
+    const detail =
+      error instanceof CallExecutionError
+        ? error.detail
+        : {
+            code: "UNKNOWN",
+            message: error instanceof Error ? error.message : "调用执行失败",
+          };
+
+    tracker.update({
+      requestId: baseRequest.id,
+      status: "failed",
+      error: detail,
+    });
+
+    logger.push({
+      level: "error",
+      source: "ui",
+      message: detail.message,
+      context: { requestId: baseRequest.id },
+    });
+
+    updateStatus(statusEl, detail.message, "error");
+    functionFormView.setStatus("failed", detail.message);
+
     if (error instanceof CallExecutionError) {
-      request.status = "failed";
-      request.error = error.detail;
-      request.updatedAt = new Date();
-      historyView.upsertRecord(record);
       throw error;
     }
 
-    request.status = "failed";
-    request.error = {
-      code: "UNKNOWN",
-      message: error instanceof Error ? error.message : "调用执行失败",
-    };
-    request.updatedAt = new Date();
-    historyView.upsertRecord(record);
-    throw error;
+    throw error instanceof Error ? error : new Error("调用执行失败");
+  } finally {
+    activeRequestRef.id = null;
   }
 }
 

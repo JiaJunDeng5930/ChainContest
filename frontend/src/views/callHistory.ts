@@ -18,6 +18,7 @@ export class CallHistoryView {
   private records: CallHistoryRecord[] = [];
   private filterText = "";
   private filterStatus: CallStatus | "all" = "all";
+  private readonly itemRefs = new Map<string, HTMLLIElement>();
 
   constructor(root: HTMLElement, options: CallHistoryViewOptions = {}) {
     this.root = root;
@@ -105,6 +106,7 @@ export class CallHistoryView {
 
   private render(): void {
     this.list.replaceChildren();
+    this.itemRefs.clear();
 
     const filtered = this.records.filter((record) => {
       const statusMatches =
@@ -138,7 +140,9 @@ export class CallHistoryView {
     }
 
     filtered.forEach((record) => {
-      this.list.appendChild(this.createItem(record));
+      const item = this.createItem(record);
+      this.list.appendChild(item);
+      this.itemRefs.set(record.request.id, item);
     });
   }
 
@@ -201,6 +205,25 @@ export class CallHistoryView {
     item.append(header, meta, details, actions);
 
     return item;
+  }
+
+  updateStatus(requestId: string, status: CallStatus): void {
+    const item = this.itemRefs.get(requestId);
+
+    if (!item) {
+      return;
+    }
+
+    const statusElement = item.querySelector<HTMLSpanElement>(
+      ".call-history__status",
+    );
+
+    if (!statusElement) {
+      return;
+    }
+
+    statusElement.textContent = status;
+    statusElement.dataset.status = status;
   }
 }
 
