@@ -24,7 +24,7 @@
 **Purpose**: 初始化前端重建所需的基础结构与依赖
 
 - [X] T001 [Setup] 清理 React 旧结构，移除 `frontend/src/App.tsx`, `frontend/src/main.tsx`, `frontend/src/app/`, `frontend/src/components/`，并创建新的入口 `frontend/src/main.ts` 与样式目录 `frontend/src/styles/`
-- [ ] T002 [P] [Setup] 更新 `frontend/package.json`，移除 React 相关依赖，引入 `ethers` 与必要的 `htmx`，同步 `pnpm-lock.yaml`
+- [X] T002 [P] [Setup] 更新 `frontend/package.json`，移除 React 相关依赖，引入 `ethers` 与必要的 `htmx`，同步 `pnpm-lock.yaml`
 - [ ] T003 [Setup] 调整 `frontend/vite.config.ts`，改用 `frontend/src/main.ts` 作为入口并读取 `VITE_DEV_PORT` 配置
 - [ ] T004 [P] [Setup] 新建 `frontend/.env.example`，列出 `VITE_RPC_URL`, `VITE_CHAIN_ID`, `VITE_DEV_PORT`, `VITE_CONTRACTS_PATH`, `VITE_DEFAULT_ACCOUNT` 等键
 
