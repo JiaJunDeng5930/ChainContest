@@ -70,7 +70,7 @@
 ### Implementation for User Story 2
 
 - [X] T015 [P] [US2] 建立状态跟踪服务 `frontend/src/services/statusTracker.ts`，维护 CallRequest 状态机并广播更新
-- [ ] T016 [P] [US2] 实现日志流水线 `frontend/src/services/logPipeline.ts`，统一生成 debug/info/warn/error 级日志
+- [X] T016 [P] [US2] 实现日志流水线 `frontend/src/services/logPipeline.ts`，统一生成 debug/info/warn/error 级日志
 - [ ] T017 [US2] 构建日志面板 UI `frontend/src/views/logPanel.ts`，支持按级别过滤与时间排序
 - [ ] T018 [US2] 在 `frontend/src/views/functionForm.ts` 与 `frontend/src/views/callHistory.ts` 中集成状态徽标与实时更新
 - [ ] T019 [US2] 实现错误信息展示组件 `frontend/src/views/errorOverlay.ts`，包含修复建议与阻断提示
