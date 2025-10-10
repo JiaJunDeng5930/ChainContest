@@ -7,20 +7,51 @@ import {TickMath} from "../libraries/TickMath.sol";
 import {FullMath} from "../libraries/FullMath.sol";
 
 contract MockUniswapV3Pool {
+    /// @notice 返回池子的第一个代币地址。
+    /// @dev 用于测试时确认 Token 顺序。
+    /// @custom:error 无
+    /// @custom:example 在 swap 回调中读取 `token0()` 校验资产流向。
     address public token0;
+    /// @notice 返回池子的第二个代币地址。
+    /// @dev 与真实 Uniswap V3 池接口保持一致。
+    /// @custom:error 无
+    /// @custom:example 测试合约中使用 `token1()` 发送兑换结果。
     address public token1;
+    /// @notice 当前模拟池的价格 Tick。
+    /// @dev 可通过 `setTick` 更新，用于控制报价。
+    /// @custom:error 无
+    /// @custom:example 测试前设置 `tick` 以模拟不同价格区间。
     int24 public tick;
 
+    /// @notice 构造函数初始化代币地址与初始 Tick。
+    /// @dev 主要供测试上下文使用，不执行额外校验。
+    /// @param token0_ Token0 地址。
+    /// @param token1_ Token1 地址。
+    /// @param tick_ 初始 Tick 值。
+    /// @custom:error 无
+    /// @custom:example `new MockUniswapV3Pool(tokenA, tokenB, 0)`。
     constructor(address token0_, address token1_, int24 tick_) {
         token0 = token0_;
         token1 = token1_;
         tick = tick_;
     }
 
+    /// @notice 手动更新池子的 Tick 值。
+    /// @dev 用于模拟价格波动。
+    /// @param tick_ 新的 Tick。
+    /// @custom:error 无
+    /// @custom:example 测试中调用 `setTick(100)` 后再执行 `swap`。
     function setTick(int24 tick_) external {
         tick = tick_;
     }
 
+    /// @notice 模拟 Uniswap V3 `observe` 接口，返回累积 Tick。
+    /// @dev 按传入秒数与当前 tick 计算线性累积值，不包含实际流动性数据。
+    /// @param secondsAgos 回溯时间数组，单位秒。
+    /// @return tickCumulatives 每个时间点对应的累积 Tick。
+    /// @return liquidity 空数组，占位符以匹配真实接口。
+    /// @custom:error 无
+    /// @custom:example `observe([60, 0])` 估算一分钟 TWAP。
     function observe(uint32[] calldata secondsAgos)
         external
         view
@@ -35,6 +66,17 @@ contract MockUniswapV3Pool {
         return (tickCumulatives, liquidity);
     }
 
+    /// @notice 返回池子的 Slot0 信息。
+    /// @dev 仅填充基础字段，保证兼容真实接口。
+    /// @return sqrtPriceX96 模拟价格的平方根表示。
+    /// @return tick_ 当前 Tick。
+    /// @return observationIndex 固定为 0。
+    /// @return observationCardinality 固定为 0。
+    /// @return observationCardinalityNext 固定为 0。
+    /// @return feeProtocol 固定为 0。
+    /// @return unlocked 永远返回 true。
+    /// @custom:error 无
+    /// @custom:example `vault.swapExact` 获取价格快照时调用。
     function slot0()
         external
         view
@@ -57,6 +99,16 @@ contract MockUniswapV3Pool {
         unlocked = true;
     }
 
+    /// @notice 使用当前 Tick 模拟一次兑换，并触发回调。
+    /// @dev 只支持正向 `amountSpecified`，根据方向计算对应输出。
+    /// @param recipient 接收兑换输出的地址。
+    /// @param zeroForOne 为真表示卖出 token0、买入 token1。
+    /// @param amountSpecified 输入数量，必须为正。
+    /// @param data 透传到回调的数据。
+    /// @return amount0 兑换后 token0 的净变化。
+    /// @return amount1 兑换后 token1 的净变化。
+    /// @custom:error 无
+    /// @custom:example Vault 测试中调用 `swap(participant, true, 1e18, 0, data)`。
     function swap(address recipient, bool zeroForOne, int256 amountSpecified, uint160, bytes calldata data)
         external
         returns (int256 amount0, int256 amount1)

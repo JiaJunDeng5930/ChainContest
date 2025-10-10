@@ -10,6 +10,14 @@
     "baseUrl": ".",
     "types": ["node", "hardhat"]
   },
-  "include": ["hardhat.config.ts", "scripts", "test", "src", "ignition"],
+  "include": [
+    "hardhat.config.ts",
+    "scripts",
+    "scripts/docs",
+    "docgen",
+    "test",
+    "src",
+    "ignition"
+  ],
   "exclude": ["node_modules", "dist"]
 }

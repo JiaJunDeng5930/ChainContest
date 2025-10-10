@@ -1,0 +1,43 @@
+# 合约接口文档索引
+
+- **提交哈希**：{{metadata.commitHash}}
+- **生成时间 (UTC)**：{{metadata.generatedAt}}
+- **总合约数**：{{contracts.length}}
+
+{{#each contracts}}
+## {{name}} · {{kindLabel}}
+
+{{#if summary}}
+> {{summary}}
+{{/if}}
+
+| 分类 | 数量 |
+| ---- | ---- |
+| 函数 | {{functions.length}} |
+| 事件 | {{events.length}} |
+| 错误 | {{errors.length}} |
+
+{{#if functions.length}}
+### 函数
+{{#each functions}}
+- [{{title}}]({{docPath}}{{#if anchor}}#{{anchor}}{{/if}}){{#if summary}}：{{summary}}{{/if}}
+{{/each}}
+{{/if}}
+
+{{#if events.length}}
+### 事件
+{{#each events}}
+- [{{title}}]({{docPath}}{{#if anchor}}#{{anchor}}{{/if}}){{#if summary}}：{{summary}}{{/if}}
+{{/each}}
+{{/if}}
+
+{{#if errors.length}}
+### 错误
+{{#each errors}}
+- [{{title}}]({{docPath}}{{#if anchor}}#{{anchor}}{{/if}}){{#if summary}}：{{summary}}{{/if}}
+{{/each}}
+{{/if}}
+
+---
+
+{{/each}}

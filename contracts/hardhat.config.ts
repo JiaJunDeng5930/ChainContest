@@ -3,6 +3,8 @@ import "@nomicfoundation/hardhat-toolbox";
 import "@nomicfoundation/hardhat-ignition";
 import "@typechain/hardhat";
 import "hardhat-gas-reporter";
+import "hardhat-output-validator";
+import "solidity-docgen";
 import "dotenv/config";
 
 const {
@@ -14,6 +16,9 @@ const {
 
 const sepoliaUrl = SEPOLIA_RPC_PRIMARY || SEPOLIA_RPC_FALLBACK;
 const deployerAccounts = DEPLOYER_PRIVATE_KEY ? [DEPLOYER_PRIVATE_KEY] : [];
+
+const DOCS_OUTPUT_DIR = "./docs/contracts";
+const DOCGEN_TEMPLATE_DIR = "./docgen/templates";
 
 const config: HardhatUserConfig = {
   solidity: {
@@ -80,6 +85,22 @@ const config: HardhatUserConfig = {
     outputFile: "gas-report.txt",
     showTimeSpent: true,
     noColors: true,
+  } as any,
+  docgen: {
+    outputDir: DOCS_OUTPUT_DIR,
+    templates: DOCGEN_TEMPLATE_DIR,
+    pages: "files",
+  },
+  outputValidator: {
+    runOnCompile: false,
+    errorMode: true,
+    checks: {
+      missingUserDoc: "error",
+      missingDevDoc: "warning",
+      params: "error",
+      returns: "error",
+      events: "error",
+    },
   },
 };
 

@@ -1,0 +1,36 @@
+{{#if anchor}}
+<a id="{{anchor}}"></a>
+{{/if}}
+{{h}} 事件 {{name}}
+
+```solidity
+{{{signature}}}
+```
+
+{{#if natspec.notice}}
+**事件说明：** {{{natspec.notice}}}
+{{/if}}
+
+{{#if natspec.dev}}
+**补充信息：** {{{natspec.dev}}}
+{{/if}}
+
+{{#if params}}
+{{h 2}} 参数
+
+| 名称 | 类型 | 说明 |
+| ---- | ---- | ---- |
+{{#each params}}
+| {{name}} | {{type}} | {{{joinLines natspec}}} |
+{{/each}}
+{{/if}}
+
+{{#if natspec.custom.error}}
+{{h 2}} 相关错误
+{{{natspec.custom.error}}}
+{{/if}}
+
+{{#if natspec.custom.example}}
+{{h 2}} 示例
+{{{natspec.custom.example}}}
+{{/if}}

@@ -10,7 +10,9 @@
     "typecheck": "tsc --noEmit",
     "node": "hardhat node",
     "deploy:localhost": "hardhat ignition deploy ignition/modules/contest.ts --network localhost",
-    "deploy:sepolia": "hardhat ignition deploy ignition/modules/contest.ts --network sepolia"
+    "deploy:sepolia": "hardhat ignition deploy ignition/modules/contest.ts --network sepolia",
+    "docs:generate": "ts-node --project tsconfig.json scripts/docs/generate.ts",
+    "docs:check": "ts-node --project tsconfig.json scripts/docs/check.ts"
   },
   "devDependencies": {
     "@ethersproject/abi": "^5.7.0",
@@ -24,10 +26,13 @@
     "@types/mocha": "^10.0.6",
     "@types/node": "^20.11.30",
     "dotenv": "^16.4.5",
-    "hardhat-gas-reporter": "^1.0.9",
     "eslint": "^8.57.0",
     "ethers": "^6.12.0",
+    "handlebars": "^4.7.8",
     "hardhat": "^2.26.1",
+    "hardhat-gas-reporter": "^1.0.9",
+    "hardhat-output-validator": "^0.1.19",
+    "solidity-docgen": "0.6.0-beta.36",
     "ts-node": "^10.9.2",
     "typechain": "^8.3.1",
     "typescript": "^5.4.5"

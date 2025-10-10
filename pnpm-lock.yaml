@@ -59,12 +59,21 @@ importers:
       ethers:
         specifier: ^6.12.0
         version: 6.15.0(bufferutil@4.0.9)(utf-8-validate@5.0.10)
+      handlebars:
+        specifier: ^4.7.8
+        version: 4.7.8
       hardhat:
         specifier: ^2.26.1
         version: 2.26.3(bufferutil@4.0.9)(ts-node@10.9.2(@types/node@20.19.19)(typescript@5.9.3))(typescript@5.9.3)(utf-8-validate@5.0.10)
       hardhat-gas-reporter:
         specifier: ^1.0.9
         version: 1.0.10(bufferutil@4.0.9)(hardhat@2.26.3(bufferutil@4.0.9)(ts-node@10.9.2(@types/node@20.19.19)(typescript@5.9.3))(typescript@5.9.3)(utf-8-validate@5.0.10))(utf-8-validate@5.0.10)
+      hardhat-output-validator:
+        specifier: ^0.1.19
+        version: 0.1.19
+      solidity-docgen:
+        specifier: 0.6.0-beta.36
+        version: 0.6.0-beta.36(hardhat@2.26.3(bufferutil@4.0.9)(ts-node@10.9.2(@types/node@20.19.19)(typescript@5.9.3))(typescript@5.9.3)(utf-8-validate@5.0.10))
       ts-node:
         specifier: ^10.9.2
         version: 10.9.2(@types/node@20.19.19)(typescript@5.9.3)
@@ -1952,6 +1961,9 @@ packages:
     peerDependencies:
       hardhat: ^2.0.2
 
+  hardhat-output-validator@0.1.19:
+    resolution: {integrity: sha512-rIDdiHHt2WEMBRnbOa95xpze2t88KSfWh2gI9LCbdrMuSmsLiO2qzgB4cZ6O7Tvjz4jsBgxD9Dcr4uNP8pJ8Pw==}
+
   hardhat@2.26.3:
     resolution: {integrity: sha512-gBfjbxCCEaRgMCRgTpjo1CEoJwqNPhyGMMVHYZJxoQ3LLftp2erSVf8ZF6hTQC0r2wst4NcqNmLWqMnHg1quTw==}
     hasBin: true
@@ -2829,11 +2841,19 @@ packages:
     engines: {node: '>=10.0.0'}
     hasBin: true
 
+  solidity-ast@0.4.61:
+    resolution: {integrity: sha512-OYBJYcYyG7gLV0VuXl9CUrvgJXjV/v0XnR4+1YomVe3q+QyENQXJJxAEASUz4vN6lMAl+C8RSRSr5MBAz09f6w==}
+
   solidity-coverage@0.8.16:
     resolution: {integrity: sha512-qKqgm8TPpcnCK0HCDLJrjbOA2tQNEJY4dHX/LSSQ9iwYFS973MwjtgYn2Iv3vfCEQJTj5xtm4cuUMzlJsJSMbg==}
     hasBin: true
     peerDependencies:
       hardhat: ^2.11.0
+
+  solidity-docgen@0.6.0-beta.36:
+    resolution: {integrity: sha512-f/I5G2iJgU1h0XrrjRD0hHMr7C10u276vYvm//rw1TzFcYQ4xTOyAoi9oNAHRU0JU4mY9eTuxdVc2zahdMuhaQ==}
+    peerDependencies:
+      hardhat: ^2.8.0
 
   source-map-js@1.2.1:
     resolution: {integrity: sha512-UXWMKhLOwVKb728IUtQPXxfYU+usdybtUrK/8uGE8CQMvrhOpwvzDBwj0QhSL7MQc7vIsISBG8VQ8+IDQxpfQA==}
@@ -5448,6 +5468,10 @@ snapshots:
       - debug
       - utf-8-validate
 
+  hardhat-output-validator@0.1.19:
+    dependencies:
+      chalk: 4.1.2
+
   hardhat@2.26.3(bufferutil@4.0.9)(ts-node@10.9.2(@types/node@20.19.19)(typescript@5.9.3))(typescript@5.9.3)(utf-8-validate@5.0.10):
     dependencies:
       '@ethereumjs/util': 9.1.0
@@ -6371,6 +6395,8 @@ snapshots:
     transitivePeerDependencies:
       - debug
 
+  solidity-ast@0.4.61: {}
+
   solidity-coverage@0.8.16(hardhat@2.26.3(bufferutil@4.0.9)(ts-node@10.9.2(@types/node@20.19.19)(typescript@5.9.3))(typescript@5.9.3)(utf-8-validate@5.0.10)):
     dependencies:
       '@ethersproject/abi': 5.8.0
@@ -6393,6 +6419,12 @@ snapshots:
       semver: 7.7.3
       shelljs: 0.8.5
       web3-utils: 1.10.4
+
+  solidity-docgen@0.6.0-beta.36(hardhat@2.26.3(bufferutil@4.0.9)(ts-node@10.9.2(@types/node@20.19.19)(typescript@5.9.3))(typescript@5.9.3)(utf-8-validate@5.0.10)):
+    dependencies:
+      handlebars: 4.7.8
+      hardhat: 2.26.3(bufferutil@4.0.9)(ts-node@10.9.2(@types/node@20.19.19)(typescript@5.9.3))(typescript@5.9.3)(utf-8-validate@5.0.10)
+      solidity-ast: 0.4.61
 
   source-map-js@1.2.1: {}
 

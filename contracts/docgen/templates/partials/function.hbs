@@ -1,0 +1,46 @@
+{{#if anchor}}
+<a id="{{anchor}}"></a>
+{{/if}}
+{{h}} 函数 {{name}}
+
+```solidity
+{{{signature}}}
+```
+
+{{#if natspec.notice}}
+**功能概述：** {{{natspec.notice}}}
+{{/if}}
+
+{{#if natspec.dev}}
+**开发说明：** {{{natspec.dev}}}
+{{/if}}
+
+{{#if params}}
+{{h 2}} 参数
+
+| 名称 | 类型 | 说明 |
+| ---- | ---- | ---- |
+{{#each params}}
+| {{name}} | {{type}} | {{{joinLines natspec}}} |
+{{/each}}
+{{/if}}
+
+{{#if returns}}
+{{h 2}} 返回值
+
+| 名称 | 类型 | 说明 |
+| ---- | ---- | ---- |
+{{#each returns}}
+| {{#if name}}{{name}}{{else}}[{{@index}}]{{/if}} | {{type}} | {{{joinLines natspec}}} |
+{{/each}}
+{{/if}}
+
+{{#if natspec.custom.error}}
+{{h 2}} 可能抛出的错误
+{{{natspec.custom.error}}}
+{{/if}}
+
+{{#if natspec.custom.example}}
+{{h 2}} 调用示例
+{{{natspec.custom.example}}}
+{{/if}}
