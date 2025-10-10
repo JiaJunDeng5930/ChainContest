@@ -55,7 +55,7 @@
 - [X] T010 [P] [US1] 构建合约与函数列表视图 `frontend/src/views/contractList.ts`，支持按合约/函数分组与搜索
 - [X] T011 [US1] 实现函数表单渲染 `frontend/src/views/functionForm.ts`，根据 ABI 自动生成输入控件与类型提示
 - [X] T012 [US1] 编写调用执行管线 `frontend/src/services/callExecutor.ts`，分别处理读函数即时响应与写函数队列、确认及回执
-- [ ] T013 [P] [US1] 创建会话历史模块 `frontend/src/views/callHistory.ts`，记录每次调用摘要并支持筛选复制
+- [X] T013 [P] [US1] 创建会话历史模块 `frontend/src/views/callHistory.ts`，记录每次调用摘要并支持筛选复制
 - [ ] T014 [US1] 在 `frontend/src/main.ts` 中整合合约选择、表单提交与历史更新流程，确保 UI 与执行服务联动
 
 **Checkpoint**: User Story 1 可独立运行并交付 MVP
