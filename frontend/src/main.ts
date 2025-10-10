@@ -10,6 +10,8 @@ import type {
 } from "./lib/types";
 import { CallHistoryView, type CallHistoryRecord } from "./views/callHistory";
 import { LogPanelView } from "./views/logPanel";
+import { ErrorOverlay } from "./views/errorOverlay";
+import { ConnectionBanner } from "./views/connectionBanner";
 import {
   FunctionFormContext,
   FunctionFormSubmitPayload,
@@ -19,14 +21,9 @@ import {
   ContractListItem,
   ContractListView,
 } from "./views/contractList";
-import { loadEnvironmentConfig } from "./services/config";
-import { createAbiRegistry } from "./services/abiRegistry";
-import { createRpcProvider } from "./services/provider";
-import {
-  CallExecutionError,
-  CallExecutor,
-  type CallExecutionResult,
-} from "./services/callExecutor";
+import { performStartup } from "./services/startup";
+import type { AbiRegistry } from "./services/abiRegistry";
+import { CallExecutionError, CallExecutor } from "./services/callExecutor";
 import { StatusTracker } from "./services/statusTracker";
 import { LogPipeline } from "./services/logPipeline";
 
@@ -45,25 +42,53 @@ async function bootstrap(): Promise<void> {
   const historyEl = root.querySelector<HTMLElement>("#history-panel");
   const statusEl = root.querySelector<HTMLElement>("#status-panel");
   const logEl = root.querySelector<HTMLElement>("#log-panel");
+  const bannerEl = root.querySelector<HTMLElement>("#connection-banner");
+  const errorOverlayEl = root.querySelector<HTMLElement>("#error-overlay");
 
-  if (!contractListEl || !functionFormEl || !historyEl || !statusEl || !logEl) {
+  if (
+    !contractListEl ||
+    !functionFormEl ||
+    !historyEl ||
+    !statusEl ||
+    !logEl ||
+    !bannerEl ||
+    !errorOverlayEl
+  ) {
     throw new Error("Base template missing required containers");
   }
 
-  try {
-    const { config, meta } = await loadEnvironmentConfig();
-    updateStatus(statusEl, `正在连接 RPC ${config.rpcUrl}`, "info");
+  const errorOverlay = new ErrorOverlay(errorOverlayEl);
 
-    const registry = createAbiRegistry();
-    const provider = await createRpcProvider(config);
-    const executor = new CallExecutor(provider, registry, {
-      defaultAccount: config.defaultAccount,
+  try {
+    const startup = await performStartup();
+
+    if (!startup.ok) {
+      errorOverlay.show(startup.error);
+      updateStatus(statusEl, startup.error.message, "error");
+      root.dataset.status = "error";
+      return;
+    }
+
+    const connectionBanner = new ConnectionBanner(bannerEl);
+    const configContext = startup.config;
+    const envConfig = configContext.config;
+
+    updateStatus(statusEl, `正在连接 RPC ${envConfig.rpcUrl}`, "info");
+    connectionBanner.setState({
+      rpcUrl: envConfig.rpcUrl,
+      chainId: envConfig.chainId,
+      defaultAccount: envConfig.defaultAccount,
+      status: "connected",
+      message: "RPC 节点连接正常",
     });
 
     const historyView = new CallHistoryView(historyEl);
     const logPanelView = new LogPanelView(logEl);
     const statusTracker = new StatusTracker();
     const logPipeline = new LogPipeline();
+    const executor = new CallExecutor(startup.provider, startup.registry, {
+      defaultAccount: envConfig.defaultAccount,
+    });
 
     logPipeline.subscribe((entry) => {
       logPanelView.append(entry);
@@ -72,6 +97,11 @@ async function bootstrap(): Promise<void> {
     let activeContext: FunctionFormContext | null = null;
     const records = new Map<string, CallHistoryRecord>();
     const activeRequestRef: { id: string | null } = { id: null };
+    const baseBannerState = {
+      rpcUrl: envConfig.rpcUrl,
+      chainId: envConfig.chainId,
+      defaultAccount: envConfig.defaultAccount,
+    };
 
     const contractListView = new ContractListView(contractListEl, {
       onSelect: ({ contract, fn }) => {
@@ -99,6 +129,7 @@ async function bootstrap(): Promise<void> {
           statusEl,
           functionFormView,
           activeRequestRef,
+          errorOverlay,
         ).catch((error) => {
           if (error instanceof CallExecutionError) {
             updateStatus(statusEl, error.detail.message, "error");
@@ -130,9 +161,23 @@ async function bootstrap(): Promise<void> {
         const detail = event.request.error?.message;
         functionFormView.setStatus(event.request.status, detail);
       }
+
+      if (event.request.error) {
+        connectionBanner.setState({
+          ...baseBannerState,
+          status: "degraded",
+          message: event.request.error.message,
+        });
+      } else if (event.request.status === "confirmed") {
+        connectionBanner.setState({
+          ...baseBannerState,
+          status: "connected",
+          message: "RPC 节点连接正常",
+        });
+      }
     });
 
-    const items = await buildContractListItems(config.contracts, registry);
+    const items = await buildContractListItems(envConfig.contracts, startup.registry);
 
     if (items.length === 0) {
       updateStatus(statusEl, "未找到任何合约配置", "error");
@@ -141,22 +186,23 @@ async function bootstrap(): Promise<void> {
       updateStatus(statusEl, `已加载 ${items.length} 个合约`, "success");
     }
 
-    if (meta.contractsPath) {
-      statusEl.dataset.contractsPath = meta.contractsPath;
+    if (configContext.meta.contractsPath) {
+      statusEl.dataset.contractsPath = configContext.meta.contractsPath;
     }
 
     root.dataset.status = "ready";
   } catch (error) {
     root.dataset.status = "error";
-    if (statusEl) {
-      if (error instanceof CallExecutionError) {
-        updateStatus(statusEl, error.detail.message, "error");
-      } else if (error instanceof Error) {
-        updateStatus(statusEl, error.message, "error");
-      } else {
-        updateStatus(statusEl, "初始化失败", "error");
-      }
-    }
+    const detail =
+      error instanceof CallExecutionError
+        ? error.detail
+        : {
+            code: error instanceof Error ? error.name || "UNEXPECTED" : "UNEXPECTED",
+            message: error instanceof Error ? error.message : "初始化失败",
+            raw: error,
+          };
+    updateStatus(statusEl, detail.message, "error");
+    errorOverlay.show(detail);
   }
 }
 
@@ -165,18 +211,20 @@ function createShellTemplate(): string {
     <main id="app-shell">
       <aside id="contract-list" aria-label="合约列表"></aside>
       <section id="workspace">
+        <section id="connection-banner" aria-label="连接状态"></section>
         <section id="function-form" aria-label="函数表单"></section>
         <section id="status-panel" aria-label="状态栏" data-state="idle">系统尚未准备。</section>
         <section id="log-panel" aria-label="日志面板"></section>
       </section>
       <aside id="history-panel" aria-label="调用历史"></aside>
     </main>
+    <section id="error-overlay" aria-hidden="true"></section>
   `;
 }
 
 async function buildContractListItems(
   descriptors: ContractDescriptor[],
-  registry: ReturnType<typeof createAbiRegistry>,
+  registry: AbiRegistry,
 ): Promise<ContractListItem[]> {
   const items: ContractListItem[] = [];
 
@@ -207,6 +255,7 @@ async function handleExecution(
   statusEl: HTMLElement,
   functionFormView: FunctionFormView,
   activeRequestRef: { id: string | null },
+  errorOverlay: ErrorOverlay,
 ): Promise<void> {
   const baseRequest: CallRequest = {
     id: crypto.randomUUID(),
@@ -227,6 +276,7 @@ async function handleExecution(
   functionFormView.setStatus(tracked.status, "待执行");
 
   activeRequestRef.id = tracked.id;
+  errorOverlay.hide();
 
   updateStatus(statusEl, `已发起 ${context.fn.signature}`, "info");
 
@@ -285,6 +335,7 @@ async function handleExecution(
       });
       updateStatus(statusEl, "读取成功", "success");
       functionFormView.setStatus("confirmed", "读取成功");
+      errorOverlay.hide();
     } else {
       const target = records.get(tracked.id);
       if (target) {
@@ -298,6 +349,7 @@ async function handleExecution(
       });
       updateStatus(statusEl, `交易 ${result.txHash} 已确认`, "success");
       functionFormView.setStatus("confirmed", "交易已确认");
+      errorOverlay.hide();
     }
   } catch (error) {
     const detail =
@@ -323,6 +375,7 @@ async function handleExecution(
 
     updateStatus(statusEl, detail.message, "error");
     functionFormView.setStatus("failed", detail.message);
+    errorOverlay.show(detail);
 
     if (error instanceof CallExecutionError) {
       throw error;
