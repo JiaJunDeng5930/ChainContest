@@ -1,6 +1,6 @@
 import { getAddress, JsonRpcProvider } from "ethers";
 
-import type { EnvironmentConfig } from "./config";
+import type { EnvironmentConfig } from "../lib/types";
 
 export class ProviderConnectionError extends Error {
   constructor(message: string, options?: ErrorOptions) {

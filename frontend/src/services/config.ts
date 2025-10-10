@@ -1,5 +1,7 @@
 import { z } from "zod";
 
+import type { ContractDescriptor, EnvironmentConfig } from "../lib/types";
+
 export class ConfigLoadError extends Error {
   constructor(message: string, options?: ErrorOptions) {
     super(message, options);
@@ -41,39 +43,40 @@ const envSchema = z.object({
   VITE_CONTRACTS_PATH: z.string().min(1).optional(),
 });
 
-const contractDescriptorSchema = z.object({
-  id: z.string().min(1),
-  name: z.string().min(1),
-  address: z
-    .string()
-    .transform((value) => value.trim())
-    .refine((value) => addressPattern.test(value), {
-      message: "address must be 0x-prefixed checksum address",
-    }),
-  abiPath: z.string().min(1),
-  tags: z.array(z.string().min(1)).optional(),
-});
+const contractDescriptorSchema = z
+  .object({
+    id: z.string().min(1),
+    name: z.string().min(1),
+    address: z
+      .string()
+      .transform((value) => value.trim())
+      .refine((value) => addressPattern.test(value), {
+        message: "address must be 0x-prefixed checksum address",
+      }),
+    abiPath: z.string().min(1),
+    tags: z.array(z.string().min(1)).optional(),
+  })
+  .strict() as unknown as z.ZodType<ContractDescriptor>;
 
-const runtimeSchema = z.object({
-  rpcUrl: z.string().url(),
-  chainId: z.coerce.number().int().positive(),
-  devPort: z.coerce
-    .number()
-    .int()
-    .min(1024)
-    .max(65535),
-  defaultAccount: z
-    .string()
-    .transform((value) => value.trim())
-    .refine((value) => addressPattern.test(value), {
-      message: "defaultAccount must be an EOA address",
-    })
-    .optional(),
-  contracts: z.array(contractDescriptorSchema).min(1),
-});
-
-export type EnvironmentConfig = z.infer<typeof runtimeSchema>;
-export type ContractDescriptor = z.infer<typeof contractDescriptorSchema>;
+const runtimeSchema = z
+  .object({
+    rpcUrl: z.string().url(),
+    chainId: z.coerce.number().int().positive(),
+    devPort: z.coerce
+      .number()
+      .int()
+      .min(1024)
+      .max(65535),
+    defaultAccount: z
+      .string()
+      .transform((value) => value.trim())
+      .refine((value) => addressPattern.test(value), {
+        message: "defaultAccount must be an EOA address",
+      })
+      .optional(),
+    contracts: z.array(contractDescriptorSchema).min(1),
+  })
+  .strict() as unknown as z.ZodType<EnvironmentConfig>;
 
 export interface ConfigLoadOptions {
   signal?: AbortSignal;
@@ -188,10 +191,7 @@ async function fetchRuntimeConfig(
   return parsed.data;
 }
 
-function validateCombinedConfig(
-  merged: EnvironmentConfig,
-  overrides: Partial<EnvironmentConfig>,
-): EnvironmentConfig {
+function validateCombinedConfig(merged: EnvironmentConfig): EnvironmentConfig {
   const parsed = runtimeSchema.safeParse(merged);
 
   if (!parsed.success) {
@@ -199,19 +199,6 @@ function validateCombinedConfig(
       "Merged configuration is invalid",
       parsed.error.issues,
     );
-  }
-
-  // Extra guard: ensure overrides do not remove required fields inadvertently.
-  if (!parsed.data.contracts.length) {
-    throw new ConfigValidationError("contracts list cannot be empty", []);
-  }
-
-  if (!parsed.data.rpcUrl) {
-    throw new ConfigValidationError("rpcUrl is required", []);
-  }
-
-  if (overrides.defaultAccount && !addressPattern.test(overrides.defaultAccount)) {
-    throw new ConfigValidationError("defaultAccount override must be address", []);
   }
 
   return parsed.data;
@@ -234,7 +221,7 @@ export async function loadEnvironmentConfig(
     contracts: runtime.contracts,
   };
 
-  const config = validateCombinedConfig(merged, overrides);
+  const config = validateCombinedConfig(merged);
 
   return {
     config,
