@@ -24,7 +24,7 @@
 **Purpose**: 建立基线资料与目录，为后续实现提供输入
 
 - [X] T001 [Setup] 汇总 `contracts/src` 中全部公共、公有、外部函数、事件、错误，记录到 `specs/003-natspec-npm-hardhat/checklists/public-interfaces.md` 供覆盖追踪
-- [ ] T002 [P] [Setup] 新建 `contracts/docgen/templates/` 与 `contracts/scripts/docs/` 目录及各自的 `README.md`，说明目录用途与约束
+- [X] T002 [P] [Setup] 新建 `contracts/docgen/templates/` 与 `contracts/scripts/docs/` 目录及各自的 `README.md`，说明目录用途与约束
 
 ---
 
