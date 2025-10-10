@@ -8,11 +8,11 @@
 **Organization**: Tasks are grouped by user story to enable independent implementation and testing of each story.
 
 ## Constitutional Gates *(mandatory)*
-- [ ] 安全优先栈：T006, T012, T018, T023 确保链上写操作前置校验、失败回滚与阻断策略
-- [ ] 链上真相：T009, T012, T015 保证以链上回执/事件为唯一真相并可重放
-- [ ] 去信任执行：T006, T012, T015 拆分输入/校验/提交/回执流程，保持幂等与显式边界
-- [ ] 最小功能与权限：T001, T002, T014 限定仅暴露合约原生接口与最小依赖
-- [ ] 可解释与性能：T016, T017, T025 提供可审计日志与导出，同时保持秒级反馈
+- [X] 安全优先栈：T006, T012, T018, T023 确保链上写操作前置校验、失败回滚与阻断策略
+- [X] 链上真相：T009, T012, T015 保证以链上回执/事件为唯一真相并可重放
+- [X] 去信任执行：T006, T012, T015 拆分输入/校验/提交/回执流程，保持幂等与显式边界
+- [X] 最小功能与权限：T001, T002, T014 限定仅暴露合约原生接口与最小依赖
+- [X] 可解释与性能：T016, T017, T025 提供可审计日志与导出，同时保持秒级反馈
 
 ## Format: `[ID] [P?] [Story] Description`
 - **[P]**: Can run in parallel (different files, no dependencies)
