@@ -88,7 +88,7 @@
 
 - [X] T020 [P] [US3] 编写启动握手流程 `frontend/src/services/startup.ts`，串联配置加载、RPC 连通性检测与阻断逻辑
 - [X] T021 [US3] 新建端口占用检测脚本 `frontend/scripts/ensurePortAvailable.ts`，在 dev 命令前运行并提示冲突处理
-- [ ] T022 [P] [US3] 构建连接状态横幅 `frontend/src/views/connectionBanner.ts`，展示当前 RPC、链 ID 与节点评估结果
+- [X] T022 [P] [US3] 构建连接状态横幅 `frontend/src/views/connectionBanner.ts`，展示当前 RPC、链 ID 与节点评估结果
 - [ ] T023 [US3] 在 `frontend/src/main.ts` 中处理配置错误分支，阻断 UI 初始化并呈现修复指南
 
 **Checkpoint**: 全部用户故事可独立运行并覆盖多环境配置
