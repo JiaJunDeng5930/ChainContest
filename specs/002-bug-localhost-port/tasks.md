@@ -35,7 +35,7 @@
 **Purpose**: 构建所有用户故事共享的核心服务与页面骨架  
 **⚠️ CRITICAL**: 完成前不得开始任何用户故事实现
 
-- [ ] T005 [Foundation] 实现配置加载与校验模块 `frontend/src/services/config.ts`，从 `import.meta.env` 与 `/api/runtime/config` 汇总配置并验证字段完整性
+- [X] T005 [Foundation] 实现配置加载与校验模块 `frontend/src/services/config.ts`，从 `import.meta.env` 与 `/api/runtime/config` 汇总配置并验证字段完整性
 - [ ] T006 [P] [Foundation] 编写 RPC 提供者工厂 `frontend/src/services/provider.ts`，调用 `eth_accounts`/`personal_listAccounts` 验证节点解锁账户，失败时抛出阻断错误
 - [ ] T007 [Foundation] 定义领域类型与状态模型 `frontend/src/lib/types.ts`，覆盖 EnvironmentConfig、ContractDescriptor、ContractFunction、CallRequest、LogEntry、ErrorDetail
 - [ ] T008 [Foundation] 搭建基础 HTML 框架，在 `frontend/public/index.html` 中创建合约列表、函数表单、状态栏、日志面板容器
