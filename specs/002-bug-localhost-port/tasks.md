@@ -99,7 +99,7 @@
 
 **Purpose**: 完成跨故事的收尾与可审计交付
 
-- [ ] T024 [Polish] 更新 `frontend/README.md` 与 `specs/002-bug-localhost-port/quickstart.md`，同步最新启动与使用指引
+- [X] T024 [Polish] 更新 `frontend/README.md` 与 `specs/002-bug-localhost-port/quickstart.md`，同步最新启动与使用指引
 - [ ] T025 [P] [Polish] 实现日志与调用历史导出功能 `frontend/src/services/exporter.ts`，支持 JSON 下载
 - [ ] T026 [Polish] 依据 Quickstart 执行全旅程手动验收并记录结论于 `docs/reports/002-bug-localhost-port.md`
 
