@@ -6,6 +6,8 @@ Auto-generated from all feature plans. Last updated: 2025-10-08
 - Solidity ^0.8.x（合约）、TypeScript 5.x（前端 SPA） + Hardhat（编译/测试/部署）、Ethers.js（前端 RPC 交互）、Uniswap v3 TWAP 接口、OpenZeppelin 库（待确认具体模块） (001-top-k)
 - Node.js 20 (server), TypeScript 5.x 构建脚本，HTML5 + htmx 1.9 (客户端) + Express 5 beta（服务器端路由与模板响应）、ethers 6.x（链上交互）、htmx 1.9.x（前端局部刷新）、lucide 图标集（可选，待评估） (002-html-css-htmx)
 - N/A（所有状态实时来自链上或临时内存缓存） (002-html-css-htmx)
+- Node.js 20.x、TypeScript 5.x、Solidity 0.8.x (合约编译与示例参考) + Hardhat 2.26.x、pnpm 9.x 工作区、Vite 5.x、Vitest 1.x、Playwright 1.46.x、Ethers 6.x (004-hardhat)
+- N/A（文档仅描述链上本地节点状态，无持久化改动） (004-hardhat)
 
 ## Project Structure
 ```
@@ -20,6 +22,7 @@ npm test [ONLY COMMANDS FOR ACTIVE TECHNOLOGIES][ONLY COMMANDS FOR ACTIVE TECHNO
 Solidity ^0.8.x（合约）、TypeScript 5.x（前端 SPA）: Follow standard conventions
 
 ## Recent Changes
+- 004-hardhat: Added Node.js 20.x、TypeScript 5.x、Solidity 0.8.x (合约编译与示例参考) + Hardhat 2.26.x、pnpm 9.x 工作区、Vite 5.x、Vitest 1.x、Playwright 1.46.x、Ethers 6.x
 - 002-html-css-htmx: Added Node.js 20 (server), TypeScript 5.x 构建脚本，HTML5 + htmx 1.9 (客户端) + Express 5 beta（服务器端路由与模板响应）、ethers 6.x（链上交互）、htmx 1.9.x（前端局部刷新）、lucide 图标集（可选，待评估）
 - 001-top-k: Added Solidity ^0.8.x（合约）、TypeScript 5.x（前端 SPA） + Hardhat（编译/测试/部署）、Ethers.js（前端 RPC 交互）、Uniswap v3 TWAP 接口、OpenZeppelin 库（待确认具体模块）
 
