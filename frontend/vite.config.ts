@@ -1,9 +1,7 @@
 import { resolve } from "node:path";
-import { defineConfig } from "vite";
+import { defineConfig, loadEnv } from "vite";
 
-function resolveDevPort(): number {
-  const provided = process.env.VITE_DEV_PORT;
-
+function resolveDevPort(provided: string | undefined): number {
   if (!provided) {
     return 5173;
   }
@@ -17,24 +15,41 @@ function resolveDevPort(): number {
   return parsed;
 }
 
-export default defineConfig({
-  server: {
-    port: resolveDevPort(),
-    strictPort: true,
-  },
-  preview: {
-    port: resolveDevPort(),
-  },
-  test: {
-    environment: "jsdom",
-    setupFiles: "./vitest.setup.ts",
-    coverage: {
-      reporter: ["text", "html"],
+export default defineConfig(({ mode }) => {
+  const env = loadEnv(mode, process.cwd(), "");
+  const port = resolveDevPort(env.VITE_DEV_PORT ?? process.env.VITE_DEV_PORT);
+
+  return {
+    server: {
+      port,
+      strictPort: true,
     },
-  },
-  build: {
-    rollupOptions: {
-      input: resolve(__dirname, "index.html"),
+    preview: {
+      port,
     },
-  },
+    test: {
+      environment: "jsdom",
+      setupFiles: "./vitest.setup.ts",
+      include: [
+        "src/**/*.{test,spec}.{ts,tsx}",
+        "tests/**/*.{test,spec}.{ts,tsx}",
+      ],
+      exclude: [
+        "node_modules/**",
+        "dist/**",
+        "tests/e2e/**",
+        "playwright-report/**",
+        "coverage/**",
+      ],
+      passWithNoTests: true,
+      coverage: {
+        reporter: ["text", "html"],
+      },
+    },
+    build: {
+      rollupOptions: {
+        input: resolve(__dirname, "index.html"),
+      },
+    },
+  };
 });
