@@ -1,7 +1,3 @@
-# Ignore existing directories in the repository root
-.specify/
-specs/
-
 # Generated artifacts
 node_modules/
 contracts/node_modules/
