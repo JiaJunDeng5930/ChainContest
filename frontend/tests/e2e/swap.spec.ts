@@ -201,7 +201,7 @@ test.beforeAll(async () => {
 
   hardhatProcess = spawn(
     "pnpm",
-    ["--filter", "@bc/contracts", "node", "--hostname", HARDHAT_HOST, "--port", `${HARDHAT_PORT}`],
+    ["--filter", "@chaincontest/contracts", "node", "--hostname", HARDHAT_HOST, "--port", `${HARDHAT_PORT}`],
     {
       cwd: repoRoot,
       stdio: "pipe",
@@ -217,7 +217,7 @@ test.beforeAll(async () => {
     [
       "pnpm",
       "--filter",
-      "@bc/contracts",
+      "@chaincontest/contracts",
       "exec",
       "--",
       "hardhat",
@@ -249,7 +249,7 @@ test.beforeAll(async () => {
 
   viteProcess = spawn(
     "pnpm",
-    ["--filter", "@bc/frontend", "dev", "--host", "127.0.0.1", "--port", `${VITE_PORT}`],
+    ["--filter", "@chaincontest/frontend", "dev", "--host", "127.0.0.1", "--port", `${VITE_PORT}`],
     {
       cwd: repoRoot,
       stdio: "pipe",

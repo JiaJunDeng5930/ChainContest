@@ -28,7 +28,7 @@
 | --- | --- | --- |
 | Node.js | 20.x LTS | 使用 `fnm` 或 `nvm` 安装，确保 `node -v` 输出以 `v20` 开头 |
 | pnpm | 9.x | 可通过 `corepack enable` 后运行 `corepack prepare pnpm@9 --activate` |
-| Hardhat CLI | 2.26.x（随 `@bc/contracts` 安装） | 通过 `pnpm --filter @bc/contracts node --version` 验证 |
+| Hardhat CLI | 2.26.x（随 `@chaincontest/contracts` 安装） | 通过 `pnpm --filter @chaincontest/contracts node --version` 验证 |
 | Git | 2.42+ | 需具备读取仓库与切换分支权限 |
 | 可选：Docker | 24.x | 仅在需要额外服务时使用，本文流程不强制 |
 
@@ -59,14 +59,14 @@
    - Hardhat 节点默认占用 `8545`（RPC）与 `8546`（WebSocket）。执行 `lsof -i :8545` 或 `ss -ltnp | grep 8545` 确认无占用进程。
    - 前端 Vite 开发服务器默认使用 `4100` 端口；如与其他服务冲突，可提前在 `.env.local` 中调整 `VITE_DEV_PORT`。
 5. **准备凭证存储**
-   - 建议在 `~/.config/bc-hardhat/` 或团队约定目录创建加密存储，用于临时保存脚本输出的私钥。任何共享凭证需在演练后立即轮换。
+   - 建议在 `~/.config/chaincontest-hardhat/` 或团队约定目录创建加密存储，用于临时保存脚本输出的私钥。任何共享凭证需在演练后立即轮换。
 
 ## 安全策略与幂等原则
 
 1. **凭证隔离**：所有示例仅依赖 Hardhat 自动生成的 20 个本地区块链账户。禁止导入主网或测试网私钥；若需共享签名能力，请使用 `register-setup.ts` 输出的新助记词并在完成演示后销毁。
-2. **链状态重置**：当链状态不可预期或测试需要回滚时，立即停止 Hardhat 节点终端并重新执行 `pnpm --filter @bc/contracts node`。该命令默认在内存中保存状态，重启后将恢复到创世区块。若需强制清理构建产物，可先运行 `pnpm --filter @bc/contracts hardhat clean`。
+2. **链状态重置**：当链状态不可预期或测试需要回滚时，立即停止 Hardhat 节点终端并重新执行 `pnpm --filter @chaincontest/contracts node`。该命令默认在内存中保存状态，重启后将恢复到创世区块。若需强制清理构建产物，可先运行 `pnpm --filter @chaincontest/contracts hardhat clean`。
 3. **部署幂等性**：所有部署脚本均通过 Hardhat 提供的 `--network localhost` 连接。重复执行 `register-setup.ts` 将覆盖合约地址；请在每次执行后同步更新 runtime 配置，确保前端读取到最新地址。
-4. **清理与降级路径**：完成演练后，运行 `pnpm --filter @bc/contracts hardhat clean` 并删除本地 `.env.local` 中的敏感临时凭证。若遇到脚本异常，可按照“失败判定与恢复”章节，手动删除 `frontend/public/api/runtime/config` 中的临时输出并重走部署流程。
+4. **清理与降级路径**：完成演练后，运行 `pnpm --filter @chaincontest/contracts hardhat clean` 并删除本地 `.env.local` 中的敏感临时凭证。若遇到脚本异常，可按照“失败判定与恢复”章节，手动删除 `frontend/public/api/runtime/config` 中的临时输出并重走部署流程。
 5. **日志审计**：保留所有终端输出与测试日志 7 天，以供审计和故障回溯；禁止在公共频道分享含私钥或密钥片段的日志。
 
 ## 启动 Hardhat 节点
@@ -74,7 +74,7 @@
 1. **构建并启动**
    ```bash
    pnpm install
-   pnpm --filter @bc/contracts node
+   pnpm --filter @chaincontest/contracts node
    ```
    - 第一条命令确保 `contracts/` 包依赖最新。
    - 第二条命令将启动 Hardhat 内置网络（默认 127.0.0.1:8545），进程会持续前台运行，请保持该终端开启。
@@ -94,7 +94,7 @@
    curl -s -X POST http://127.0.0.1:8545      -H 'Content-Type: application/json'      -d '{"jsonrpc":"2.0","id":1,"method":"eth_blockNumber","params":[]}'
    ```
    返回示例：`{"jsonrpc":"2.0","id":1,"result":"0x0"}`。
-4. **账户校验**：执行 `pnpm --filter @bc/contracts hardhat accounts` 可再次列出账户，确保脚本依赖的 signer 可用。
+4. **账户校验**：执行 `pnpm --filter @chaincontest/contracts hardhat accounts` 可再次列出账户，确保脚本依赖的 signer 可用。
 5. **终止节点**：按 `Ctrl+C` 停止。由于 Hardhat 使用内存链，每次重新启动都会回到创世状态；若需要保留链状态，请勿频繁重启。
 
 ## 部署脚本与前端同步
@@ -102,7 +102,7 @@
 1. **打开新的终端**：保持 Hardhat 节点运行，在另一个终端切换到仓库根目录。
 2. **执行部署脚本**：
    ```bash
-   pnpm --filter @bc/contracts hardhat run scripts/e2e/register-setup.ts --network localhost
+   pnpm --filter @chaincontest/contracts hardhat run scripts/e2e/register-setup.ts --network localhost
    ```
    - 若首次执行，会编译合约并自动部署 Contest、Vault、Mock 资产等组件。
    - 运行成功后终端会输出一段格式化 JSON。
@@ -176,7 +176,7 @@ Hardhat 部署脚本输出的 JSON 需要按照 `specs/004-hardhat/contracts/run
    ```
    - 所有地址必须为 0x 开头的 40 位十六进制字符串。
    - `contracts` 可包含多个条目；请确保与 `register-setup.ts` 输出一致。
-4. **合法性检查**：执行 `pnpm --filter frontend lint:config`（若存在脚本）或 `node -e "JSON.parse(require('fs').readFileSync('frontend/public/api/runtime/config','utf8'))"` 验证 JSON 格式正确。
+4. **合法性检查**：执行 `pnpm --filter @chaincontest/frontend lint:config`（若存在脚本）或 `node -e "JSON.parse(require('fs').readFileSync('frontend/public/api/runtime/config','utf8'))"` 验证 JSON 格式正确。
 5. **共享规范**：将最终配置文件归档到项目内部文档或共享盘，命名建议为 `runtime-config-YYYYMMDD.json`，方便他人复用。
 
 ## 启动前端站点
@@ -193,7 +193,7 @@ Hardhat 部署脚本输出的 JSON 需要按照 `specs/004-hardhat/contracts/run
    - 若选择直接将合约列表与运行时配置合并，可将 `VITE_CONTRACTS_PATH` 指向 `./public/api/runtime/config`，同时在前端界面中会展示该路径。
 2. **启动开发服务器**：
    ```bash
-   pnpm --filter frontend dev
+   pnpm --filter @chaincontest/frontend dev
    ```
    - 启动脚本会自动检测端口冲突；若端口被占用，将提示占用进程 PID 与解除方法。
    - 成功启动后终端会输出 `VITE v5` banner 与访问地址（默认 `http://localhost:4100/`）。
@@ -224,30 +224,30 @@ Hardhat 部署脚本输出的 JSON 需要按照 `specs/004-hardhat/contracts/run
 | --- | --- | --- | --- | --- | --- |
 | 环境核查 | 5 分钟 | `node -v`、`pnpm -v`、端口检查 | 版本满足要求，端口未占用 | 版本不符或端口被占用 | 重新安装工具链，释放端口或更新 `.env.local` 中的端口 |
 | 安装依赖 | 8 分钟 | `pnpm install` | 所有 workspace 包安装成功，无 error | pnpm 安装超时或失败 | 检查网络代理；执行 `pnpm install --offline` 使用本地缓存 |
-| 启动节点 | 5 分钟 | `pnpm --filter @bc/contracts node` | 终端输出账户列表，RPC 健康检查返回 `0x0` | 启动时报错或无账户输出 | 按 `Ctrl+C` 后重新执行；若编译失败先运行 `pnpm --filter @bc/contracts hardhat clean` |
-| 部署脚本 | 7 分钟 | `pnpm --filter @bc/contracts hardhat run ...` | 输出 JSON 包含地址、私钥 | 报错 `network connection` 或 `insufficient funds` | 确认节点仍在运行；必要时重启节点后重试 |
+| 启动节点 | 5 分钟 | `pnpm --filter @chaincontest/contracts node` | 终端输出账户列表，RPC 健康检查返回 `0x0` | 启动时报错或无账户输出 | 按 `Ctrl+C` 后重新执行；若编译失败先运行 `pnpm --filter @chaincontest/contracts hardhat clean` |
+| 部署脚本 | 7 分钟 | `pnpm --filter @chaincontest/contracts hardhat run ...` | 输出 JSON 包含地址、私钥 | 报错 `network connection` 或 `insufficient funds` | 确认节点仍在运行；必要时重启节点后重试 |
 | 同步前端配置 | 5 分钟 | 更新 `frontend/public/api/runtime/config` | 文件更新后无 JSON lint 报错 | JSON 语法错误或缺字段 | 使用 `jq` 校验 JSON；参考样例重新填充 |
-| 前端联调 | 10 分钟 | `pnpm --filter frontend dev` | 浏览器加载合约数据，Console 无错误 | 页面报错无法读取配置 | 检查 `.env.local` 与 runtime 配置；参阅“前端常见故障排查” |
-| 测试抽样 | 5 分钟 | `pnpm --filter @bc/contracts test`（抽样） | 测试通过，生成报告 | 测试失败或依赖缺失 | 根据“测试矩阵”与“失败判定与恢复”处理 |
+| 前端联调 | 10 分钟 | `pnpm --filter @chaincontest/frontend dev` | 浏览器加载合约数据，Console 无错误 | 页面报错无法读取配置 | 检查 `.env.local` 与 runtime 配置；参阅“前端常见故障排查” |
+| 测试抽样 | 5 分钟 | `pnpm --filter @chaincontest/contracts test`（抽样） | 测试通过，生成报告 | 测试失败或依赖缺失 | 根据“测试矩阵”与“失败判定与恢复”处理 |
 
 ## 测试矩阵
 
 | 套件 | 角色 | 命令 | 预计耗时 | 预期输出 | 前置条件 |
 | --- | --- | --- | --- | --- | --- |
-| 合约单测 (`contracts-unit`) | 新成员 / 测试 | `pnpm --filter @bc/contracts test` | 8-10 分钟 | 所有测试 `passing`，生成 gas 报告（如启用） | Hardhat 节点可选，不强制；需完成依赖安装 |
-| 合约类型检查 | 新成员 | `pnpm --filter @bc/contracts typecheck` | 2 分钟 | TypeScript 无错误输出 | 同上 |
-| 前端单测 (`frontend-unit`) | 前端 / 测试 | `pnpm --filter frontend test` | 3-5 分钟 | Vitest 报告 0 failed，用例覆盖核心服务 | 需完成 runtime 配置，允许在无节点情况下运行 |
-| 前端端到端 (`frontend-e2e`) | 测试 | `pnpm --filter frontend test:e2e` | 7-12 分钟 | Playwright 通过，生成 HTML 报告于 `frontend/playwright-report/` | 要求前端 dev 服务器与 Hardhat 节点同时运行 |
+| 合约单测 (`contracts-unit`) | 新成员 / 测试 | `pnpm --filter @chaincontest/contracts test` | 8-10 分钟 | 所有测试 `passing`，生成 gas 报告（如启用） | Hardhat 节点可选，不强制；需完成依赖安装 |
+| 合约类型检查 | 新成员 | `pnpm --filter @chaincontest/contracts typecheck` | 2 分钟 | TypeScript 无错误输出 | 同上 |
+| 前端单测 (`frontend-unit`) | 前端 / 测试 | `pnpm --filter @chaincontest/frontend test` | 3-5 分钟 | Vitest 报告 0 failed，用例覆盖核心服务 | 需完成 runtime 配置，允许在无节点情况下运行 |
+| 前端端到端 (`frontend-e2e`) | 测试 | `pnpm --filter @chaincontest/frontend test:e2e` | 7-12 分钟 | Playwright 通过，生成 HTML 报告于 `frontend/playwright-report/` | 要求前端 dev 服务器与 Hardhat 节点同时运行 |
 | 手工旅程复核 | 测试 | 按本指南“时间线”执行并记录 | 15 分钟 | 表格中所有检查项通过，记录截图与日志 | 节点、前端、配置均已就绪 |
 
 ### 失败判定与恢复
 
 | 套件 | 常见失败信号 | 日志 / 报告 | 恢复步骤 |
 | --- | --- | --- | --- |
-| 合约单测 | Hardhat 抛出 `Error: VM Exception`、Gas 报告缺失 | 终端输出、`contracts/artifacts/test-results/`（若生成） | 重新运行 `pnpm --filter @bc/contracts node` 保证链状态干净；执行 `pnpm --filter @bc/contracts hardhat clean` 后再试；记录失败交易哈希 |
+| 合约单测 | Hardhat 抛出 `Error: VM Exception`、Gas 报告缺失 | 终端输出、`contracts/artifacts/test-results/`（若生成） | 重新运行 `pnpm --filter @chaincontest/contracts node` 保证链状态干净；执行 `pnpm --filter @chaincontest/contracts hardhat clean` 后再试；记录失败交易哈希 |
 | 合约类型检查 | `TS2580` 或 `Cannot find module` | 终端输出 | 确认 `tsconfig.json` 引用路径未被移动；重新安装依赖或执行 `pnpm install --force` |
-| 前端单测 | Vitest 显示 `ReferenceError: fetch is not defined` 等 | `frontend/test-results/`（若配置）与终端 | 确认测试环境使用 jsdom（已默认）；如缺依赖执行 `pnpm --filter frontend install`；清理缓存 `pnpm store prune` |
-| 前端端到端 | Playwright 报告 `retry #2 failed`、截图显示空白页 | `frontend/playwright-report/index.html`、`frontend/playwright-report/data/` | 确认 Hardhat 节点与前端 dev 服务均运行；执行 `pnpm --filter frontend test:e2e --debug` 观察步骤；如账号缺失，重新同步 runtime config |
+| 前端单测 | Vitest 显示 `ReferenceError: fetch is not defined` 等 | `frontend/test-results/`（若配置）与终端 | 确认测试环境使用 jsdom（已默认）；如缺依赖执行 `pnpm --filter @chaincontest/frontend install`；清理缓存 `pnpm store prune` |
+| 前端端到端 | Playwright 报告 `retry #2 failed`、截图显示空白页 | `frontend/playwright-report/index.html`、`frontend/playwright-report/data/` | 确认 Hardhat 节点与前端 dev 服务均运行；执行 `pnpm --filter @chaincontest/frontend test:e2e --debug` 观察步骤；如账号缺失，重新同步 runtime config |
 | 手工旅程 | 表格检查项未完成或时间超出 45 分钟 | 自行记录的 Markdown/截图 | 回到对应章节复查；如多次失败，将原因同步到 README FAQ 并安排补充文档 |
 
 **异常升级流程**：连续两次运行同一套件失败时，将终端日志与配置备份上传到 `docs/reports/YYYYMMDD/` 并通知文档负责人，直到问题关闭前暂停相关交付。

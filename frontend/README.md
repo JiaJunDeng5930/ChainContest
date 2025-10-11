@@ -19,13 +19,13 @@
 ## 安装依赖
 
 ```bash
-pnpm --filter frontend install
+pnpm --filter @chaincontest/frontend install
 ```
 
 ## 本地开发
 
 ```bash
-pnpm --filter frontend dev
+pnpm --filter @chaincontest/frontend dev
 ```
 
 - `predev` 钩子会执行端口占用检测脚本，如端口被占用会直接阻断启动并输出解决提示。
