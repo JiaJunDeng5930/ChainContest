@@ -1,6 +1,6 @@
 > ⚙️**自动生成文档**
-> - 提交哈希：858be976e9e1aa1504f81b1bc6fd2c77bc44fdb0
-> - 生成时间 (UTC)：2025-10-10T13:34:22.954Z
+> - 提交哈希：fb3275b1e01e32fcb30583864d9ec4ae6f43610f
+> - 生成时间 (UTC)：2025-10-17T14:10:17.127Z
 > - 命令：pnpm --filter contracts docs:generate
 
 
@@ -376,6 +376,7 @@ enum ContestState {
 struct ContestConfig {
   contract IERC20 entryAsset;
   uint256 entryAmount;
+  uint256 entryFee;
   address priceSource;
   address swapPool;
   uint16 priceToleranceBps;
@@ -402,6 +403,7 @@ struct InitializeParams {
   bytes32 contestId;
   struct Contest.ContestConfig config;
   struct Contest.ContestTimeline timeline;
+  uint256 initialPrizeAmount;
   uint16[32] payoutSchedule;
   address vaultImplementation;
   address vaultFactory;
@@ -455,6 +457,12 @@ uint64 sealedAt
 
 ```solidity
 uint256 prizePool
+```
+
+### initialPrizeAmount
+
+```solidity
+uint256 initialPrizeAmount
 ```
 
 ### participantVaults
@@ -587,11 +595,34 @@ event ContestInitialized(bytes32 contestId, struct Contest.ContestConfig config,
 #### 示例
 部署者调用 `initialize` 后，前端订阅该事件更新 UI。
 
+<a id="contest-event-prize-pool-funded"></a>
+### 事件 PrizePoolFunded
+
+```solidity
+event PrizePoolFunded(bytes32 contestId, address sender, uint256 amount, uint256 newBalance)
+```
+
+**事件说明：** 记录奖金池新增资金的来源与余额。
+
+**补充信息：** 初始化与报名都会触发该事件，为审计提供资金轨迹。
+
+#### 参数
+
+| 名称 | 类型 | 说明 |
+| ---- | ---- | ---- |
+| contestId | bytes32 | 比赛标识符。 |
+| sender | address | 资金提供者地址。 |
+| amount | uint256 | 本次注入的金额。 |
+| newBalance | uint256 | 注资后的奖金池余额。 |
+
+#### 示例
+初始化注入初始奖金或报名缴纳参赛费时触发。
+
 <a id="contest-event-contest-registered"></a>
 ### 事件 ContestRegistered
 
 ```solidity
-event ContestRegistered(bytes32 contestId, address participant, address vault, uint256 amount)
+event ContestRegistered(bytes32 contestId, address participant, address vault, uint256 entryAmount, uint256 entryFee)
 ```
 
 **事件说明：** 参赛者成功报名并完成 Vault 部署时触发。
@@ -605,10 +636,11 @@ event ContestRegistered(bytes32 contestId, address participant, address vault, u
 | contestId | bytes32 | 比赛标识符。 |
 | participant | address | 参赛者地址。 |
 | vault | address | 新部署的 Vault 地址。 |
-| amount | uint256 | 本次报名转入的基础资产数量。 |
+| entryAmount | uint256 | 本次报名划入 Vault 的本金数量。 |
+| entryFee | uint256 | 本次报名缴纳到比赛奖金池的参赛费用。 |
 
 #### 示例
-前端监听事件以在排行榜中新增参赛者。
+前端监听事件以在排行榜中新增参赛者并同步参赛费。
 
 <a id="contest-event-contest-registration-closed"></a>
 ### 事件 ContestRegistrationClosed
@@ -939,6 +971,43 @@ error ContestInsufficientStake(uint256 balance, uint256 required)
 
 #### 示例
 报名资产余额小于配置值时触发。
+
+<a id="contest-error-contest-entry-fee-invalid"></a>
+### 错误 ContestEntryFeeInvalid
+
+```solidity
+error ContestEntryFeeInvalid(uint256 entryFee)
+```
+
+**触发场景：** 初始化或报名阶段传入的参赛费金额无效时抛出。
+
+#### 参数
+
+| 名称 | 类型 | 说明 |
+| ---- | ---- | ---- |
+| entryFee | uint256 | 传入的参赛费金额。 |
+
+#### 示例
+参赛费导致总金额溢出或与配置不一致。
+
+<a id="contest-error-contest-prize-pool-insufficient"></a>
+### 错误 ContestPrizePoolInsufficient
+
+```solidity
+error ContestPrizePoolInsufficient(uint256 balance, uint256 required)
+```
+
+**触发场景：** 奖金池余额不足以支付本次发放金额时抛出。
+
+#### 参数
+
+| 名称 | 类型 | 说明 |
+| ---- | ---- | ---- |
+| balance | uint256 | 当前奖金池余额。 |
+| required | uint256 | 本次领奖所需金额。 |
+
+#### 示例
+领奖金额超过 `prizePool`。
 
 <a id="contest-error-contest-insufficient-allowance"></a>
 ### 错误 ContestInsufficientAllowance

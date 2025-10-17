@@ -1,6 +1,6 @@
 > ⚙️**自动生成文档**
-> - 提交哈希：858be976e9e1aa1504f81b1bc6fd2c77bc44fdb0
-> - 生成时间 (UTC)：2025-10-10T13:34:22.954Z
+> - 提交哈希：fb3275b1e01e32fcb30583864d9ec4ae6f43610f
+> - 生成时间 (UTC)：2025-10-17T14:10:17.127Z
 > - 命令：pnpm --filter contracts docs:generate
 
 

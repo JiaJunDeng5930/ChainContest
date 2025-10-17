@@ -82,6 +82,13 @@ pnpm install
 pnpm --filter @chaincontest/contracts node
 ```
 
+## 资金与授权准备
+
+- 主办方钱包在调用 `initialize` 前必须持有 `entryAsset` 余额 ≥ `initialPrizeAmount`，并提前对 Contest 合约授权至少同等额度；部署脚本会在成功转账后才写入状态。
+- 如果使用 `scripts/e2e/*.ts` 部署助手，请在运行脚本前调用 `ensureAllowance`（或手动 `approve`）以覆盖 `initialPrizeAmount`。
+- 参赛者在报名 (`register`) 前需要准备 `entryAmount + entryFee` 的余额，并对 Contest 合约授权 ≥ `entryAmount + entryFee`。
+- 组织者与参赛者均可通过 `ethers.getContractAt('Contest', address)` 调用 `prizePool()` 与事件日志核对资金流。
+
 ## 新终端：部署并保存输出
 
 ```bash
@@ -127,6 +134,7 @@ curl -s http://localhost:4100/api/runtime/config | jq '.contracts | length'
 
 ```bash
 pnpm --filter @chaincontest/contracts test
+pnpm --filter @chaincontest/contracts test:prize-pool
 pnpm --filter @chaincontest/contracts typecheck
 pnpm --filter @chaincontest/frontend test
 pnpm --filter @chaincontest/frontend test:e2e

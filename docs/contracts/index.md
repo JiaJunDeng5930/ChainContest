@@ -1,13 +1,13 @@
 > ⚙️**自动生成文档**
-> - 提交哈希：858be976e9e1aa1504f81b1bc6fd2c77bc44fdb0
-> - 生成时间 (UTC)：2025-10-10T13:34:22.954Z
+> - 提交哈希：fb3275b1e01e32fcb30583864d9ec4ae6f43610f
+> - 生成时间 (UTC)：2025-10-17T14:10:17.127Z
 > - 命令：pnpm --filter contracts docs:generate
 
 
 # 合约接口文档索引
 
-- **提交哈希**：858be976e9e1aa1504f81b1bc6fd2c77bc44fdb0
-- **生成时间 (UTC)**：2025-10-10T13:34:22.954Z
+- **提交哈希**：fb3275b1e01e32fcb30583864d9ec4ae6f43610f
+- **生成时间 (UTC)**：2025-10-17T14:10:17.127Z
 - **总合约数**：11
 
 ## Contest · 合约
@@ -16,8 +16,8 @@
 | 分类 | 数量 |
 | ---- | ---- |
 | 函数 | 17 |
-| 事件 | 10 |
-| 错误 | 16 |
+| 事件 | 11 |
+| 错误 | 18 |
 
 ### 函数
 - [constructor](Contest.md#contest-function-constructor)：初始化比赛合约并预置未初始化状态。
@@ -40,6 +40,7 @@
 
 ### 事件
 - [ContestInitialized](Contest.md#contest-event-contest-initialized)：记录比赛完成初始化后的完整配置。
+- [PrizePoolFunded](Contest.md#contest-event-prize-pool-funded)：记录奖金池新增资金的来源与余额。
 - [ContestRegistered](Contest.md#contest-event-contest-registered)：参赛者成功报名并完成 Vault 部署时触发。
 - [ContestRegistrationClosed](Contest.md#contest-event-contest-registration-closed)：报名阶段结束时广播截止时间。
 - [ContestLiveStarted](Contest.md#contest-event-contest-live-started)：比赛进入实盘阶段时触发。
@@ -59,6 +60,8 @@
 - [ContestMaxParticipantsReached](Contest.md#contest-error-contest-max-participants-reached)：报名人数已达上限时抛出。
 - [ContestRegistrationClosedError](Contest.md#contest-error-contest-registration-closed-error)：报名截止后仍尝试注册时抛出。
 - [ContestInsufficientStake](Contest.md#contest-error-contest-insufficient-stake)：参赛者余额不足以覆盖报名金额时抛出。
+- [ContestEntryFeeInvalid](Contest.md#contest-error-contest-entry-fee-invalid)：初始化或报名阶段传入的参赛费金额无效时抛出。
+- [ContestPrizePoolInsufficient](Contest.md#contest-error-contest-prize-pool-insufficient)：奖金池余额不足以支付本次发放金额时抛出。
 - [ContestInsufficientAllowance](Contest.md#contest-error-contest-insufficient-allowance)：参赛者授权额度不足时抛出。
 - [ContestUnknownVault](Contest.md#contest-error-contest-unknown-vault)：传入的 Vault 地址不属于本比赛时抛出。
 - [ContestFreezeTooEarly](Contest.md#contest-error-contest-freeze-too-early)：比赛尚未到达冻结时间便尝试冻结时抛出。
@@ -158,7 +161,7 @@ precision
 | 错误 | 0 |
 
 ### 函数
-- [initialize](VaultFactory.md#ivault-initializer-function-initialize)：初始化新部署的 Vault 并绑定 Contest。
+- [initialize](Contest.md#ivault-initializer-function-initialize)：初始化刚部署的 Vault，使其与 Contest 关联。
 
 
 
@@ -174,7 +177,7 @@ precision
 | 错误 | 0 |
 
 ### 函数
-- [initialize](Contest.md#ivault-initializer-function-initialize)：初始化刚部署的 Vault，使其与 Contest 关联。
+- [initialize](VaultFactory.md#ivault-initializer-function-initialize)：初始化新部署的 Vault 并绑定 Contest。
 
 
 
