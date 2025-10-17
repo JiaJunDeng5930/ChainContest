@@ -1,7 +1,7 @@
 # ChainContest
 
 构建链上资产管理竞赛的核心合约与前端控制台，为参赛者提供注册、结算与领奖的全流程支持。
-**怎么跑：** `pnpm install && pnpm --filter @chaincontest/contracts test`
+**怎么跑：** `pnpm install && pnpm test`
 
 ## 主要功能要点
 
