@@ -109,6 +109,16 @@ async function deploySwapFixture() {
 }
 
 describe("Vault.swapExact", () => {
+  it("exposes contest config with expected layout", async () => {
+    const { contest, priceSource, pool } = await loadFixture(deploySwapFixture);
+
+    const config = await contest.getConfig();
+
+    expect(config.entryFee).to.equal(ENTRY_FEE);
+    expect(config.priceSource).to.equal(await priceSource.getAddress());
+    expect(config.swapPool).to.equal(await pool.getAddress());
+  });
+
   it("reverts when contest is not live", async () => {
     const { contest, vault, participant } = await loadFixture(deploySwapFixture);
 

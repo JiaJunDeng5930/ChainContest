@@ -24,6 +24,7 @@ interface IContestMinimal {
     struct ContestConfig {
         IERC20 entryAsset;
         uint256 entryAmount;
+        uint256 entryFee;
         address priceSource;
         address swapPool;
         uint16 priceToleranceBps;
