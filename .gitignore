@@ -4,5 +4,5 @@ contracts/node_modules/
 contracts/artifacts/
 contracts/cache/
 contracts/types/
-frontend/node_modules/
-frontend/.env.local
+apps/dev-console/node_modules/
+apps/dev-console/.env.local

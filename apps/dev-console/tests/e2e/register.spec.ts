@@ -6,43 +6,29 @@ import net from "node:net";
 import path from "node:path";
 import { setTimeout as sleep } from "node:timers/promises";
 import { fileURLToPath } from "node:url";
+import { createPublicClient, http, parseAbiItem } from "viem";
+import { hardhat } from "viem/chains";
 
 const HARDHAT_HOST = "127.0.0.1";
-const HARDHAT_PORT = 8547;
+const HARDHAT_PORT = 8545;
 const HARDHAT_URL = `http://${HARDHAT_HOST}:${HARDHAT_PORT}`;
-const VITE_PORT = 4175;
+const VITE_PORT = 4173;
 const VITE_URL = `http://127.0.0.1:${VITE_PORT}`;
-const COMMAND_TIMEOUT_MS = 90_000;
-
-type ParticipantInfo = {
-  address: string;
-  privateKey: string;
-  bonus: string;
-};
+const COMMAND_TIMEOUT_MS = 60_000;
 
 type SetupPayload = {
   contest: string;
   priceSource: string;
   entryAsset: string;
-  quoteAsset: string;
   entryAmount: string;
-  payouts: number[];
-  timelines: {
-    registeringEnds: string;
-    liveEnds: string;
-    claimEnds: string;
-  };
-  operator: {
+  participant: {
     address: string;
-    privateKey: string;
   };
-  participants: ParticipantInfo[];
-  vaults: Record<string, string>;
 };
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
-const repoRoot = path.resolve(__dirname, "../../..");
+const repoRoot = path.resolve(__dirname, "../../../..");
 
 let hardhatProcess: ChildProcessWithoutNullStreams | undefined;
 let viteProcess: ChildProcessWithoutNullStreams | undefined;
@@ -69,7 +55,7 @@ async function isPortAvailable(port: number): Promise<boolean> {
 async function waitForPattern(
   proc: ChildProcessWithoutNullStreams,
   pattern: RegExp,
-  timeoutMs = 30_000,
+  timeoutMs = 20_000,
 ): Promise<void> {
   return new Promise((resolve, reject) => {
     let combined = "";
@@ -93,7 +79,9 @@ async function waitForPattern(
     const onClose = (code: number | null) => {
       cleanup();
       reject(
-        new Error(`进程提前退出 (code=${code ?? "null"})，未匹配到模式 ${pattern}. 输出：${combined}`),
+        new Error(
+          `进程提前退出 (code=${code ?? "null"})，未匹配到模式 ${pattern}. 输出：${combined}`,
+        ),
       );
     };
     const timer = setTimeout(() => {
@@ -193,13 +181,9 @@ async function killProcess(proc: ChildProcessWithoutNullStreams | undefined): Pr
       await Promise.race([once(proc, "exit"), sleep(2_000)]);
     }
   } catch (error) {
+    // 忽略杀进程过程中可能出现的异常
     console.warn("关闭子进程时发生警告：", error);
   }
-}
-
-async function switchAccount(page: import("@playwright/test").Page, address: string) {
-  await page.getByTestId(`switch-account-${address.toLowerCase()}`).click();
-  await expect(page.getByTestId("connected-address")).toContainText(address.slice(2, 6));
 }
 
 test.beforeAll(async () => {
@@ -230,7 +214,7 @@ test.beforeAll(async () => {
       "--",
       "hardhat",
       "run",
-      "scripts/e2e/settlement-setup.ts",
+      "scripts/e2e/register-setup.ts",
       "--network",
       "localhost",
     ],
@@ -245,22 +229,19 @@ test.beforeAll(async () => {
 
   setupPayload = JSON.parse(setupResult.stdout) as SetupPayload;
 
-  const testAccounts = [setupPayload.operator.address, ...setupPayload.participants.map((item) => item.address)];
-
   const viteEnv = {
     ...process.env,
     VITE_PRIMARY_RPC: HARDHAT_URL,
     VITE_FALLBACK_RPC: HARDHAT_URL,
     VITE_CONTEST_ADDRESS: setupPayload.contest,
     VITE_PRICE_SOURCE_ADDRESS: setupPayload.priceSource,
-    VITE_CHAIN_ID: "31337",
-    VITE_TEST_ACCOUNTS: testAccounts.join(","),
-    VITE_OPERATOR_ADDRESS: setupPayload.operator.address,
+    VITE_TEST_ACCOUNT_ADDRESS: setupPayload.participant.address,
+    VITE_CHAIN_ID: `${hardhat.id}`,
   };
 
   viteProcess = spawn(
     "pnpm",
-    ["--filter", "@chaincontest/frontend", "dev", "--host", "127.0.0.1", "--port", `${VITE_PORT}`],
+    ["--filter", "@chaincontest/dev-console", "dev", "--host", "127.0.0.1", "--port", `${VITE_PORT}`],
     {
       cwd: repoRoot,
       stdio: "pipe",
@@ -269,7 +250,7 @@ test.beforeAll(async () => {
   );
 
   await waitForPattern(viteProcess, new RegExp(`http://127\\.0\\.0\\.1:${VITE_PORT}`, "i"));
-  await sleep(750);
+  await sleep(500);
 });
 
 test.afterAll(async () => {
@@ -277,48 +258,77 @@ test.afterAll(async () => {
   await killProcess(hardhatProcess);
 });
 
-test("管理员冻结并结算比赛，赢家领奖，其他参赛者退出", async ({ page }) => {
+test("参赛者完成授权与报名流程，并触发链上事件", async ({ page }) => {
   await page.goto(VITE_URL);
 
   const connectorButton = page.locator('button[data-testid^="connector-"]').first();
   await connectorButton.waitFor({ timeout: 60_000 });
   await connectorButton.click();
-  await expect(page.getByTestId("connected-address")).toContainText(setupPayload.operator.address.slice(2, 6));
-
+  await expect(page.getByTestId("connected-address")).toContainText(
+    setupPayload.participant.address.slice(2, 6),
+  );
   await page.waitForSelector('[data-testid="register-loading"]', { state: "detached", timeout: 60_000 });
 
-  await page.getByTestId("action-freeze").click();
-  await expect(page.getByTestId("action-status")).toContainText("冻结完成");
-
-  for (const participant of setupPayload.participants) {
-    await page.getByTestId("action-settle-address").fill(participant.address);
-    await page.getByTestId("action-settle-submit").click();
-    await expect(page.getByTestId("action-status")).toContainText("结算成功");
+  const approveStatusLocator = page.getByTestId("approve-status");
+  await expect(approveStatusLocator).toBeVisible();
+  const approveStatusText = await approveStatusLocator.textContent();
+  if (!approveStatusText?.includes("已完成")) {
+    await page.getByTestId("approve-button").click();
+    await expect(approveStatusLocator).toContainText("已完成");
   }
 
-  await page.getByTestId("action-update-leaders").click();
-  await expect(page.getByTestId("action-status")).toContainText("榜单已更新");
+  await page.getByTestId("register-button").click();
+  await expect(page.getByTestId("register-status")).toContainText("报名交易已提交");
 
-  await page.getByTestId("action-seal").click();
-  await expect(page.getByTestId("action-status")).toContainText("封榜完成");
+  await expect(page.getByTestId("participants-list")).toContainText(
+    setupPayload.participant.address.slice(0, 6),
+  { timeout: 60_000 },
+  );
 
-  const leaderboardRows = page.locator('[data-testid^="leaderboard-row-"]');
-  await expect(leaderboardRows).toHaveCount(2);
-  await expect(page.getByTestId("leaderboard-row-0")).toContainText(setupPayload.participants[0]!.address.slice(2, 6));
-  await expect(page.getByTestId("leaderboard-row-1")).toContainText(setupPayload.participants[1]!.address.slice(2, 6));
+  const client = createPublicClient({
+    chain: {
+      ...hardhat,
+      rpcUrls: {
+        default: { http: [HARDHAT_URL] },
+        public: { http: [HARDHAT_URL] },
+      },
+    },
+    transport: http(HARDHAT_URL),
+  });
 
-  await switchAccount(page, setupPayload.participants[0]!.address);
-  await page.getByTestId("claim-button").click();
-  await expect(page.getByTestId("claim-status")).toContainText("领奖完成");
+  const contestRegisteredEvent = parseAbiItem(
+    "event ContestRegistered(bytes32 contestId, address participant, address vault, uint256 amount)",
+  );
+  let logs = [] as Awaited<ReturnType<typeof client.getLogs>>;
+  for (let attempt = 0; attempt < 20; attempt += 1) {
+    logs = await client.getLogs({
+      address: setupPayload.contest as `0x${string}`,
+      event: contestRegisteredEvent,
+      fromBlock: 0n,
+    });
+    if (logs.length > 0) {
+      break;
+    }
+    await sleep(500);
+  }
 
-  await switchAccount(page, setupPayload.participants[1]!.address);
-  await page.getByTestId("claim-button").click();
-  await expect(page.getByTestId("claim-status")).toContainText("领奖完成");
+  const participantTopic = `0x000000000000000000000000${setupPayload.participant.address.slice(2).toLowerCase()}`;
+  const hasParticipantLog = logs.some((log) => log.topics?.[2]?.toLowerCase() === participantTopic);
+  expect(hasParticipantLog).toBeTruthy();
 
-  await switchAccount(page, setupPayload.participants[2]!.address);
-  await page.getByTestId("exit-button").click();
-  await expect(page.getByTestId("exit-status")).toContainText("退出完成");
+  const participantCount = (await client.readContract({
+    address: setupPayload.contest as `0x${string}`,
+    abi: [
+      {
+        type: "function",
+        name: "participantCount",
+        stateMutability: "view",
+        inputs: [],
+        outputs: [{ internalType: "uint256", name: "", type: "uint256" }],
+      },
+    ] as const,
+    functionName: "participantCount",
+  })) as bigint;
 
-  await switchAccount(page, setupPayload.operator.address);
-  await expect(page.getByTestId("prize-pool-amount")).toHaveText("0");
+  expect(participantCount).toBe(1n);
 });

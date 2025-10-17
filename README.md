@@ -28,7 +28,7 @@
 ```bash
 pnpm install
 pnpm --filter @chaincontest/contracts test
-pnpm --filter @chaincontest/frontend dev
+pnpm --filter @chaincontest/dev-console dev
 ```
 
 ## 使用方式
@@ -39,16 +39,16 @@ pnpm --filter @chaincontest/frontend dev
   - `pnpm build`：构建合约 TypeChain 类型与前端产物。
 - **关键配置文件**
   - 合约：`contracts/hardhat.config.ts`（网络、编译器、Gas 报告）。
-  - 前端：`frontend/vite.config.ts`、`frontend/scripts/ensurePortAvailable.ts`。
+  - 前端：`apps/dev-console/vite.config.ts`、`apps/dev-console/scripts/ensurePortAvailable.ts`。
   - 文档：`docs/contracts/index.md`（自动生成的合约 API），`docs/development/local-testing.md`。
 - **关键参数**
   - `contracts/hardhat.config.ts` 中的 `DOCS_OUTPUT_DIR`、`gasReporter` 选项控制文档与 Gas 报告。
-  - `frontend/src/lib/config.ts` 要求 `VITE_*` 系列环境变量用于链上连接与合约地址解析。
+  - `apps/dev-console/src/lib/config.ts` 要求 `VITE_*` 系列环境变量用于链上连接与合约地址解析。
 
 ## 目录
 
 - `contracts/`：Hardhat 项目（合约、测试、Ignition 部署、文档脚本）→ `/docs/contracts`.
-- `frontend/`：Vite + htmx 前端（脚本、测试、配置）→ `/docs/development`.
+- `apps/dev-console/`：Vite + htmx 前端（脚本、测试、配置）→ `/docs/development`.
 - `docs/contracts/*.md`：自动生成的合约 API/NatSpec。
 - `docs/development/local-testing.md`：本地节点与前端联调说明。
 
@@ -70,7 +70,7 @@ pnpm --filter @chaincontest/frontend dev
 
 ## 前端
 
-- **脚本**：`pnpm --filter @chaincontest/frontend dev`（开发热更新）、`pnpm --filter @chaincontest/frontend build`、`pnpm --filter @chaincontest/frontend test`、`pnpm --filter @chaincontest/frontend test:e2e`。
+- **脚本**：`pnpm --filter @chaincontest/dev-console dev`（开发热更新）、`pnpm --filter @chaincontest/dev-console build`、`pnpm --filter @chaincontest/dev-console test`、`pnpm --filter @chaincontest/dev-console test:e2e`。
 - **.env 示例**
   ```bash
   VITE_CHAIN_ID=11155111

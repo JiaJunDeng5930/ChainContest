@@ -19,13 +19,13 @@
 ## 安装依赖
 
 ```bash
-pnpm --filter @chaincontest/frontend install
+pnpm --filter @chaincontest/dev-console install
 ```
 
 ## 本地开发
 
 ```bash
-pnpm --filter @chaincontest/frontend dev
+pnpm --filter @chaincontest/dev-console dev
 ```
 
 - `predev` 钩子会执行端口占用检测脚本，如端口被占用会直接阻断启动并输出解决提示。
@@ -34,7 +34,7 @@ pnpm --filter @chaincontest/frontend dev
 ## 目录结构
 
 ```
-frontend/
+apps/dev-console/
 ├── index.html          # Vite 根模板
 ├── public/             # 静态 HTML 模板（用于服务端渲染占位）
 ├── scripts/            # Node/TS 工具脚本

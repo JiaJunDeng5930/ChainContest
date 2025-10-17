@@ -21,7 +21,7 @@ module.exports = {
       parserOptions: {
         project: [
           path.join(__dirname, "contracts/tsconfig.json"),
-          path.join(__dirname, "frontend/tsconfig.json"),
+          path.join(__dirname, "apps/dev-console/tsconfig.json"),
         ],
         tsconfigRootDir: __dirname,
         ecmaVersion: "latest",
@@ -52,7 +52,7 @@ module.exports = {
       },
     },
     {
-      files: ["frontend/**/*.{ts,tsx}", "frontend/**/*.test.{ts,tsx}"],
+      files: ["apps/dev-console/**/*.{ts,tsx}", "apps/dev-console/**/*.test.{ts,tsx}"],
       env: {
         browser: true,
       },
