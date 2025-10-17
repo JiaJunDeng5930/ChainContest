@@ -6,13 +6,14 @@ import net from "node:net";
 import path from "node:path";
 import { setTimeout as sleep } from "node:timers/promises";
 import { fileURLToPath } from "node:url";
-import { createPublicClient, http, parseAbiItem } from "viem";
+import { createPublicClient, createWalletClient, http, parseAbiItem } from "viem";
 import { hardhat } from "viem/chains";
+import { privateKeyToAccount } from "viem/accounts";
 
 const HARDHAT_HOST = "127.0.0.1";
-const HARDHAT_PORT = 8545;
+const HARDHAT_PORT = 8546;
 const HARDHAT_URL = `http://${HARDHAT_HOST}:${HARDHAT_PORT}`;
-const VITE_PORT = 4173;
+const VITE_PORT = 4174;
 const VITE_URL = `http://127.0.0.1:${VITE_PORT}`;
 const COMMAND_TIMEOUT_MS = 60_000;
 
@@ -20,15 +21,23 @@ type SetupPayload = {
   contest: string;
   priceSource: string;
   entryAsset: string;
+  quoteAsset: string;
+  pool: string;
   entryAmount: string;
   participant: {
     address: string;
+    privateKey: string;
   };
+  deployer: {
+    address: string;
+    privateKey: string;
+  };
+  vault: string;
 };
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
-const repoRoot = path.resolve(__dirname, "../../..");
+const repoRoot = path.resolve(__dirname, "../../../..");
 
 let hardhatProcess: ChildProcessWithoutNullStreams | undefined;
 let viteProcess: ChildProcessWithoutNullStreams | undefined;
@@ -181,7 +190,6 @@ async function killProcess(proc: ChildProcessWithoutNullStreams | undefined): Pr
       await Promise.race([once(proc, "exit"), sleep(2_000)]);
     }
   } catch (error) {
-    // 忽略杀进程过程中可能出现的异常
     console.warn("关闭子进程时发生警告：", error);
   }
 }
@@ -214,7 +222,7 @@ test.beforeAll(async () => {
       "--",
       "hardhat",
       "run",
-      "scripts/e2e/register-setup.ts",
+      "scripts/e2e/swap-setup.ts",
       "--network",
       "localhost",
     ],
@@ -233,15 +241,15 @@ test.beforeAll(async () => {
     ...process.env,
     VITE_PRIMARY_RPC: HARDHAT_URL,
     VITE_FALLBACK_RPC: HARDHAT_URL,
+    VITE_CHAIN_ID: `${hardhat.id}`,
     VITE_CONTEST_ADDRESS: setupPayload.contest,
     VITE_PRICE_SOURCE_ADDRESS: setupPayload.priceSource,
     VITE_TEST_ACCOUNT_ADDRESS: setupPayload.participant.address,
-    VITE_CHAIN_ID: `${hardhat.id}`,
   };
 
   viteProcess = spawn(
     "pnpm",
-    ["--filter", "@chaincontest/frontend", "dev", "--host", "127.0.0.1", "--port", `${VITE_PORT}`],
+    ["--filter", "@chaincontest/dev-console", "dev", "--host", "127.0.0.1", "--port", `${VITE_PORT}`],
     {
       cwd: repoRoot,
       stdio: "pipe",
@@ -258,7 +266,7 @@ test.afterAll(async () => {
   await killProcess(hardhatProcess);
 });
 
-test("参赛者完成授权与报名流程，并触发链上事件", async ({ page }) => {
+test("参赛者在 LIVE 阶段完成合法换仓并拒绝违规请求", async ({ page }) => {
   await page.goto(VITE_URL);
 
   const connectorButton = page.locator('button[data-testid^="connector-"]').first();
@@ -267,23 +275,14 @@ test("参赛者完成授权与报名流程，并触发链上事件", async ({ pa
   await expect(page.getByTestId("connected-address")).toContainText(
     setupPayload.participant.address.slice(2, 6),
   );
+
   await page.waitForSelector('[data-testid="register-loading"]', { state: "detached", timeout: 60_000 });
+  await expect(page.getByTestId("contest-state")).toHaveText("当前状态：Live");
 
-  const approveStatusLocator = page.getByTestId("approve-status");
-  await expect(approveStatusLocator).toBeVisible();
-  const approveStatusText = await approveStatusLocator.textContent();
-  if (!approveStatusText?.includes("已完成")) {
-    await page.getByTestId("approve-button").click();
-    await expect(approveStatusLocator).toContainText("已完成");
-  }
-
-  await page.getByTestId("register-button").click();
-  await expect(page.getByTestId("register-status")).toContainText("报名交易已提交");
-
-  await expect(page.getByTestId("participants-list")).toContainText(
-    setupPayload.participant.address.slice(0, 6),
-  { timeout: 60_000 },
-  );
+  const amountInput = page.getByTestId("swap-amount-input");
+  await amountInput.fill("0.2");
+  await page.getByTestId("swap-submit-button").click();
+  await expect(page.getByTestId("swap-status")).toContainText("换仓交易已提交");
 
   const client = createPublicClient({
     chain: {
@@ -296,14 +295,14 @@ test("参赛者完成授权与报名流程，并触发链上事件", async ({ pa
     transport: http(HARDHAT_URL),
   });
 
-  const contestRegisteredEvent = parseAbiItem(
-    "event ContestRegistered(bytes32 contestId, address participant, address vault, uint256 amount)",
+  const vaultSwapped = parseAbiItem(
+    "event VaultSwapped(address contest,address participant,address pool,address tokenIn,address tokenOut,uint256 amountIn,uint256 amountOut,uint256 twap,int32 priceImpactBps)",
   );
   let logs = [] as Awaited<ReturnType<typeof client.getLogs>>;
   for (let attempt = 0; attempt < 20; attempt += 1) {
     logs = await client.getLogs({
-      address: setupPayload.contest as `0x${string}`,
-      event: contestRegisteredEvent,
+      address: setupPayload.vault as `0x${string}`,
+      event: vaultSwapped,
       fromBlock: 0n,
     });
     if (logs.length > 0) {
@@ -312,23 +311,32 @@ test("参赛者完成授权与报名流程，并触发链上事件", async ({ pa
     await sleep(500);
   }
 
-  const participantTopic = `0x000000000000000000000000${setupPayload.participant.address.slice(2).toLowerCase()}`;
-  const hasParticipantLog = logs.some((log) => log.topics?.[2]?.toLowerCase() === participantTopic);
-  expect(hasParticipantLog).toBeTruthy();
+  expect(logs.length).toBeGreaterThan(0);
 
-  const participantCount = (await client.readContract({
-    address: setupPayload.contest as `0x${string}`,
+  await expect(page.getByTestId("vault-base-balance")).toContainText("3.8");
+
+  const walletClient = createWalletClient({
+    account: privateKeyToAccount(setupPayload.deployer.privateKey as `0x${string}`),
+    chain: hardhat,
+    transport: http(HARDHAT_URL),
+  });
+
+  await walletClient.writeContract({
+    address: setupPayload.pool as `0x${string}`,
     abi: [
       {
         type: "function",
-        name: "participantCount",
-        stateMutability: "view",
-        inputs: [],
-        outputs: [{ internalType: "uint256", name: "", type: "uint256" }],
+        name: "setTick",
+        stateMutability: "nonpayable",
+        inputs: [{ internalType: "int24", name: "tick_", type: "int24" }],
+        outputs: [],
       },
     ] as const,
-    functionName: "participantCount",
-  })) as bigint;
+    functionName: "setTick",
+    args: [120],
+  });
 
-  expect(participantCount).toBe(1n);
+  await amountInput.fill("0.15");
+  await page.getByTestId("swap-submit-button").click();
+  await expect(page.getByTestId("swap-error")).toContainText("价格偏离超出容忍度");
 });
