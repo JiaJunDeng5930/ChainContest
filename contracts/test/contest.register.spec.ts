@@ -4,6 +4,8 @@ import { ethers } from "hardhat";
 import type { Contest, MockERC20, Vault, VaultFactory, PriceSource } from "../types";
 
 const ENTRY_AMOUNT = 1_000_000n; // 1,000 USDC with 6 decimals
+const ENTRY_FEE = 50_000n; // 50 USDC
+const INITIAL_PRIZE = 500_000n; // 500 USDC
 const LIVE_DURATION = 3600;
 const CLAIM_DURATION = 7200;
 
@@ -44,11 +46,18 @@ async function deployContestFixture() {
   const payoutSchedule = Array<number>(32).fill(0);
   payoutSchedule[0] = 10_000;
 
+  await usdc.mint(deployer.address, INITIAL_PRIZE);
+  await usdc.mint(participant.address, ENTRY_AMOUNT + ENTRY_FEE);
+  await usdc.mint(otherParticipant.address, ENTRY_AMOUNT);
+
+  await usdc.connect(deployer).approve(await contest.getAddress(), INITIAL_PRIZE);
+
   await contest.initialize({
     contestId: ethers.encodeBytes32String("contest-001"),
     config: {
       entryAsset: await usdc.getAddress(),
       entryAmount: ENTRY_AMOUNT,
+      entryFee: ENTRY_FEE,
       priceSource: await priceSource.getAddress(),
       swapPool: await pool.getAddress(),
       priceToleranceBps: 50,
@@ -61,14 +70,15 @@ async function deployContestFixture() {
       liveEnds,
       claimEnds,
     },
+    initialPrizeAmount: INITIAL_PRIZE,
     payoutSchedule,
     vaultImplementation: await vaultImpl.getAddress(),
     vaultFactory: await factory.getAddress(),
     owner: deployer.address,
   });
 
-  await usdc.mint(participant.address, ENTRY_AMOUNT);
-  await usdc.connect(participant).approve(await contest.getAddress(), ENTRY_AMOUNT);
+  const totalRequired = ENTRY_AMOUNT + ENTRY_FEE;
+  await usdc.connect(participant).approve(await contest.getAddress(), totalRequired);
 
   return {
     deployer,
@@ -89,15 +99,25 @@ describe("Contest.register", () => {
     const contestId = await contest.contestId();
     const predictedVault = await factory.predictVaultAddress(participant.address);
 
-    await expect(contest.connect(participant).register())
+    const tx = contest.connect(participant).register();
+
+    await expect(tx)
       .to.emit(contest, "ContestRegistered")
-      .withArgs(contestId, participant.address, predictedVault, ENTRY_AMOUNT);
+      .withArgs(contestId, participant.address, predictedVault, ENTRY_AMOUNT, ENTRY_FEE);
+    await expect(tx)
+      .to.emit(contest, "PrizePoolFunded")
+      .withArgs(contestId, participant.address, ENTRY_FEE, INITIAL_PRIZE + ENTRY_FEE);
+
+    await tx;
 
     const vaultId = await contest.participantVaults(participant.address);
     expect(vaultId).to.not.equal(ethers.ZeroHash);
 
     const prizePool = await contest.prizePool();
-    expect(prizePool).to.equal(ENTRY_AMOUNT);
+    expect(prizePool).to.equal(INITIAL_PRIZE + ENTRY_FEE);
+
+    const totalPrizePool = await contest.totalPrizePool();
+    expect(totalPrizePool).to.equal(INITIAL_PRIZE + ENTRY_FEE);
 
     const vault = await ethers.getContractAt("Vault", predictedVault);
     expect(await vault.owner()).to.equal(participant.address);
@@ -120,7 +140,8 @@ describe("Contest.register", () => {
   it("should revert when participant balance is insufficient", async () => {
     const { contest, otherParticipant, usdc } = await loadFixture(deployContestFixture);
 
-    await usdc.connect(otherParticipant).approve(await contest.getAddress(), ENTRY_AMOUNT);
+    const required = ENTRY_AMOUNT + ENTRY_FEE;
+    await usdc.connect(otherParticipant).approve(await contest.getAddress(), required);
 
     await expect(contest.connect(otherParticipant).register()).to.be.revertedWithCustomError(
       contest,

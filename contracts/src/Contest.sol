@@ -140,6 +140,7 @@ contract Contest is Ownable2Step, Pausable, ReentrancyGuard {
     struct ContestConfig {
         IERC20 entryAsset;
         uint256 entryAmount;
+        uint256 entryFee;
         address priceSource;
         address swapPool;
         uint16 priceToleranceBps;
@@ -158,6 +159,7 @@ contract Contest is Ownable2Step, Pausable, ReentrancyGuard {
         bytes32 contestId;
         ContestConfig config;
         ContestTimeline timeline;
+        uint256 initialPrizeAmount;
         uint16[32] payoutSchedule;
         address vaultImplementation;
         address vaultFactory;
@@ -172,6 +174,7 @@ contract Contest is Ownable2Step, Pausable, ReentrancyGuard {
     address public vaultFactory;
     uint64 public sealedAt;
     uint256 public prizePool;
+    uint256 public initialPrizeAmount;
 
     bool private _initialized;
 
@@ -223,14 +226,29 @@ contract Contest is Ownable2Step, Pausable, ReentrancyGuard {
         address indexed vaultImplementation,
         address indexed priceSource
     );
+    /// @notice 记录奖金池新增资金的来源与余额。
+    /// @dev 初始化与报名都会触发该事件，为审计提供资金轨迹。
+    /// @param contestId 比赛标识符。
+    /// @param sender 资金提供者地址。
+    /// @param amount 本次注入的金额。
+    /// @param newBalance 注资后的奖金池余额。
+    /// @custom:example 初始化注入初始奖金或报名缴纳参赛费时触发。
+    event PrizePoolFunded(bytes32 indexed contestId, address indexed sender, uint256 amount, uint256 newBalance);
     /// @notice 参赛者成功报名并完成 Vault 部署时触发。
     /// @dev 用于追踪参赛者与 Vault 的绑定关系及报名金额。
     /// @param contestId 比赛标识符。
     /// @param participant 参赛者地址。
     /// @param vault 新部署的 Vault 地址。
-    /// @param amount 本次报名转入的基础资产数量。
-    /// @custom:example 前端监听事件以在排行榜中新增参赛者。
-    event ContestRegistered(bytes32 indexed contestId, address indexed participant, address vault, uint256 amount);
+    /// @param entryAmount 本次报名划入 Vault 的本金数量。
+    /// @param entryFee 本次报名缴纳到比赛奖金池的参赛费用。
+    /// @custom:example 前端监听事件以在排行榜中新增参赛者并同步参赛费。
+    event ContestRegistered(
+        bytes32 indexed contestId,
+        address indexed participant,
+        address vault,
+        uint256 entryAmount,
+        uint256 entryFee
+    );
     /// @notice 报名阶段结束时广播截止时间。
     /// @dev `syncState` 检测到报名截止后触发，确保前端停止报名入口。
     /// @param contestId 比赛标识符。
@@ -327,6 +345,15 @@ contract Contest is Ownable2Step, Pausable, ReentrancyGuard {
     /// @param required 报名所需余额。
     /// @custom:example 报名资产余额小于配置值时触发。
     error ContestInsufficientStake(uint256 balance, uint256 required);
+    /// @notice 初始化或报名阶段传入的参赛费金额无效时抛出。
+    /// @param entryFee 传入的参赛费金额。
+    /// @custom:example 参赛费导致总金额溢出或与配置不一致。
+    error ContestEntryFeeInvalid(uint256 entryFee);
+    /// @notice 奖金池余额不足以支付本次发放金额时抛出。
+    /// @param balance 当前奖金池余额。
+    /// @param required 本次领奖所需金额。
+    /// @custom:example 领奖金额超过 `prizePool`。
+    error ContestPrizePoolInsufficient(uint256 balance, uint256 required);
     /// @notice 参赛者授权额度不足时抛出。
     /// @dev 在调用 `allowance` 后发现小于报名金额。
     /// @param allowance 当前授权额度。
@@ -448,12 +475,35 @@ contract Contest is Ownable2Step, Pausable, ReentrancyGuard {
             revert ContestInvalidParam("vaultFactory");
         }
 
+        uint256 entryAmount = params.config.entryAmount;
+        uint256 entryFee = params.config.entryFee;
+        unchecked {
+            uint256 combinedRequirement = entryAmount + entryFee;
+            if (combinedRequirement < entryAmount) {
+                revert ContestEntryFeeInvalid(entryFee);
+            }
+        }
+
         uint256 payoutTotal;
         for (uint256 i = 0; i < params.payoutSchedule.length; i++) {
             payoutTotal += params.payoutSchedule[i];
         }
         if (payoutTotal != 10_000) {
             revert ContestInvalidParam("payoutSchedule");
+        }
+
+        uint256 initialPrize = params.initialPrizeAmount;
+        IERC20 entryAsset = params.config.entryAsset;
+        if (initialPrize > 0) {
+            uint256 allowance = entryAsset.allowance(msg.sender, address(this));
+            if (allowance < initialPrize) {
+                revert ContestInsufficientAllowance(allowance, initialPrize);
+            }
+            uint256 balance = entryAsset.balanceOf(msg.sender);
+            if (balance < initialPrize) {
+                revert ContestInsufficientStake(balance, initialPrize);
+            }
+            entryAsset.safeTransferFrom(msg.sender, address(this), initialPrize);
         }
 
         contestId = params.contestId;
@@ -465,6 +515,10 @@ contract Contest is Ownable2Step, Pausable, ReentrancyGuard {
         state = ContestState.Registering;
         _initialized = true;
 
+        prizePool = initialPrize;
+        totalPrizePool = initialPrize;
+        initialPrizeAmount = initialPrize;
+
         _transferOwnership(params.owner);
 
         emit ContestInitialized(
@@ -475,7 +529,11 @@ contract Contest is Ownable2Step, Pausable, ReentrancyGuard {
             params.vaultImplementation,
             params.config.priceSource
         );
+        if (initialPrize > 0) {
+            emit PrizePoolFunded(params.contestId, msg.sender, initialPrize, initialPrize);
+        }
     }
+
 
     /// @notice 基于当前区块时间推进比赛状态。
     /// @dev 超过报名截止后会自动切换至 `Live` 并触发相关事件。
@@ -624,22 +682,34 @@ contract Contest is Ownable2Step, Pausable, ReentrancyGuard {
             revert ContestMaxParticipantsReached(config.maxParticipants);
         }
 
-        uint256 allowance = config.entryAsset.allowance(msg.sender, address(this));
-        if (allowance < config.entryAmount) {
-            revert ContestInsufficientAllowance(allowance, config.entryAmount);
+        IERC20 entryAsset = config.entryAsset;
+        uint256 entryAmount = config.entryAmount;
+        uint256 entryFee = config.entryFee;
+
+        uint256 required;
+        unchecked {
+            required = entryAmount + entryFee;
+            if (required < entryAmount) {
+                revert ContestEntryFeeInvalid(entryFee);
+            }
         }
 
-        uint256 balance = config.entryAsset.balanceOf(msg.sender);
-        if (balance < config.entryAmount) {
-            revert ContestInsufficientStake(balance, config.entryAmount);
+        uint256 allowance = entryAsset.allowance(msg.sender, address(this));
+        if (allowance < required) {
+            revert ContestInsufficientAllowance(allowance, required);
+        }
+
+        uint256 balance = entryAsset.balanceOf(msg.sender);
+        if (balance < required) {
+            revert ContestInsufficientStake(balance, required);
         }
 
         vaultId = keccak256(abi.encode(contestId, msg.sender));
         IVaultFactory factory = IVaultFactory(vaultFactory);
-        address vault = factory.deployVault(msg.sender, config.entryAmount);
+        address vault = factory.deployVault(msg.sender, entryAmount);
 
-        config.entryAsset.safeTransferFrom(msg.sender, vault, config.entryAmount);
-        IVaultInitializer(vault).initialize(msg.sender, address(this), config.entryAmount);
+        entryAsset.safeTransferFrom(msg.sender, vault, entryAmount);
+        IVaultInitializer(vault).initialize(msg.sender, address(this), entryAmount);
 
         participantVaults[msg.sender] = vaultId;
         vaultOwners[vaultId] = msg.sender;
@@ -647,10 +717,15 @@ contract Contest is Ownable2Step, Pausable, ReentrancyGuard {
         vaultAddresses[vaultId] = vault;
         _participants.push(msg.sender);
         participantCount += 1;
-        prizePool += config.entryAmount;
-        totalPrizePool += config.entryAmount;
 
-        emit ContestRegistered(contestId, msg.sender, vault, config.entryAmount);
+        if (entryFee > 0) {
+            entryAsset.safeTransferFrom(msg.sender, address(this), entryFee);
+            prizePool += entryFee;
+            totalPrizePool += entryFee;
+            emit PrizePoolFunded(contestId, msg.sender, entryFee, prizePool);
+        }
+
+        emit ContestRegistered(contestId, msg.sender, vault, entryAmount, entryFee);
 
         return vaultId;
     }
@@ -931,7 +1006,7 @@ contract Contest is Ownable2Step, Pausable, ReentrancyGuard {
 
         prizeShare = (totalPrizePool * uint256(schedule)) / 10_000;
         if (prizeShare > prizePool) {
-            revert ContestInvalidParam("prizePool");
+            revert ContestPrizePoolInsufficient(prizePool, prizeShare);
         }
         rewardClaimed[vaultId] = true;
         prizePool -= prizeShare;

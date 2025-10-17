@@ -13,7 +13,8 @@
     "deploy:localhost": "hardhat ignition deploy ignition/modules/contest.ts --network localhost",
     "deploy:sepolia": "hardhat ignition deploy ignition/modules/contest.ts --network sepolia",
     "docs:generate": "ts-node --project tsconfig.json scripts/docs/generate.ts",
-    "docs:check": "ts-node --project tsconfig.json scripts/docs/check.ts"
+    "docs:check": "ts-node --project tsconfig.json scripts/docs/check.ts",
+    "test:prize-pool": "hardhat test --grep 'Prize Pool'"
   },
   "devDependencies": {
     "@ethersproject/abi": "^5.7.0",
@@ -36,7 +37,8 @@
     "solidity-docgen": "0.6.0-beta.36",
     "ts-node": "^10.9.2",
     "typechain": "^8.3.1",
-    "typescript": "^5.4.5"
+    "typescript": "^5.4.5",
+    "chai": "^4.4.1"
   },
   "dependencies": {
     "@openzeppelin/contracts": "^5.0.2",
