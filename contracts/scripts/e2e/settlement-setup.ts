@@ -2,6 +2,8 @@ import { ethers, network } from "hardhat";
 import { time } from "@nomicfoundation/hardhat-network-helpers";
 
 const ENTRY_AMOUNT = 1_000_000n;
+const ENTRY_FEE = 50_000n;
+const INITIAL_PRIZE = 500_000n;
 const BONUS_ALICE = 500_000n;
 const BONUS_BOB = 200_000n;
 const REGISTER_DURATION = 600;
@@ -47,11 +49,15 @@ async function main() {
   payoutSchedule[0] = 7_000;
   payoutSchedule[1] = 3_000;
 
+  await usdc.mint(deployer.address, INITIAL_PRIZE);
+  await usdc.connect(deployer).approve(await contest.getAddress(), INITIAL_PRIZE);
+
   await contest.initialize({
     contestId: ethers.encodeBytes32String("contest-001"),
     config: {
       entryAsset: await usdc.getAddress(),
       entryAmount: ENTRY_AMOUNT,
+      entryFee: ENTRY_FEE,
       priceSource: await priceSource.getAddress(),
       swapPool: await pool.getAddress(),
       priceToleranceBps: 50,
@@ -59,6 +65,7 @@ async function main() {
       maxParticipants: 1_024,
       topK: 2,
     },
+    initialPrizeAmount: INITIAL_PRIZE,
     timeline: {
       registeringEnds,
       liveEnds,
@@ -73,10 +80,11 @@ async function main() {
   const participants = [alice, bob, carol];
   const bonuses = [BONUS_ALICE, BONUS_BOB, 0n];
   const vaults: Record<string, string> = {};
+  const totalRequired = ENTRY_AMOUNT + ENTRY_FEE;
 
   for (const [index, participant] of participants.entries()) {
-    await usdc.mint(participant.address, ENTRY_AMOUNT);
-    await usdc.connect(participant).approve(await contest.getAddress(), ENTRY_AMOUNT);
+    await usdc.mint(participant.address, totalRequired);
+    await usdc.connect(participant).approve(await contest.getAddress(), totalRequired);
     const predicted = await factory.predictVaultAddress(participant.address);
     vaults[participant.address.toLowerCase()] = predicted;
     await contest.connect(participant).register();
@@ -84,8 +92,6 @@ async function main() {
       await usdc.mint(predicted, bonuses[index]!);
     }
   }
-
-  await usdc.mint(await contest.getAddress(), ENTRY_AMOUNT * BigInt(participants.length));
 
   await network.provider.send("evm_setNextBlockTimestamp", [Number(registeringEnds) + 1]);
   await contest.syncState();
@@ -99,6 +105,8 @@ async function main() {
     entryAsset: await usdc.getAddress(),
     quoteAsset: await weth.getAddress(),
     entryAmount: ENTRY_AMOUNT.toString(),
+    entryFee: ENTRY_FEE.toString(),
+    initialPrizeAmount: INITIAL_PRIZE.toString(),
     payouts: payoutSchedule.slice(0, 8),
     timelines: {
       registeringEnds: registeringEnds.toString(),

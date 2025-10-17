@@ -6,6 +6,8 @@ type GasLog = {
 };
 
 const ENTRY_AMOUNT = 1_000_000n;
+const ENTRY_FEE = 50_000n;
+const INITIAL_PRIZE = 500_000n;
 const BONUS_ALICE = 500_000n;
 const BONUS_BOB = 200_000n;
 const REGISTER_DURATION = 600n;
@@ -63,11 +65,15 @@ async function deployScenario() {
   payoutSchedule[0] = 7_000;
   payoutSchedule[1] = 3_000;
 
+  await usdc.mint(deployer.address, INITIAL_PRIZE);
+  await usdc.connect(deployer).approve(await contest.getAddress(), INITIAL_PRIZE);
+
   await contest.initialize({
     contestId: ethers.encodeBytes32String("contest-001"),
     config: {
       entryAsset: await usdc.getAddress(),
       entryAmount: ENTRY_AMOUNT,
+      entryFee: ENTRY_FEE,
       priceSource: await priceSource.getAddress(),
       swapPool: await pool.getAddress(),
       priceToleranceBps: 50,
@@ -75,6 +81,7 @@ async function deployScenario() {
       maxParticipants: 1_024,
       topK: 2,
     },
+    initialPrizeAmount: INITIAL_PRIZE,
     timeline: {
       registeringEnds,
       liveEnds,
@@ -92,10 +99,11 @@ async function deployScenario() {
   const participants = [alice, bob, carol];
   const bonuses = [BONUS_ALICE, BONUS_BOB, 0n];
   const vaults: string[] = [];
+  const totalRequired = ENTRY_AMOUNT + ENTRY_FEE;
 
   for (const [index, signer] of participants.entries()) {
-    await usdc.mint(signer.address, ENTRY_AMOUNT);
-    await usdc.connect(signer).approve(await contest.getAddress(), ENTRY_AMOUNT);
+    await usdc.mint(signer.address, totalRequired);
+    await usdc.connect(signer).approve(await contest.getAddress(), totalRequired);
     const predicted = await factory.predictVaultAddress(signer.address);
     await contest.connect(signer).register();
     vaults.push(predicted);
@@ -103,8 +111,6 @@ async function deployScenario() {
       await usdc.mint(predicted, bonuses[index]!);
     }
   }
-
-  await usdc.mint(await contest.getAddress(), ENTRY_AMOUNT * BigInt(participants.length));
 
   return {
     contest,

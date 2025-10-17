@@ -1,6 +1,8 @@
 import { ethers } from "hardhat";
 
 const ENTRY_AMOUNT = 1_000_000n;
+const ENTRY_FEE = 50_000n;
+const INITIAL_PRIZE = 500_000n;
 const LIVE_DURATION = 3600;
 const CLAIM_DURATION = 7200;
 
@@ -41,11 +43,15 @@ async function main() {
   const payoutSchedule = Array<number>(32).fill(0);
   payoutSchedule[0] = 10_000;
 
+  await usdc.mint(deployer.address, INITIAL_PRIZE);
+  await usdc.connect(deployer).approve(await contest.getAddress(), INITIAL_PRIZE);
+
   await contest.initialize({
     contestId: ethers.encodeBytes32String("contest-001"),
     config: {
       entryAsset: await usdc.getAddress(),
       entryAmount: ENTRY_AMOUNT,
+      entryFee: ENTRY_FEE,
       priceSource: await priceSource.getAddress(),
       swapPool: await pool.getAddress(),
       priceToleranceBps: 50,
@@ -53,6 +59,7 @@ async function main() {
       maxParticipants: 1024,
       topK: 8,
     },
+    initialPrizeAmount: INITIAL_PRIZE,
     timeline: {
       registeringEnds,
       liveEnds,
@@ -64,8 +71,9 @@ async function main() {
     owner: deployer.address,
   });
 
-  await usdc.mint(participant.address, ENTRY_AMOUNT);
-  await usdc.connect(participant).approve(await contest.getAddress(), ENTRY_AMOUNT);
+  const totalRequired = ENTRY_AMOUNT + ENTRY_FEE;
+  await usdc.mint(participant.address, totalRequired);
+  await usdc.connect(participant).approve(await contest.getAddress(), totalRequired);
 
   const output = {
     contest: await contest.getAddress(),
@@ -75,6 +83,8 @@ async function main() {
     entryAsset: await usdc.getAddress(),
     quoteAsset: await weth.getAddress(),
     entryAmount: ENTRY_AMOUNT.toString(),
+    entryFee: ENTRY_FEE.toString(),
+    initialPrizeAmount: INITIAL_PRIZE.toString(),
     timelines: {
       registeringEnds: registeringEnds.toString(),
       liveEnds: liveEnds.toString(),
