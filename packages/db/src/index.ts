@@ -20,6 +20,13 @@ import {
   type LookupUserWalletRecord,
   type WalletBindingSource
 } from './repositories/userWalletLookup.js';
+import {
+  mutateUserWallet as mutateUserWalletRecords,
+  type MutateUserWalletParams,
+  type MutateUserWalletResult,
+  type WalletMutationActorContext,
+  type WalletMutationAction
+} from './repositories/userWalletMutations.js';
 import { dbSchema } from './schema/index.js';
 
 let pool: DatabasePool | null = null;
@@ -56,6 +63,10 @@ export interface LookupUserWalletBinding {
 export interface LookupUserWalletResponse {
   bindings: LookupUserWalletBinding[];
 }
+
+export interface MutateUserWalletRequest extends MutateUserWalletParams {}
+
+export interface MutateUserWalletResponse extends MutateUserWalletResult {}
 
 export const init = async (options: DbInitOptions): Promise<void> => {
   if (pool) {
@@ -103,6 +114,20 @@ export const lookupUserWallet = async (
   return withMetrics('lookupUserWallet', operation);
 };
 
+export const mutateUserWallet = async (
+  request: MutateUserWalletRequest
+): Promise<MutateUserWalletResponse> => {
+  const database = ensurePool();
+
+  validateSingleInput(DbValidationTypes.userWalletMutation, request);
+
+  const operation = async (): Promise<MutateUserWalletResponse> => {
+    return database.withTransaction((tx) => mutateUserWalletRecords(tx, request));
+  };
+
+  return withMetrics('mutateUserWallet', operation);
+};
+
 export const shutdown = async (): Promise<void> => {
   if (!pool) {
     return;
@@ -119,9 +144,12 @@ export const isInitialised = (): boolean => pool !== null;
 export const db = {
   init,
   lookupUserWallet,
+  mutateUserWallet,
   shutdown,
   isInitialised
 };
+
+export type { WalletMutationActorContext, WalletMutationAction };
 
 const ensurePool = (): DatabasePool => {
   if (!pool) {

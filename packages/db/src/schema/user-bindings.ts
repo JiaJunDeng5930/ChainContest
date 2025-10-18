@@ -42,16 +42,24 @@ export const walletBindings = pgTable(
     walletAddressChecksum: text('wallet_address_checksum').notNull(),
     source: walletSourceEnum('source').notNull(),
     boundAt: timestamp('bound_at', { withTimezone: true }).defaultNow().notNull(),
+    unboundAt: timestamp('unbound_at', { withTimezone: true }),
     createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
     updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
     createdBy: text('created_by'),
-    updatedBy: text('updated_by')
+    updatedBy: text('updated_by'),
+    unboundBy: text('unbound_by')
   },
   (table) => ({
-    walletUnique: uniqueIndex('wallet_bindings_wallet_unique').on(table.walletAddress),
+    walletActiveUnique: uniqueIndex('wallet_bindings_wallet_active_unique')
+      .on(table.walletAddress)
+      .where(sql`${table.unboundAt} IS NULL`),
     userIndex: index('wallet_bindings_user_idx').on(table.userId),
     walletIdx: index('wallet_bindings_wallet_idx').on(table.walletAddress),
-    walletFormat: check('wallet_bindings_wallet_format', sql`wallet_address ~ '^0x[0-9a-f]{40}$'`)
+    walletFormat: check('wallet_bindings_wallet_format', sql`wallet_address ~ '^0x[0-9a-f]{40}$'`),
+    unboundAfterBound: check(
+      'wallet_bindings_unbound_after_bound',
+      sql`unbound_at IS NULL OR unbound_at >= bound_at`
+    )
   })
 );
 

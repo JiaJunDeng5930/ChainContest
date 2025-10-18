@@ -1,6 +1,5 @@
 import { describe, expect, beforeAll, afterAll, it } from 'vitest';
 import { randomUUID } from 'node:crypto';
-import { z } from 'zod';
 import { lookupUserWallet, shutdown, init } from '../../src/index.js';
 import { createDatabaseFixture, type TestDatabaseFixture } from '../fixtures/database.js';
 import {
@@ -10,92 +9,22 @@ import {
   userIdentityStatusEnum
 } from '../../src/schema/user-bindings.js';
 import type { LookupUserWalletResponse } from '../../src/index.js';
-import type { ValidatorRegistrationOptions } from '../../src/bootstrap/register-validators.js';
+import { buildTestValidators } from '../helpers/validators.js';
 
 let fixture: TestDatabaseFixture;
-
-const buildValidators = (): ValidatorRegistrationOptions => ({
-  registry: [
-    {
-      typeKey: 'db-user-wallet-lookup-request',
-      kind: 'atomic',
-      rule: {
-        description: 'DB lookup request',
-        failureMessage: 'Invalid lookup request',
-        schema: z.object({
-          userId: z.string(),
-          walletAddress: z.string()
-        })
-      }
-    },
-    {
-      typeKey: 'db-user-wallet-mutation-request',
-      kind: 'atomic',
-      rule: {
-        description: 'Mutation request placeholder',
-        failureMessage: 'Invalid mutation request',
-        schema: z.object({})
-      }
-    },
-    {
-      typeKey: 'db-contest-query-request',
-      kind: 'atomic',
-      rule: {
-        description: 'Contest query placeholder',
-        failureMessage: 'Invalid contest query',
-        schema: z.object({})
-      }
-    },
-    {
-      typeKey: 'db-user-contest-query-request',
-      kind: 'atomic',
-      rule: {
-        description: 'User contest query placeholder',
-        failureMessage: 'Invalid user contest query',
-        schema: z.object({})
-      }
-    },
-    {
-      typeKey: 'db-contest-domain-write-request',
-      kind: 'atomic',
-      rule: {
-        description: 'Contest domain write placeholder',
-        failureMessage: 'Invalid contest domain write request',
-        schema: z.object({})
-      }
-    },
-    {
-      typeKey: 'db-ingestion-status-request',
-      kind: 'atomic',
-      rule: {
-        description: 'Ingestion status placeholder',
-        failureMessage: 'Invalid ingestion status request',
-        schema: z.object({})
-      }
-    },
-    {
-      typeKey: 'db-ingestion-event-request',
-      kind: 'atomic',
-      rule: {
-        description: 'Ingestion event placeholder',
-        failureMessage: 'Invalid ingestion event request',
-        schema: z.object({})
-      }
-    }
-  ]
-});
 
 describe('lookupUserWallet', () => {
   beforeAll(async () => {
     fixture = await createDatabaseFixture();
     await init({
       databaseUrl: fixture.connectionString,
-      validators: buildValidators()
+      validators: buildTestValidators()
     });
   });
 
   afterAll(async () => {
     await shutdown();
+    await fixture.cleanup();
   });
 
   it('returns bindings when querying by wallet address only', async () => {
