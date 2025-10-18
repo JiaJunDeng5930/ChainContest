@@ -46,6 +46,14 @@ export const contestAddresses: ContestAddresses = {
   priceSource: priceSourceAddress,
 };
 
+type JsonRpcResult = {
+  result: unknown;
+};
+
+function isJsonRpcResult(payload: unknown): payload is JsonRpcResult {
+  return typeof payload === "object" && payload !== null && "result" in payload;
+}
+
 async function probeRpc(url: string): Promise<boolean> {
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), RPC_TIMEOUT_MS);
@@ -69,8 +77,11 @@ async function probeRpc(url: string): Promise<boolean> {
       return false;
     }
 
-    const payload = await response.json();
-    return typeof payload?.result === "string";
+    const payload: unknown = await response.json();
+    if (!isJsonRpcResult(payload)) {
+      return false;
+    }
+    return typeof payload.result === "string";
   } catch {
     return false;
   } finally {

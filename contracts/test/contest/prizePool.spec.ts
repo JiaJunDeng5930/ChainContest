@@ -16,7 +16,7 @@ async function forcePrizePoolValue(contest: Contest, value: bigint) {
 
   for (let slot = 0; slot < 200; slot += 1) {
     const slotHex = ethers.toBeHex(slot, 32);
-    const current = await provider.send("eth_getStorageAt", [address, slotHex, "latest"]);
+    const current = (await provider.send("eth_getStorageAt", [address, slotHex, "latest"])) as string;
     await provider.send("hardhat_setStorageAt", [address, slotHex, newValue]);
     const updated = await contest.prizePool();
     if (updated === value) {

@@ -55,7 +55,7 @@ async function deploySettlementFixture() {
   const liveEnds = registeringEnds + 3_600;
   const claimEnds = liveEnds + 7_200;
 
-  const payoutSchedule: number[] = Array(32).fill(0);
+  const payoutSchedule: number[] = Array<number>(32).fill(0);
   payoutSchedule[0] = PAYOUT_SCHEDULE[0];
   payoutSchedule[1] = PAYOUT_SCHEDULE[1];
 
@@ -127,17 +127,17 @@ async function deploySettlementFixture() {
 
 describe("Contest settlement lifecycle", () => {
   it("should freeze contest after live window and pause vaults", async () => {
-    const { contest, operator, alice, bob, carol, liveEnds } = await loadFixture(deploySettlementFixture);
-    const contestAny = contest as unknown as any;
+    const { contest, operator, liveEnds } = await loadFixture(deploySettlementFixture);
+    const contestByOperator = contest.connect(operator);
 
-    await expect(contestAny.connect(operator).freeze()).to.be.revertedWithCustomError(
+    await expect(contestByOperator.freeze()).to.be.revertedWithCustomError(
       contest,
       "ContestFreezeTooEarly",
     );
 
     await time.increaseTo(liveEnds + 1);
 
-    await expect(contestAny.connect(operator).freeze())
+    await expect(contestByOperator.freeze())
       .to.emit(contest, "ContestFrozen")
       .withArgs(await contest.contestId(), await time.latest());
 
@@ -146,7 +146,7 @@ describe("Contest settlement lifecycle", () => {
 
   it("should settle vault scores, update leaders, seal and distribute prize pool", async () => {
     const { contest, usdc, vaults, alice, bob, carol, operator, liveEnds } = await loadFixture(deploySettlementFixture);
-    const contestAny = contest as unknown as any;
+    const contestByOperator = contest.connect(operator);
 
     const aliceVaultAddress = vaults[alice.address.toLowerCase()];
     const bobVaultAddress = vaults[bob.address.toLowerCase()];
@@ -156,25 +156,25 @@ describe("Contest settlement lifecycle", () => {
     await usdc.mint(bobVaultAddress, BONUS_BOB);
 
     await time.increaseTo(liveEnds + 1);
-    await contestAny.connect(operator).freeze();
+    await contestByOperator.freeze();
 
     const aliceVaultId = await contest.participantVaults(alice.address);
     const bobVaultId = await contest.participantVaults(bob.address);
     const carolVaultId = await contest.participantVaults(carol.address);
 
-    await expect(contestAny.connect(operator).settle(alice.address))
+    await expect(contestByOperator.settle(alice.address))
       .to.emit(contest, "VaultSettled")
       .withArgs(aliceVaultId, ENTRY_AMOUNT + BONUS_ALICE, 5_000);
 
-    await expect(contestAny.connect(operator).settle(bob.address))
+    await expect(contestByOperator.settle(bob.address))
       .to.emit(contest, "VaultSettled")
       .withArgs(bobVaultId, ENTRY_AMOUNT + BONUS_BOB, 2_000);
 
-    await expect(contestAny.connect(operator).settle(carol.address))
+    await expect(contestByOperator.settle(carol.address))
       .to.emit(contest, "VaultSettled")
       .withArgs(carolVaultId, ENTRY_AMOUNT, 0);
 
-    await expect(contestAny.connect(operator).settle(alice.address)).to.not.emit(contest, "VaultSettled");
+    await expect(contestByOperator.settle(alice.address)).to.not.emit(contest, "VaultSettled");
 
     const aliceVault = (await ethers.getContractAt("Vault", aliceVaultAddress)) as unknown as Vault;
     const bobVault = (await ethers.getContractAt("Vault", bobVaultAddress)) as unknown as Vault;
@@ -193,7 +193,7 @@ describe("Contest settlement lifecycle", () => {
     expect(carolScore.roiBps).to.equal(0);
 
     await expect(
-      contestAny.updateLeaders([
+      contestByOperator.updateLeaders([
         { vaultId: aliceVaultId, nav: ENTRY_AMOUNT + BONUS_ALICE, roiBps: 5_000 },
         { vaultId: bobVaultId, nav: ENTRY_AMOUNT + BONUS_BOB, roiBps: 2_000 },
       ]),
@@ -201,11 +201,11 @@ describe("Contest settlement lifecycle", () => {
       .to.emit(contest, "LeadersUpdated")
       .withArgs(await contest.contestId(), [aliceVaultId, bobVaultId], 1);
 
-    const leaders = await contestAny.getLeaders();
+    const leaders = await contest.getLeaders();
     expect(leaders).to.have.lengthOf(TOP_K);
-    expect(leaders[0]!.vaultId).to.equal(aliceVaultId);
-    expect(leaders[0]!.nav).to.equal(ENTRY_AMOUNT + BONUS_ALICE);
-    expect(leaders[1]!.vaultId).to.equal(bobVaultId);
-    expect(leaders[1]!.nav).to.equal(ENTRY_AMOUNT + BONUS_BOB);
+    expect(leaders[0].vaultId).to.equal(aliceVaultId);
+    expect(leaders[0].nav).to.equal(ENTRY_AMOUNT + BONUS_ALICE);
+    expect(leaders[1].vaultId).to.equal(bobVaultId);
+    expect(leaders[1].nav).to.equal(ENTRY_AMOUNT + BONUS_BOB);
   });
 });

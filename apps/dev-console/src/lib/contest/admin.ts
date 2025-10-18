@@ -1,8 +1,7 @@
-import { readContract, writeContract } from "@wagmi/core";
 import type { Config } from "wagmi";
-import type { Address, Hex } from "viem";
+import type { Address, Hex, PublicClient, WalletClient } from "viem";
 import { contestAbi } from "../abi/contest";
-import { contestAddresses } from "../config";
+import { contestAddresses, configuredChainId } from "../config";
 
 export type LeaderboardUpdateInput = {
   vaultId: Hex;
@@ -12,8 +11,21 @@ export type LeaderboardUpdateInput = {
 
 const contestAddress = contestAddresses.contest as Address;
 
+async function getWalletClient(config: Config): Promise<WalletClient> {
+  const walletClient = await config.getWalletClient({ chainId: configuredChainId });
+  if (!walletClient) {
+    throw new Error("未检测到钱包客户端，请先连接钱包");
+  }
+  return walletClient;
+}
+
+function getPublicClient(config: Config): PublicClient {
+  return config.getPublicClient({ chainId: configuredChainId });
+}
+
 export async function freezeContest(config: Config): Promise<void> {
-  await writeContract(config, {
+  const walletClient = await getWalletClient(config);
+  await walletClient.writeContract({
     abi: contestAbi,
     address: contestAddress,
     functionName: "freeze",
@@ -21,7 +33,8 @@ export async function freezeContest(config: Config): Promise<void> {
 }
 
 export async function settleParticipant(config: Config, participant: Address): Promise<void> {
-  await writeContract(config, {
+  const walletClient = await getWalletClient(config);
+  await walletClient.writeContract({
     abi: contestAbi,
     address: contestAddress,
     functionName: "settle",
@@ -30,7 +43,8 @@ export async function settleParticipant(config: Config, participant: Address): P
 }
 
 export async function sealContest(config: Config): Promise<void> {
-  await writeContract(config, {
+  const walletClient = await getWalletClient(config);
+  await walletClient.writeContract({
     abi: contestAbi,
     address: contestAddress,
     functionName: "seal",
@@ -41,7 +55,8 @@ export async function updateLeadersOnChain(
   config: Config,
   updates: LeaderboardUpdateInput[],
 ): Promise<void> {
-  await writeContract(config, {
+  const walletClient = await getWalletClient(config);
+  await walletClient.writeContract({
     abi: contestAbi,
     address: contestAddress,
     functionName: "updateLeaders",
@@ -56,11 +71,12 @@ export async function updateLeadersOnChain(
 }
 
 export async function fetchPrizePool(config: Config): Promise<bigint> {
-  return readContract(config, {
+  const publicClient = getPublicClient(config);
+  return publicClient.readContract({
     abi: contestAbi,
     address: contestAddress,
     functionName: "prizePool",
-  }) as Promise<bigint>;
+  });
 }
 
 export type LeaderboardEntry = {
@@ -73,29 +89,29 @@ export type LeaderboardEntry = {
 };
 
 export async function fetchLeaders(config: Config): Promise<LeaderboardEntry[]> {
-  const result = (await readContract(config, {
+  const publicClient = getPublicClient(config);
+  const result = await publicClient.readContract({
     abi: contestAbi,
     address: contestAddress,
     functionName: "getLeaders",
-  })) as Array<{ vaultId: Hex; nav: bigint; roiBps: number; rank: number }>;
+  });
 
   const entries: LeaderboardEntry[] = [];
   for (const item of result) {
-    const vaultAddress = (await readContract(config, {
+    const vaultAddress = await publicClient.readContract({
       abi: contestAbi,
       address: contestAddress,
       functionName: "vaultAddresses",
       args: [item.vaultId],
-    })) as Address;
+    });
 
-    const context = (await readContract(config, {
+    const context = await publicClient.readContract({
       abi: contestAbi,
       address: contestAddress,
       functionName: "getVaultContext",
       args: [vaultAddress],
-    })) as { vaultId: Hex; owner: Address } | [Hex, Address];
-
-    const ownerAddress = Array.isArray(context) ? (context[1] as Address) : (context.owner as Address);
+    });
+    const ownerAddress = Array.isArray(context) ? context[1] : context.owner;
 
     entries.push({
       vaultId: item.vaultId,
