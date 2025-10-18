@@ -143,6 +143,11 @@ export async function queryContests(
   const pagination = normalisePagination(params.pagination);
   const baseConditions = buildContestConditions(params.selector);
 
+  const predicates = [...baseConditions];
+  if (pagination.cursor !== null) {
+    predicates.push(applyCursorCondition(pagination.cursor));
+  }
+
   const orderedQuery = db
     .select({
       id: contests.id,
@@ -159,8 +164,7 @@ export async function queryContests(
       updatedAt: contests.updatedAt
     })
     .from(contests)
-    .$if(baseConditions.length > 0, (qb) => qb.where(and(...baseConditions)))
-    .$if(pagination.cursor !== null, (qb) => qb.where(applyCursorCondition(pagination.cursor!)))
+    .$if(predicates.length > 0, (qb) => qb.where(and(...predicates)))
     .orderBy(...BASE_ORDER)
     .limit(pagination.pageSize + 1);
 
