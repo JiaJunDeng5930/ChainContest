@@ -104,6 +104,53 @@ describe('composite invariants', () => {
     });
   });
 
+  it('accepts composite when dependencies appear later in the batch', () => {
+    const result = validateBatch(
+      {
+        entries: [
+          { type: 'event-window', value: null },
+          { type: 'start-time', value: '2025-10-18T09:00:00.000Z' },
+          { type: 'end-time', value: '2025-10-18T10:00:00.000Z' },
+        ],
+      },
+      context,
+    );
+
+    expect(result.status).toBe('success');
+    expect(result.validatedTypes).toEqual([
+      'event-window',
+      'start-time',
+      'end-time',
+    ]);
+    expect(result.metrics).toMatchObject({
+      evaluatedAtomic: 2,
+      evaluatedComposite: 1,
+    });
+  });
+
+  it('propagates dependency failures discovered out of order', () => {
+    const result = validateBatch(
+      {
+        entries: [
+          { type: 'event-window', value: null },
+          { type: 'start-time', value: 'not-a-date' },
+          { type: 'end-time', value: '2025-10-18T10:00:00.000Z' },
+        ],
+      },
+      context,
+    );
+
+    expect(result.status).toBe('failure');
+    expect(result.firstError).toMatchObject({
+      type: 'start-time',
+      message: 'Invalid start time',
+    });
+    expect(result.metrics).toMatchObject({
+      evaluatedAtomic: 1,
+      evaluatedComposite: 0,
+    });
+  });
+
   it('fails fast when dependencies are missing', () => {
     const result = validateBatch(
       {

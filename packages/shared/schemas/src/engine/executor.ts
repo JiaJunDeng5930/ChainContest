@@ -1,6 +1,7 @@
 import { performance } from 'node:perf_hooks';
 import type { ZodError } from 'zod';
 import type {
+  ValidationEntry,
   ValidationRequest,
   ValidationResult,
   ValidationSuccessResult,
@@ -79,93 +80,179 @@ const collectDependencyValues = (
   return { missing, values };
 };
 
+interface ValidationEntryState {
+  readonly entry: ValidationEntry;
+  readonly index: number;
+  evaluated: boolean;
+}
+
+interface RecordedValidationSuccess {
+  readonly index: number;
+  readonly type: string;
+}
+
+interface ValidationFailureState {
+  readonly index: number;
+  readonly error: ValidationError;
+}
+
 export const validateBatch = (
   request: ValidationRequest,
   context: ValidationContext,
 ): ValidationResult => {
   const start = now();
-  const validatedTypes: string[] = [];
-  const resolvedValues = new Map<string, unknown>();
   const metricsState = {
     evaluatedAtomic: 0,
     evaluatedComposite: 0,
   };
+  const resolvedValues = new Map<string, unknown>();
+  const recordedSuccesses: RecordedValidationSuccess[] = [];
+  const entryStates: ValidationEntryState[] = [];
+  const entriesByType = new Map<string, ValidationEntryState[]>();
 
-  for (const entry of request.entries) {
+  request.entries.forEach((entry, index) => {
+    const state: ValidationEntryState = {
+      entry,
+      index,
+      evaluated: false,
+    };
+    entryStates.push(state);
+
     const registryEntry = context.plan.entryByType[entry.type];
+    if (!registryEntry) {
+      return;
+    }
+
+    const list = entriesByType.get(entry.type) ?? [];
+    list.push(state);
+    entriesByType.set(entry.type, list);
+  });
+
+  const recordSuccess = (index: number, type: string, value: unknown) => {
+    recordedSuccesses.push({ index, type });
+    resolvedValues.set(type, value);
+  };
+
+  const findNextDependencyState = (
+    type: string,
+    afterIndex: number,
+  ): ValidationEntryState | undefined => {
+    const candidates = entriesByType.get(type);
+    if (!candidates) {
+      return undefined;
+    }
+
+    let fallback: ValidationEntryState | undefined;
+
+    for (const candidate of candidates) {
+      if (candidate.evaluated) {
+        continue;
+      }
+
+      if (candidate.index <= afterIndex) {
+        return candidate;
+      }
+
+      if (!fallback || candidate.index < fallback.index) {
+        fallback = candidate;
+      }
+    }
+
+    return fallback;
+  };
+
+  const evaluating = new Set<number>();
+
+  const evaluateState = (
+    state: ValidationEntryState,
+  ): ValidationFailureState | null => {
+    if (state.evaluated) {
+      return null;
+    }
+
+    if (evaluating.has(state.index)) {
+      throw new Error(
+        `Detected cyclic dependency while validating "${state.entry.type}"`,
+      );
+    }
+
+    evaluating.add(state.index);
+
+    const registryEntry = context.plan.entryByType[state.entry.type];
 
     if (!registryEntry) {
-      const metrics = createMetrics(
-        metricsState.evaluatedAtomic,
-        metricsState.evaluatedComposite,
-        now() - start,
-        context.environmentId,
-      );
-      return createFailureResult(
-        validatedTypes,
-        createUnknownTypeError(entry.type),
-        metrics,
-      );
+      evaluating.delete(state.index);
+      return {
+        index: state.index,
+        error: createUnknownTypeError(state.entry.type),
+      };
     }
 
     if (registryEntry.kind === 'atomic') {
       metricsState.evaluatedAtomic += 1;
-      const schema = context.atomicSchemas[entry.type];
+      const schema = context.atomicSchemas[state.entry.type];
 
       try {
-        const parsed = schema.parse(entry.value);
-        validatedTypes.push(entry.type);
-        resolvedValues.set(entry.type, parsed);
-        continue;
+        const parsed = schema.parse(state.entry.value);
+        recordSuccess(state.index, state.entry.type, parsed);
+        state.evaluated = true;
+        evaluating.delete(state.index);
+        return null;
       } catch (error) {
-        const metrics = createMetrics(
-          metricsState.evaluatedAtomic,
-          metricsState.evaluatedComposite,
-          now() - start,
-          context.environmentId,
-        );
-
-        if (isZodError(error)) {
-          return createFailureResult(
-            validatedTypes,
-            createAtomicValidationError(
-              entry.type,
+        const failureError = isZodError(error)
+          ? createAtomicValidationError(
+              state.entry.type,
               registryEntry.rule.failureMessage,
               error,
-            ),
-            metrics,
-          );
-        }
+            )
+          : createUnknownTypeError(state.entry.type);
 
-        return createFailureResult(
-          validatedTypes,
-          createUnknownTypeError(entry.type),
-          metrics,
-        );
+        evaluating.delete(state.index);
+        return { index: state.index, error: failureError };
+      }
+    }
+
+    const missingDependencies: string[] = [];
+
+    for (const dependencyType of registryEntry.dependencies) {
+      if (resolvedValues.has(dependencyType)) {
+        continue;
+      }
+
+      const dependencyState = findNextDependencyState(
+        dependencyType,
+        state.index,
+      );
+
+      if (!dependencyState) {
+        missingDependencies.push(dependencyType);
+        continue;
+      }
+
+      const dependencyFailure = evaluateState(dependencyState);
+      if (dependencyFailure) {
+        evaluating.delete(state.index);
+        return dependencyFailure;
       }
     }
 
     metricsState.evaluatedComposite += 1;
-    const evaluator = context.compositeEvaluators[entry.type];
-    const { missing, values } = collectDependencyValues(
+
+    if (missingDependencies.length > 0) {
+      evaluating.delete(state.index);
+      return {
+        index: state.index,
+        error: createMissingDependencyError(
+          state.entry.type,
+          missingDependencies,
+        ),
+      };
+    }
+
+    const { values } = collectDependencyValues(
       resolvedValues,
       registryEntry.dependencies,
     );
-
-    if (missing.length > 0) {
-      const metrics = createMetrics(
-        metricsState.evaluatedAtomic,
-        metricsState.evaluatedComposite,
-        now() - start,
-        context.environmentId,
-      );
-
-      return createFailureResult(
-        validatedTypes,
-        createMissingDependencyError(entry.type, missing),
-        metrics,
-      );
-    }
 
     let failureIssue: CompositeRuleIssue | undefined;
 
@@ -175,42 +262,67 @@ export const validateBatch = (
       }
     };
 
+    const evaluator = context.compositeEvaluators[state.entry.type];
+
     evaluator({
-      value: entry.value,
+      value: state.entry.value,
       dependencies: values,
       addIssue,
     });
 
     if (failureIssue) {
-      const metrics = createMetrics(
-        metricsState.evaluatedAtomic,
-        metricsState.evaluatedComposite,
-        now() - start,
-        context.environmentId,
-      );
-
-      return createFailureResult(
-        validatedTypes,
-        createCompositeValidationError(
-          entry.type,
+      evaluating.delete(state.index);
+      return {
+        index: state.index,
+        error: createCompositeValidationError(
+          state.entry.type,
           failureIssue.message ?? registryEntry.rule.failureMessage,
           registryEntry.dependencies,
           failureIssue,
         ),
-        metrics,
-      );
+      };
     }
 
-    validatedTypes.push(entry.type);
-    resolvedValues.set(entry.type, entry.value);
+    recordSuccess(state.index, state.entry.type, state.entry.value);
+    state.evaluated = true;
+    evaluating.delete(state.index);
+    return null;
+  };
+
+  let failureState: ValidationFailureState | null = null;
+
+  for (const state of entryStates) {
+    if (state.evaluated) {
+      continue;
+    }
+
+    const failure = evaluateState(state);
+    if (failure) {
+      failureState = failure;
+      break;
+    }
   }
 
+  const duration = now() - start;
   const metrics = createMetrics(
     metricsState.evaluatedAtomic,
     metricsState.evaluatedComposite,
-    now() - start,
+    duration,
     context.environmentId,
   );
+
+  if (failureState) {
+    const validatedTypes = recordedSuccesses
+      .filter((success) => success.index < failureState.index)
+      .sort((a, b) => a.index - b.index)
+      .map((success) => success.type);
+
+    return createFailureResult(validatedTypes, failureState.error, metrics);
+  }
+
+  const validatedTypes = recordedSuccesses
+    .sort((a, b) => a.index - b.index)
+    .map((success) => success.type);
 
   return createSuccessResult(validatedTypes, metrics);
 };

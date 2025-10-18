@@ -83,4 +83,28 @@ describe('validateBatch', () => {
       evaluatedComposite: 0,
     });
   });
+
+  it('fails with unknown type errors while preserving earlier successes', () => {
+    const context = loadValidationContext({ registry: registryDefinition });
+    const result = validateBatch(
+      {
+        entries: [
+          { type: 'sender-address', value: '0xabc123ef' },
+          { type: 'mystery-field', value: 123 },
+        ],
+      },
+      context,
+    );
+
+    expect(result.status).toBe('failure');
+    expect(result.validatedTypes).toEqual(['sender-address']);
+    expect(result.firstError).toMatchObject({
+      type: 'mystery-field',
+      message: 'Unknown validation type "mystery-field"',
+    });
+    expect(result.metrics).toMatchObject({
+      evaluatedAtomic: 1,
+      evaluatedComposite: 0,
+    });
+  });
 });
