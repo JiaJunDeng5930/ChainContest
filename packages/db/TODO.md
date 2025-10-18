@@ -23,3 +23,7 @@
   - 依赖任务：T026、T027、T028、T029、T030
   - 包含文件：`src/schema/ingestion.ts`、`migrations/0004_ingestion.sql`、`src/repositories/contestDomainWrites.ts`、`src/index.ts`、`tests/contract/contestDomainWrites.test.ts`、`tests/contract/ingestionProgress.test.ts`、`tests/helpers/validators.ts`
   - 验证：`pnpm --filter @chaincontest/db test -- tests/contract/contestDomainWrites.test.ts tests/contract/ingestionProgress.test.ts`
+- [ ] commit TODO: Release polish ready for final commit
+  - 依赖任务：T031、T032、T033
+  - 包含文件：`specs/007-implement-db-module/quickstart.md`、`packages/db/README.md`、`src/instrumentation/metrics.ts`、`src/index.ts`
+  - 验证：`pnpm --filter @chaincontest/db test`

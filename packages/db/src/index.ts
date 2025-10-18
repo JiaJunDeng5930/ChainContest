@@ -12,7 +12,9 @@ import {
   withMetrics,
   DbError,
   DbErrorCode,
-  type MetricsHook
+  registerErrorLogger,
+  type MetricsHook,
+  type ErrorLogger
 } from './instrumentation/metrics.js';
 import {
   lookupUserWalletRecords,
@@ -64,6 +66,7 @@ export interface DbInitOptions {
   logger?: boolean;
   validators: ValidatorRegistrationOptions;
   metricsHook?: MetricsHook | null;
+  errorLogger?: ErrorLogger | null;
 }
 
 export interface LookupUserWalletRequest extends LookupUserWalletParams {}
@@ -122,7 +125,8 @@ export type {
   RewardClaimRecord,
   LeaderboardRecord,
   CreatorSummaryRecord,
-  IngestionWriteAction
+  IngestionWriteAction,
+  ErrorLogger
 };
 
 export const init = async (options: DbInitOptions): Promise<void> => {
@@ -140,6 +144,7 @@ export const init = async (options: DbInitOptions): Promise<void> => {
     });
 
     registerMetricsHook(options.metricsHook ?? null);
+    registerErrorLogger(options.errorLogger ?? null);
   } catch (error) {
     pool = null;
     resetValidationContext();
@@ -257,6 +262,7 @@ export const shutdown = async (): Promise<void> => {
   pool = null;
   resetValidationContext();
   registerMetricsHook(null);
+  registerErrorLogger(null);
 };
 
 export const isInitialised = (): boolean => pool !== null;

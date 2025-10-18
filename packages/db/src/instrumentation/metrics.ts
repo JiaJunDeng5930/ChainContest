@@ -36,7 +36,10 @@ export interface MetricsEvent {
 
 export type MetricsHook = (event: MetricsEvent) => void;
 
+export type ErrorLogger = (error: DbError) => void;
+
 let activeHook: MetricsHook = () => {};
+let activeErrorLogger: ErrorLogger = () => {};
 
 export function registerMetricsHook(hook: MetricsHook | null | undefined): void {
   activeHook = hook ?? (() => {});
@@ -44,6 +47,10 @@ export function registerMetricsHook(hook: MetricsHook | null | undefined): void 
 
 export function getMetricsHook(): MetricsHook {
   return activeHook;
+}
+
+export function registerErrorLogger(logger: ErrorLogger | null | undefined): void {
+  activeErrorLogger = logger ?? (() => {});
 }
 
 export function ensureDbError(error: unknown, fallback: DbErrorCode = DbErrorCode.INTERNAL_ERROR): DbError {
@@ -81,6 +88,11 @@ export async function withMetrics<TResult>(
       durationMs: performance.now() - startedAt,
       errorCode: classified.code
     });
+    try {
+      activeErrorLogger(classified);
+    } catch {
+      // ignore logger failure to avoid masking original error
+    }
     throw classified;
   }
 }
