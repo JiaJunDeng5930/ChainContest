@@ -43,6 +43,17 @@ import {
   type UserContestQueryParams,
   type UserContestQueryResult
 } from './repositories/contestQueries.js';
+import {
+  readIngestionStatus as readIngestionCursor,
+  writeContestDomain as executeContestDomainWrite,
+  writeIngestionEvent as executeIngestionEvent,
+  type ContestDomainWriteParams,
+  type ContestDomainWriteResult,
+  type CursorState,
+  type IngestionWriteAction,
+  type IngestionWriteResult,
+  type ReadIngestionStatusParams
+} from './repositories/contestDomainWrites.js';
 import { dbSchema } from './schema/index.js';
 
 let pool: DatabasePool | null = null;
@@ -92,6 +103,16 @@ export interface QueryUserContestsRequest extends UserContestQueryParams {}
 
 export interface QueryUserContestsResponse extends UserContestQueryResult {}
 
+export interface WriteContestDomainRequest extends ContestDomainWriteParams {}
+
+export interface WriteContestDomainResponse extends ContestDomainWriteResult {}
+
+export interface ReadIngestionStatusRequest extends ReadIngestionStatusParams {}
+
+export interface ReadIngestionStatusResponse extends CursorState {}
+
+export interface WriteIngestionEventResponse extends IngestionWriteResult {}
+
 export type {
   ContestAggregate,
   ContestRecord,
@@ -100,7 +121,8 @@ export type {
   ParticipantRecord,
   RewardClaimRecord,
   LeaderboardRecord,
-  CreatorSummaryRecord
+  CreatorSummaryRecord,
+  IngestionWriteAction
 };
 
 export const init = async (options: DbInitOptions): Promise<void> => {
@@ -188,6 +210,44 @@ export const queryUserContests = async (
   return withMetrics('queryUserContests', operation);
 };
 
+export const writeContestDomain = async (
+  request: WriteContestDomainRequest
+): Promise<WriteContestDomainResponse> => {
+  const database = ensurePool();
+
+  validateSingleInput(DbValidationTypes.contestDomainWrite, request);
+
+  const operation = (): Promise<WriteContestDomainResponse> =>
+    database.withTransaction((tx) => executeContestDomainWrite(tx, request));
+
+  return withMetrics('writeContestDomain', operation);
+};
+
+export const readIngestionStatus = async (
+  request: ReadIngestionStatusRequest
+): Promise<ReadIngestionStatusResponse> => {
+  const database = ensurePool();
+
+  validateSingleInput(DbValidationTypes.ingestionStatus, request);
+
+  const operation = (): Promise<ReadIngestionStatusResponse> => readIngestionCursor(database.db, request);
+
+  return withMetrics('readIngestionStatus', operation);
+};
+
+export const writeIngestionEvent = async (
+  request: IngestionWriteAction
+): Promise<WriteIngestionEventResponse> => {
+  const database = ensurePool();
+
+  validateSingleInput(DbValidationTypes.ingestionEvent, request);
+
+  const operation = (): Promise<WriteIngestionEventResponse> =>
+    database.withTransaction((tx) => executeIngestionEvent(tx, request));
+
+  return withMetrics('writeIngestionEvent', operation);
+};
+
 export const shutdown = async (): Promise<void> => {
   if (!pool) {
     return;
@@ -207,6 +267,9 @@ export const db = {
   mutateUserWallet,
   queryContests,
   queryUserContests,
+  writeContestDomain,
+  readIngestionStatus,
+  writeIngestionEvent,
   shutdown,
   isInitialised
 };

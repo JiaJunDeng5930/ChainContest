@@ -19,3 +19,7 @@
   - 依赖任务：T021、T022、T023、T024、T025
   - 包含文件：`src/schema/contest-domain.ts`、`migrations/0003_contest_domain.sql`、`src/repositories/contestQueries.ts`、`src/index.ts`、`tests/contract/contestQueries.test.ts`、`tests/helpers/validators.ts`
   - 验证：`pnpm --filter @chaincontest/db test -- tests/contract/contestQueries.test.ts`
+- [ ] commit TODO: US4 ingestion ready for commit
+  - 依赖任务：T026、T027、T028、T029、T030
+  - 包含文件：`src/schema/ingestion.ts`、`migrations/0004_ingestion.sql`、`src/repositories/contestDomainWrites.ts`、`src/index.ts`、`tests/contract/contestDomainWrites.test.ts`、`tests/contract/ingestionProgress.test.ts`、`tests/helpers/validators.ts`
+  - 验证：`pnpm --filter @chaincontest/db test -- tests/contract/contestDomainWrites.test.ts tests/contract/ingestionProgress.test.ts`

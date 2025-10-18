@@ -13,6 +13,12 @@ import {
   rewardClaims
 } from './contest-domain.js';
 import {
+  ingestionCursorRelations,
+  ingestionCursors,
+  ingestionEventRelations,
+  ingestionEvents
+} from './ingestion.js';
+import {
   userIdentities,
   userIdentityRelations,
   userIdentityStatusEnum,
@@ -37,6 +43,13 @@ export {
 } from './contest-domain.js';
 
 export {
+  ingestionCursorRelations,
+  ingestionCursors,
+  ingestionEventRelations,
+  ingestionEvents
+} from './ingestion.js';
+
+export {
   userIdentities,
   userIdentityRelations,
   userIdentityStatusEnum,
@@ -47,6 +60,7 @@ export {
 
 export type { Contest, ContestSnapshot, LeaderboardVersion, Participant, RewardClaim } from './contest-domain.js';
 export type { NewContest, NewContestSnapshot, NewLeaderboardVersion, NewParticipant, NewRewardClaim } from './contest-domain.js';
+export type { IngestionCursor, NewIngestionCursor, IngestionEvent, NewIngestionEvent } from './ingestion.js';
 export type { UserIdentity, WalletBinding, NewUserIdentity, NewWalletBinding } from './user-bindings.js';
 
 export const dbSchema = {
@@ -56,7 +70,9 @@ export const dbSchema = {
   contestSnapshots,
   participants,
   leaderboardVersions,
-  rewardClaims
+  rewardClaims,
+  ingestionCursors,
+  ingestionEvents
 };
 
 export type DbSchema = typeof dbSchema;
