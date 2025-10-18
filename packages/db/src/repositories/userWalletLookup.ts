@@ -1,4 +1,4 @@
-import { and, asc, eq } from 'drizzle-orm';
+import { and, asc, eq, isNull } from 'drizzle-orm';
 import type { DrizzleDatabase } from '../adapters/connection.js';
 import {
   userIdentities,
@@ -42,7 +42,7 @@ export const lookupUserWalletRecords = async (
     throw new Error('lookupUserWallet requires at least one identifier');
   }
 
-  const conditions = [];
+  const conditions = [isNull(walletBindings.unboundAt)];
 
   if (userFilter) {
     conditions.push(eq(userIdentities.externalId, userFilter));
@@ -69,11 +69,7 @@ export const lookupUserWalletRecords = async (
     })
     .from(walletBindings)
     .innerJoin(userIdentities, eq(walletBindings.userId, userIdentities.id))
-    .$if(
-      conditions.length > 0,
-      (qb) =>
-      qb.where(conditions.length === 1 ? conditions[0]! : and(...conditions))
-    )
+    .$if(conditions.length > 0, (qb) => qb.where(and(...conditions)))
     .orderBy(asc(walletBindings.boundAt), asc(walletBindings.walletAddress));
 
   return rows.map((row) => ({
