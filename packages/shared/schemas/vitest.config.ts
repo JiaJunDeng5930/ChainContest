@@ -7,13 +7,13 @@ const packageDir = dirname(fileURLToPath(import.meta.url));
 export default defineConfig({
   test: {
     environment: 'node',
-    include: ['tests/**/*.spec.ts'],
+    include: ['**/*.spec.ts'],
     exclude: ['dist', 'node_modules'],
     dir: 'tests',
     testTimeout: 1_000,
     hookTimeout: 1_000,
     coverage: {
-      provider: 'c8',
+      provider: 'istanbul',
       reporter: ['text', 'lcov'],
       thresholds: {
         lines: 90,
