@@ -20,7 +20,8 @@
     "@chaincontest/shared-schemas": "workspace:*",
     "drizzle-orm": "^0.32.0",
     "dotenv": "^16.4.5",
-    "pg": "^8.12.0"
+    "pg": "^8.12.0",
+    "zod": "^3.23.8"
   },
   "devDependencies": {
     "@types/node": "^20.12.7",
