@@ -6,7 +6,8 @@
   "scripts": {
     "lint": "pnpm -r --filter '!@chaincontest/dev-console' lint",
     "test": "pnpm -r test",
-    "build": "pnpm -r build"
+    "build": "pnpm -r build",
+    "db:test": "pnpm --filter @chaincontest/db test"
   },
   "engines": {
     "node": ">=20.12.0",
