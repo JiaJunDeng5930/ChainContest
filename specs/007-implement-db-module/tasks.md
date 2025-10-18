@@ -37,7 +37,7 @@
 - [X] T006 [FOUND] 在 `packages/db/src/adapters/connection.ts` 实现基于 `pg` 的连接池、Drizzle 初始化与事务包装，支持 `READ COMMITTED` 隔离。
 - [X] T007 [FOUND] 在 `packages/db/src/instrumentation/metrics.ts` 定义指标 hook、错误分类枚举与失败即回滚的降级策略。
 - [X] T008 [FOUND] 在 `packages/db/src/bootstrap/register-validators.ts` 集成 `packages/shared/schemas` 的校验注册，确保七个接口入参 fail-closed。
-- [ ] T009 [FOUND] 配置 `packages/db/tests/setup/vitest.setup.ts` 与 `packages/db/tests/fixtures/`，提供临时数据库、迁移回滚与幂等测试工具。
+- [X] T009 [FOUND] 配置 `packages/db/tests/setup/vitest.setup.ts` 与 `packages/db/tests/fixtures/`，提供临时数据库、迁移回滚与幂等测试工具。
 - [ ] T010 [FOUND] 更新 `packages/db/TODO.md`，追加“commit TODO: Foundational utilities ready for commit”条目并标记依赖任务。
 
 **Checkpoint**: 基础设施就绪，可启动用户故事开发。

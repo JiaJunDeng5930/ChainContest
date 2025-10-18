@@ -10,6 +10,7 @@ export default defineConfig({
     dir: 'tests',
     include: ['**/*.test.ts', '**/*.spec.ts'],
     exclude: ['dist', 'node_modules'],
+    setupFiles: ['tests/setup/vitest.setup.ts'],
     testTimeout: 2_000,
     hookTimeout: 2_000,
     coverage: {
