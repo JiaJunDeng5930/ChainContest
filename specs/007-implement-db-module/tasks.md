@@ -52,7 +52,7 @@
 
 ### Implementation & Tests
 
-- [ ] T011 [US1] 在 `packages/db/src/schema/user-bindings.ts` 定义 `user_identities`、`wallet_bindings` 的 Drizzle schema、唯一约束与索引，并生成迁移脚本。
+- [X] T011 [US1] 在 `packages/db/src/schema/user-bindings.ts` 定义 `user_identities`、`wallet_bindings` 的 Drizzle schema、唯一约束与索引，并生成迁移脚本。
 - [ ] T012 [US1] 在 `packages/db/src/repositories/userWalletLookup.ts` 实现读取逻辑（含地址归一、结果映射、未绑定处理）。
 - [ ] T013 [US1] 在 `packages/db/src/index.ts` 暴露 `lookupUserWallet` 函数，调用校验注册与仓储层，统一错误分类。
 - [ ] T014 [P] [US1] 在 `packages/db/tests/contract/userWalletLookup.test.ts` 编写契约与幂等测试场景，覆盖“未知用户/钱包”组合与未绑定返回。
