@@ -191,6 +191,13 @@ export const validateBatch = (
     if (registryEntry.kind === 'atomic') {
       metricsState.evaluatedAtomic += 1;
       const schema = context.atomicSchemas[state.entry.type];
+      if (!schema) {
+        evaluating.delete(state.index);
+        return {
+          index: state.index,
+          error: createUnknownTypeError(state.entry.type),
+        };
+      }
 
       try {
         const parsed = schema.parse(state.entry.value);
@@ -263,6 +270,13 @@ export const validateBatch = (
     };
 
     const evaluator = context.compositeEvaluators[state.entry.type];
+    if (!evaluator) {
+      evaluating.delete(state.index);
+      return {
+        index: state.index,
+        error: createUnknownTypeError(state.entry.type),
+      };
+    }
 
     evaluator({
       value: state.entry.value,

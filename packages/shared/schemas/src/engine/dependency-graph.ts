@@ -28,6 +28,15 @@ export const createExecutionPlan = (
   const entryByType = Object.fromEntries(
     registry.map((entry) => [entry.typeKey, entry]),
   ) as Record<string, RegistryEntry>;
+  const resolveEntry = (typeKey: string): RegistryEntry => {
+    const entry = entryByType[typeKey];
+    if (!entry) {
+      throw new DependencyCycleError(
+        `Missing validation registry entry for type "${typeKey}"`,
+      );
+    }
+    return entry;
+  };
 
   const indegree = new Map<string, number>();
   const adjacency = new Map<string, Set<string>>();
@@ -57,7 +66,7 @@ export const createExecutionPlan = (
 
   while (queue.length > 0) {
     const typeKey = queue.shift()!;
-    const entry = entryByType[typeKey];
+    const entry = resolveEntry(typeKey);
     ordered.push(entry);
 
     const entryDepth = depth.get(typeKey) ?? 0;
@@ -77,7 +86,7 @@ export const createExecutionPlan = (
     }
 
     followers.forEach((followerKey) => {
-      const followerEntry = entryByType[followerKey];
+      const followerEntry = resolveEntry(followerKey);
       const remaining = (indegree.get(followerKey) ?? 0) - 1;
       indegree.set(followerKey, remaining);
 

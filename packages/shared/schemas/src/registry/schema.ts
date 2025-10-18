@@ -219,6 +219,11 @@ export const mergeRegistryWithOverrides = (
       }
 
       const current = mergedRegistry[index];
+      if (!current) {
+        throw new ConfigurationError(
+          `Missing registry entry while applying override for "${typeKey}"`,
+        );
+      }
       mergedRegistry[index] = mergeEntry(current, partialEntry);
     });
   });
