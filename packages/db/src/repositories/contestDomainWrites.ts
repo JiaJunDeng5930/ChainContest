@@ -391,7 +391,7 @@ async function writeLeaderboardVersion(
     .orderBy(desc(leaderboardVersions.version))
     .limit(1);
 
-  if (latest.length > 0 && version <= latest[0]!.version) {
+  if (latest.length > 0 && version < latest[0]!.version) {
     throw new DbError(DbErrorCode.ORDER_VIOLATION, 'Leaderboard version must increase monotonically', {
       detail: {
         reason: 'non_monotonic_version',
