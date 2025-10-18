@@ -27,6 +27,22 @@ import {
   type WalletMutationActorContext,
   type WalletMutationAction
 } from './repositories/userWalletMutations.js';
+import {
+  queryContests as queryContestRecords,
+  queryUserContests as queryUserContestRecords,
+  type ContestAggregate,
+  type ContestRecord,
+  type ContestIncludes,
+  type ContestQueryParams,
+  type ContestQueryResult,
+  type CreatorSummaryRecord,
+  type LeaderboardRecord,
+  type PaginationOptions,
+  type ParticipantRecord,
+  type RewardClaimRecord,
+  type UserContestQueryParams,
+  type UserContestQueryResult
+} from './repositories/contestQueries.js';
 import { dbSchema } from './schema/index.js';
 
 let pool: DatabasePool | null = null;
@@ -67,6 +83,25 @@ export interface LookupUserWalletResponse {
 export interface MutateUserWalletRequest extends MutateUserWalletParams {}
 
 export interface MutateUserWalletResponse extends MutateUserWalletResult {}
+
+export interface QueryContestsRequest extends ContestQueryParams {}
+
+export interface QueryContestsResponse extends ContestQueryResult {}
+
+export interface QueryUserContestsRequest extends UserContestQueryParams {}
+
+export interface QueryUserContestsResponse extends UserContestQueryResult {}
+
+export type {
+  ContestAggregate,
+  ContestRecord,
+  ContestIncludes,
+  PaginationOptions,
+  ParticipantRecord,
+  RewardClaimRecord,
+  LeaderboardRecord,
+  CreatorSummaryRecord
+};
 
 export const init = async (options: DbInitOptions): Promise<void> => {
   if (pool) {
@@ -128,6 +163,31 @@ export const mutateUserWallet = async (
   return withMetrics('mutateUserWallet', operation);
 };
 
+export const queryContests = async (
+  request: QueryContestsRequest
+): Promise<QueryContestsResponse> => {
+  const database = ensurePool();
+
+  validateSingleInput(DbValidationTypes.contestQuery, request);
+  ensureLeaderboardIncludeIsValid(request.includes);
+
+  const operation = (): Promise<QueryContestsResponse> => queryContestRecords(database.db, request);
+
+  return withMetrics('queryContests', operation);
+};
+
+export const queryUserContests = async (
+  request: QueryUserContestsRequest
+): Promise<QueryUserContestsResponse> => {
+  const database = ensurePool();
+
+  validateSingleInput(DbValidationTypes.userContestQuery, request);
+
+  const operation = (): Promise<QueryUserContestsResponse> => queryUserContestRecords(database.db, request);
+
+  return withMetrics('queryUserContests', operation);
+};
+
 export const shutdown = async (): Promise<void> => {
   if (!pool) {
     return;
@@ -145,6 +205,8 @@ export const db = {
   init,
   lookupUserWallet,
   mutateUserWallet,
+  queryContests,
+  queryUserContests,
   shutdown,
   isInitialised
 };
@@ -157,6 +219,20 @@ const ensurePool = (): DatabasePool => {
   }
 
   return pool;
+};
+
+const ensureLeaderboardIncludeIsValid = (includes: ContestIncludes | undefined): void => {
+  if (!includes?.leaderboard) {
+    return;
+  }
+
+  if (includes.leaderboard.mode === 'version' && includes.leaderboard.version === undefined) {
+    throw new DbError(DbErrorCode.INPUT_INVALID, 'Leaderboard include requires a version number', {
+      detail: {
+        reason: 'leaderboard_version_missing'
+      }
+    });
+  }
 };
 
 const mapLookupRecord = (record: LookupUserWalletRecord): LookupUserWalletBinding => ({

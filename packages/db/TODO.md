@@ -11,3 +11,11 @@
   - 依赖任务：T011、T012、T013、T014
   - 包含文件：`src/schema/user-bindings.ts`、`src/repositories/userWalletLookup.ts`、`src/index.ts`、`tests/contract/userWalletLookup.test.ts`、`migrations/0001_user_bindings.sql`
   - 验证：`pnpm db:test -- --runInBand tests/contract/userWalletLookup.test.ts`
+- [ ] commit TODO: US2 mutations ready for commit
+  - 依赖任务：T016、T017、T018、T019、T020
+  - 包含文件：`src/schema/user-bindings.ts`、`migrations/0002_wallet_binding_audit.sql`、`src/repositories/userWalletMutations.ts`、`src/index.ts`、`tests/contract/userWalletMutations.test.ts`、`tests/helpers/validators.ts`
+  - 验证：`pnpm --filter @chaincontest/db test -- --runInBand tests/contract/userWalletMutations.test.ts`
+- [ ] commit TODO: US3 contest views ready for commit
+  - 依赖任务：T021、T022、T023、T024、T025
+  - 包含文件：`src/schema/contest-domain.ts`、`migrations/0003_contest_domain.sql`、`src/repositories/contestQueries.ts`、`src/index.ts`、`tests/contract/contestQueries.test.ts`、`tests/helpers/validators.ts`
+  - 验证：`pnpm --filter @chaincontest/db test -- tests/contract/contestQueries.test.ts`

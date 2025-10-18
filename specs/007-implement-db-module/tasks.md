@@ -70,11 +70,11 @@
 
 ### Implementation & Tests
 
-- [ ] T016 [US2] 扩展 `packages/db/src/schema/user-bindings.ts`，加入触发器/约束以记录 `bound_at`、`created_by` 等审计字段，并确保唯一索引覆盖冲突场景。
-- [ ] T017 [US2] 在 `packages/db/src/repositories/userWalletMutations.ts` 编写事务逻辑：执行 `bind`/`unbind`、处理幂等键与冲突映射。
-- [ ] T018 [US2] 在 `packages/db/src/index.ts` 暴露 `mutateUserWallet`，封装输入校验、事务执行与分类化返回。
-- [ ] T019 [P] [US2] 在 `packages/db/tests/contract/userWalletMutations.test.ts` 编写重复绑定、跨用户冲突与无效解绑的测试。
-- [ ] T020 [US2] 更新 `packages/db/TODO.md`，追加“commit TODO: US2 mutations ready for commit”条目，列出需一起提交的文件与验证命令。
+- [X] T016 [US2] 扩展 `packages/db/src/schema/user-bindings.ts`，加入触发器/约束以记录 `bound_at`、`created_by` 等审计字段，并确保唯一索引覆盖冲突场景。
+- [X] T017 [US2] 在 `packages/db/src/repositories/userWalletMutations.ts` 编写事务逻辑：执行 `bind`/`unbind`、处理幂等键与冲突映射。
+- [X] T018 [US2] 在 `packages/db/src/index.ts` 暴露 `mutateUserWallet`，封装输入校验、事务执行与分类化返回。
+- [X] T019 [P] [US2] 在 `packages/db/tests/contract/userWalletMutations.test.ts` 编写重复绑定、跨用户冲突与无效解绑的测试。
+- [X] T020 [US2] 更新 `packages/db/TODO.md`，追加“commit TODO: US2 mutations ready for commit”条目，列出需一起提交的文件与验证命令。
 
 **Checkpoint**: User Stories 1 & 2 均可独立运行，绑定治理功能可回放幂等校验。
 
@@ -88,11 +88,11 @@
 
 ### Implementation & Tests
 
-- [ ] T021 [US3] 在 `packages/db/src/schema/contest-domain.ts` 定义 `contests`、`contest_snapshots`、`participants`、`leaderboard_versions`、`reward_claims` 表结构、检查与索引，并生成迁移。
-- [ ] T022 [US3] 在 `packages/db/src/repositories/contestQueries.ts` 实现过滤、分页、子视图聚合与排序逻辑，含游标编码。
-- [ ] T023 [US3] 在 `packages/db/src/index.ts` 暴露 `queryContests` 与 `queryUserContests`，整合校验与响应映射。
-- [ ] T024 [P] [US3] 在 `packages/db/tests/contract/contestQueries.test.ts` 编写多选择器、分页、关键字模糊与不受支持链标识的测试。
-- [ ] T025 [US3] 更新 `packages/db/TODO.md`，记录“commit TODO: US3 contest views ready for commit”，列出依赖迁移与测试。
+- [X] T021 [US3] 在 `packages/db/src/schema/contest-domain.ts` 定义 `contests`、`contest_snapshots`、`participants`、`leaderboard_versions`、`reward_claims` 表结构、检查与索引，并生成迁移。
+- [X] T022 [US3] 在 `packages/db/src/repositories/contestQueries.ts` 实现过滤、分页、子视图聚合与排序逻辑，含游标编码。
+- [X] T023 [US3] 在 `packages/db/src/index.ts` 暴露 `queryContests` 与 `queryUserContests`，整合校验与响应映射。
+- [X] T024 [P] [US3] 在 `packages/db/tests/contract/contestQueries.test.ts` 编写多选择器、分页、关键字模糊与不受支持链标识的测试。
+- [X] T025 [US3] 更新 `packages/db/TODO.md`，记录“commit TODO: US3 contest views ready for commit”，列出依赖迁移与测试。
 
 **Checkpoint**: User Stories 1–3 完成，可交付完整的读取与聚合能力。
 
@@ -106,11 +106,11 @@
 
 ### Implementation & Tests
 
-- [ ] T026 [US4] 在 `packages/db/src/schema/ingestion.ts` 定义 `ingestion_cursors`、`ingestion_events` 结构与唯一约束，支持链标识+地址查询。
-- [ ] T027 [US4] 在 `packages/db/src/repositories/contestDomainWrites.ts` 实现 `track`、`ingest_snapshot`、`register_participation`、`write_leaders_version`、`seal`、`append_reward_claim` 的事务处理与幂等键检查。
-- [ ] T028 [US4] 在 `packages/db/src/index.ts` 暴露 `writeContestDomain`、`readIngestionStatus`、`writeIngestionEvent`，处理顺序错误返回与游标更新。
-- [ ] T029 [P] [US4] 在 `packages/db/tests/contract/contestDomainWrites.test.ts` 与 `packages/db/tests/contract/ingestionProgress.test.ts` 编写事件重复、游标递增、未跟踪比赛返回的测试。
-- [ ] T030 [US4] 更新 `packages/db/TODO.md`，添加“commit TODO: US4 ingestion ready for commit”，确保列出所需回归测试与迁移。
+- [X] T026 [US4] 在 `packages/db/src/schema/ingestion.ts` 定义 `ingestion_cursors`、`ingestion_events` 结构与唯一约束，支持链标识+地址查询。
+- [X] T027 [US4] 在 `packages/db/src/repositories/contestDomainWrites.ts` 实现 `track`、`ingest_snapshot`、`register_participation`、`write_leaders_version`、`seal`、`append_reward_claim` 的事务处理与幂等键检查。
+- [X] T028 [US4] 在 `packages/db/src/index.ts` 暴露 `writeContestDomain`、`readIngestionStatus`、`writeIngestionEvent`，处理顺序错误返回与游标更新。
+- [X] T029 [P] [US4] 在 `packages/db/tests/contract/contestDomainWrites.test.ts` 与 `packages/db/tests/contract/ingestionProgress.test.ts` 编写事件重复、游标递增、未跟踪比赛返回的测试。
+- [X] T030 [US4] 更新 `packages/db/TODO.md`，添加“commit TODO: US4 ingestion ready for commit”，确保列出所需回归测试与迁移。
 
 **Checkpoint**: 四个用户故事全部完成，可独立回放链上事件并对外提供完整接口。
 
@@ -120,9 +120,9 @@
 
 **Purpose**: 文档、观测与最终对齐。
 
-- [ ] T031 [POLISH] 将最终快速启动、迁移与测试指南同步到 `specs/007-implement-db-module/quickstart.md` 与 `packages/db/README.md`。
-- [ ] T032 [POLISH] 在 `packages/db/src/instrumentation/metrics.ts` 与 `packages/db/src/index.ts` 补充监控 hook 示例、统一错误日志，并更新 `docs/architecture.md`（如存在）。
-- [ ] T033 [POLISH] 在 `packages/db/TODO.md` 添加“commit TODO: Release polish ready for final commit”，汇总需一起提交的收尾变更与验证命令。
+- [X] T031 [POLISH] 将最终快速启动、迁移与测试指南同步到 `specs/007-implement-db-module/quickstart.md` 与 `packages/db/README.md`。
+- [X] T032 [POLISH] 在 `packages/db/src/instrumentation/metrics.ts` 与 `packages/db/src/index.ts` 补充监控 hook 示例、统一错误日志，并更新 `docs/architecture.md`（如存在）。
+- [X] T033 [POLISH] 在 `packages/db/TODO.md` 添加“commit TODO: Release polish ready for final commit”，汇总需一起提交的收尾变更与验证命令。
 
 ---
 
