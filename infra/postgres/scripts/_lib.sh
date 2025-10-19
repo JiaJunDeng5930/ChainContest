@@ -6,6 +6,7 @@ umask 077
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 INFRA_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
+# shellcheck disable=SC2034  # 项目根路径保留给未来跨目录引用
 PROJECT_ROOT="$(cd "${INFRA_ROOT}/.." && pwd)"
 LOG_DIRECTORY="${INFRA_ROOT}/logs"
 AUDIT_LOG_FILE="${LOG_DIRECTORY}/audit-$(date -u +%Y%m%d).log"
@@ -73,6 +74,7 @@ load_env() {
   audit_info "加载环境变量：${local_env}"
   # shellcheck disable=SC1090
   set -a
+  # shellcheck disable=SC1090
   source "${sample_env}"
   # shellcheck disable=SC1090
   source "${local_env}"

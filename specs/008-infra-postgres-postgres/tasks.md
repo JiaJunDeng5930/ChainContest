@@ -97,8 +97,8 @@
 
 **Purpose**: 审计脚本质量、性能与文档一致性，确保整体交付可靠。
 
-- [ ] T023 [POLISH] 全量执行 `shellcheck`/静态扫描，修复脚本中的安全或性能隐患，并在 `docs/operations.md` 记录审计结论。
-- [ ] T024 [P] [POLISH] 按 `quickstart.md` 步骤重新走通全流程（init→backup→reset），校正文档偏差并记录剩余风险。
+- [X] T023 [POLISH] 全量执行 `shellcheck`/静态扫描，修复脚本中的安全或性能隐患，并在 `docs/operations.md` 记录审计结论。
+- [X] T024 [P] [POLISH] 按 `quickstart.md` 步骤重新走通全流程（init→backup→reset），校正文档偏差并记录剩余风险。
 
 ---
 

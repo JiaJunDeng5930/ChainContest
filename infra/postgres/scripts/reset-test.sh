@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
 # shellcheck shell=bash
+# shellcheck source=infra/postgres/scripts/_lib.sh
 
 set -euo pipefail
 
@@ -40,18 +41,14 @@ parse_args() {
   done
 }
 
-compose_args() {
-  printf '%s\n' "--project-directory" "${INFRA_ROOT}" "-f" "${INFRA_ROOT}/docker-compose.yaml"
-}
-
 container_id() {
-  docker compose $(compose_args) ps -q postgres
+  docker compose --project-directory "${INFRA_ROOT}" -f "${INFRA_ROOT}/docker-compose.yaml" ps -q postgres
 }
 
 ensure_container_online() {
   if [[ -z "$(container_id)" ]]; then
     audit_warn "Postgres 容器未运行，自动尝试启动。"
-    docker compose $(compose_args) up -d --remove-orphans
+    docker compose --project-directory "${INFRA_ROOT}" -f "${INFRA_ROOT}/docker-compose.yaml" up -d --remove-orphans
     sleep 2
   fi
 }
@@ -80,7 +77,7 @@ snapshot_path() {
 
 exec_psql() {
   local sql="$1"
-  docker compose $(compose_args) exec -T postgres \
+  docker compose --project-directory "${INFRA_ROOT}" -f "${INFRA_ROOT}/docker-compose.yaml" exec -T postgres \
     env PGPASSWORD="${POSTGRES_SUPERUSER_PASSWORD}" \
     psql \
       --dbname="${POSTGRES_DATABASE_NAME}" \
@@ -93,7 +90,7 @@ exec_psql() {
 
 apply_snapshot() {
   local snapshot_file="$1"
-  docker compose $(compose_args) exec -T postgres \
+  docker compose --project-directory "${INFRA_ROOT}" -f "${INFRA_ROOT}/docker-compose.yaml" exec -T postgres \
     env PGPASSWORD="${POSTGRES_SUPERUSER_PASSWORD}" \
     psql \
       --dbname="${POSTGRES_DATABASE_NAME}" \
@@ -119,13 +116,12 @@ main() {
 
   audit_info "开始测试环境重置，使用快照：${snapshot_file}"
 
-  exec_psql "SELECT pg_terminate_backend(pid) FROM pg_stat_activity WHERE datname = current_database() AND pid <> pg_backend_pid();" | sed 's/^/terminated_pid=/' >> "${reset_log}"
-
-  exec_psql "DROP SCHEMA public CASCADE; CREATE SCHEMA public; GRANT ALL ON SCHEMA public TO ${POSTGRES_SUPERUSER_NAME};" >> "${reset_log}"
-
-  apply_snapshot "${snapshot_file}" >> "${reset_log}"
-
-  exec_psql "ANALYZE;" >> "${reset_log}"
+  {
+    exec_psql "SELECT pg_terminate_backend(pid) FROM pg_stat_activity WHERE datname = current_database() AND pid <> pg_backend_pid();" | sed 's/^/terminated_pid=/'
+    exec_psql "DROP SCHEMA public CASCADE; CREATE SCHEMA public; GRANT ALL ON SCHEMA public TO ${POSTGRES_SUPERUSER_NAME};"
+    apply_snapshot "${snapshot_file}"
+    exec_psql "ANALYZE;"
+  } >> "${reset_log}"
 
   audit_info "快照导入完成，执行健康检查"
   bash "${SCRIPT_DIR}/health-check.sh"

@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
 # shellcheck shell=bash
+# shellcheck source=infra/postgres/scripts/_lib.sh
 
 set -euo pipefail
 
@@ -61,12 +62,8 @@ resolve_backup_path() {
   audit_fatal "找不到备份文件：${candidate}"
 }
 
-compose_args() {
-  printf '%s\n' "--project-directory" "${INFRA_ROOT}" "-f" "${INFRA_ROOT}/docker-compose.yaml"
-}
-
 ensure_container_running() {
-  if [[ -z "$(docker compose $(compose_args) ps -q postgres)" ]]; then
+  if [[ -z "$(docker compose --project-directory "${INFRA_ROOT}" -f "${INFRA_ROOT}/docker-compose.yaml" ps -q postgres)" ]]; then
     audit_fatal "Postgres 容器未运行，无法执行恢复。"
   fi
 }

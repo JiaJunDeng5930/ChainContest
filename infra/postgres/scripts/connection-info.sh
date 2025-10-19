@@ -4,7 +4,7 @@
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-# shellcheck source=./_lib.sh
+# shellcheck source=infra/postgres/scripts/_lib.sh
 source "${SCRIPT_DIR}/_lib.sh"
 
 FORMAT="text"

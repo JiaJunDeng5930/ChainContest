@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
 # shellcheck shell=bash
+# shellcheck source=infra/postgres/scripts/_lib.sh
 
 set -euo pipefail
 
@@ -7,12 +8,8 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # shellcheck source=./_lib.sh
 source "${SCRIPT_DIR}/_lib.sh"
 
-compose_args() {
-  printf '%s\n' "--project-directory" "${INFRA_ROOT}" "-f" "${INFRA_ROOT}/docker-compose.yaml"
-}
-
 container_id() {
-  docker compose $(compose_args) ps -q postgres
+  docker compose --project-directory "${INFRA_ROOT}" -f "${INFRA_ROOT}/docker-compose.yaml" ps -q postgres
 }
 
 ensure_not_running() {
@@ -24,7 +21,7 @@ ensure_not_running() {
 
 start_container() {
   audit_info "启动 Postgres 容器"
-  docker compose $(compose_args) up -d --remove-orphans
+  docker compose --project-directory "${INFRA_ROOT}" -f "${INFRA_ROOT}/docker-compose.yaml" up -d --remove-orphans
 }
 
 main() {

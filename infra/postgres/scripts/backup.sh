@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
 # shellcheck shell=bash
+# shellcheck source=infra/postgres/scripts/_lib.sh
 
 set -euo pipefail
 
@@ -98,7 +99,6 @@ update_metadata() {
   local snapshot_time="$2"
   local size_bytes="$3"
   local checksum="$4"
-  local metadata_file="${POSTGRES_BACKUP_DIRECTORY}/metadata.json"
 
   BACKUP_DIR="${POSTGRES_BACKUP_DIRECTORY}" \
   BACKUP_FILE="${file_name}" \
