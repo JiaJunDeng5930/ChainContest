@@ -10,5 +10,8 @@ CREATE UNIQUE INDEX IF NOT EXISTS wallet_bindings_wallet_active_unique
   WHERE unbound_at IS NULL;
 
 ALTER TABLE wallet_bindings
-  ADD CONSTRAINT IF NOT EXISTS wallet_bindings_unbound_after_bound
+  DROP CONSTRAINT IF EXISTS wallet_bindings_unbound_after_bound;
+
+ALTER TABLE wallet_bindings
+  ADD CONSTRAINT wallet_bindings_unbound_after_bound
   CHECK (unbound_at IS NULL OR unbound_at >= bound_at);

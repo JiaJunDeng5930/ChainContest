@@ -446,6 +446,15 @@ async function sealContest(
     });
   }
 
+  if (sealedAt < current.timeWindowStart) {
+    throw new DbError(DbErrorCode.ORDER_VIOLATION, 'Seal time cannot precede contest window start', {
+      detail: {
+        reason: 'seal_before_window_start',
+        context: { sealedAt: sealedAt.toISOString(), windowStart: current.timeWindowStart.toISOString() }
+      }
+    });
+  }
+
   if (sealedAt < current.timeWindowEnd) {
     throw new DbError(DbErrorCode.ORDER_VIOLATION, 'Seal time cannot precede contest window end', {
       detail: {
@@ -854,5 +863,11 @@ function deepEquals(a: Record<string, unknown>, b: Record<string, unknown>): boo
 }
 
 function isUniqueViolation(error: unknown): boolean {
-  return Boolean(error && typeof error === 'object' && (error as { code?: string }).code === '23505');
+  if (!error || typeof error !== 'object') {
+    return false;
+  }
+
+  const directCode = (error as { code?: string }).code;
+  const causeCode = (error as { cause?: { code?: string } }).cause?.code;
+  return directCode === '23505' || causeCode === '23505';
 }

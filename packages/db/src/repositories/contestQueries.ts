@@ -148,7 +148,7 @@ export async function queryContests(
     predicates.push(applyCursorCondition(pagination.cursor));
   }
 
-  const orderedQuery = db
+  let orderedQuery = db
     .select({
       id: contests.id,
       chainId: contests.chainId,
@@ -163,10 +163,13 @@ export async function queryContests(
       createdAt: contests.createdAt,
       updatedAt: contests.updatedAt
     })
-    .from(contests)
-    .$if(predicates.length > 0, (qb) => qb.where(and(...predicates)))
-    .orderBy(...BASE_ORDER)
-    .limit(pagination.pageSize + 1);
+    .from(contests);
+
+  if (predicates.length > 0) {
+    orderedQuery = orderedQuery.where(and(...predicates));
+  }
+
+  orderedQuery = orderedQuery.orderBy(...BASE_ORDER).limit(pagination.pageSize + 1);
 
   const rows = await orderedQuery;
 
@@ -688,18 +691,20 @@ async function loadUserContestCandidates(
   const activityMap = new Map<string, Date>();
 
   participationActivity.forEach((row) => {
-    if (row.lastParticipation) {
-      activityMap.set(row.contestId, row.lastParticipation);
+    const timestamp = coerceActivityTimestamp(row.lastParticipation);
+    if (timestamp) {
+      activityMap.set(row.contestId, timestamp);
     }
   });
 
   rewardActivity.forEach((row) => {
-    if (!row.lastReward) {
+    const timestamp = coerceActivityTimestamp(row.lastReward);
+    if (!timestamp) {
       return;
     }
     const current = activityMap.get(row.contestId);
-    if (!current || row.lastReward > current) {
-      activityMap.set(row.contestId, row.lastReward);
+    if (!current || timestamp > current) {
+      activityMap.set(row.contestId, timestamp);
     }
   });
 
@@ -786,6 +791,23 @@ async function loadUserContestCandidates(
     : null;
 
   return { rows, nextCursor };
+}
+
+function coerceActivityTimestamp(value: unknown): Date | null {
+  if (value === null || value === undefined) {
+    return null;
+  }
+
+  if (value instanceof Date) {
+    return Number.isNaN(value.getTime()) ? null : value;
+  }
+
+  if (typeof value === 'string' || typeof value === 'number') {
+    const date = new Date(value);
+    return Number.isNaN(date.getTime()) ? null : date;
+  }
+
+  return null;
 }
 
 async function loadParticipantsForWallets(

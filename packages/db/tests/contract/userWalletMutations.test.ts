@@ -76,7 +76,7 @@ describe('mutateUserWallet', () => {
     const bindings = await fixture.db
       .select()
       .from(walletBindings)
-      .where(eq(walletBindings.walletAddress, '0xabc0000000000000000000000000000000200'));
+      .where(eq(walletBindings.walletAddress, '0xabc0000000000000000000000000000000000200'));
     expect(bindings).toHaveLength(1);
     expect(bindings[0]!.createdBy).toBe('first-bind');
   });

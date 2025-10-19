@@ -13,6 +13,7 @@ import {
   DbError,
   DbErrorCode,
   registerErrorLogger,
+  ensureDbError,
   type MetricsHook,
   type ErrorLogger
 } from './instrumentation/metrics.js';
@@ -195,7 +196,26 @@ export const queryContests = async (
 ): Promise<QueryContestsResponse> => {
   const database = ensurePool();
 
-  validateSingleInput(DbValidationTypes.contestQuery, request);
+  try {
+    validateSingleInput(DbValidationTypes.contestQuery, request);
+  } catch (error) {
+    const classified = ensureDbError(error);
+    const issues = classified.detail?.context?.detail?.issues;
+    const hasUnsupportedChainIssue = Array.isArray(issues)
+      && issues.some((issue: { message?: string }) => issue?.message?.toLowerCase().includes('unsupported chain'));
+
+    if (
+      classified.code === DbErrorCode.INPUT_INVALID
+      && (classified.detail?.reason === 'unsupported_chain' || hasUnsupportedChainIssue)
+    ) {
+      throw new DbError(DbErrorCode.RESOURCE_UNSUPPORTED, classified.message, {
+        detail: classified.detail,
+        cause: classified
+      });
+    }
+
+    throw error;
+  }
   ensureLeaderboardIncludeIsValid(request.includes);
 
   const operation = (): Promise<QueryContestsResponse> => queryContestRecords(database.db, request);

@@ -236,6 +236,12 @@ function resolveBindingSource(
   return walletSourceEnum.enumValues[0]!;
 }
 
-function isUniqueViolation(error: unknown): error is { code?: string } {
-  return Boolean(error && typeof error === 'object' && (error as { code?: unknown }).code === '23505');
+function isUniqueViolation(error: unknown): boolean {
+  if (!error || typeof error !== 'object') {
+    return false;
+  }
+
+  const directCode = (error as { code?: string }).code;
+  const causeCode = (error as { cause?: { code?: string } }).cause?.code;
+  return directCode === '23505' || causeCode === '23505';
 }

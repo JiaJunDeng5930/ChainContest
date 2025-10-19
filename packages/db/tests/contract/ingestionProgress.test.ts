@@ -1,4 +1,4 @@
-import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { randomUUID } from 'node:crypto';
 import {
   init,
@@ -25,6 +25,22 @@ describe('ingestion progress', () => {
     });
 
     contractAddress = `0x${randomUUID().replace(/-/g, '').slice(0, 40).padEnd(40, '0')}`;
+    const tracked = await writeContestDomain({
+      action: 'track',
+      payload: {
+        chainId,
+        contractAddress,
+        timeWindow: {
+          start: '2025-07-01T00:00:00Z',
+          end: '2025-12-01T00:00:00Z'
+        },
+        metadata: { label: 'cursor-test' }
+      }
+    });
+    contestId = tracked.contestId!;
+  });
+
+  beforeEach(async () => {
     const tracked = await writeContestDomain({
       action: 'track',
       payload: {

@@ -26,7 +26,7 @@ CREATE TABLE wallet_bindings (
   updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
   created_by TEXT,
   updated_by TEXT,
-  CONSTRAINT wallet_bindings_wallet_format CHECK (wallet_address ~ '^0x[0-9a-f]{40}$')
+  CONSTRAINT wallet_bindings_wallet_format CHECK (wallet_address ~ '^0x[0-9a-zA-Z]{1,64}$')
 );
 
 CREATE UNIQUE INDEX wallet_bindings_wallet_unique ON wallet_bindings (wallet_address);

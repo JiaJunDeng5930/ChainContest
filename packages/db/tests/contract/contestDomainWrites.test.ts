@@ -1,4 +1,5 @@
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { eq } from 'drizzle-orm';
 import { randomUUID } from 'node:crypto';
 import {
   init,
@@ -114,7 +115,7 @@ describe('writeContestDomain', () => {
     const rows = await fixture.db
       .select({ count: participants.id })
       .from(participants)
-      .where((table, { eq }) => eq(table.contestId, contestId));
+      .where(eq(participants.contestId, contestId));
     expect(rows).toHaveLength(1);
   });
 
@@ -241,14 +242,14 @@ describe('writeContestDomain', () => {
     const records = await fixture.db
       .select({ count: rewardClaims.id })
       .from(rewardClaims)
-      .where((table, { eq }) => eq(table.contestId, contestId));
+      .where(eq(rewardClaims.contestId, contestId));
     expect(records).toHaveLength(1);
   });
 });
 
 const ensureContest = async (internalKey: string): Promise<string> => {
   const existing = await fixture.db.query.contests.findFirst({
-    where: (table, { eq }) => eq(table.internalKey, internalKey)
+    where: eq(contests.internalKey, internalKey)
   });
 
   if (existing) {
@@ -263,7 +264,7 @@ const ensureContest = async (internalKey: string): Promise<string> => {
       internalKey,
       timeWindow: {
         start: '2025-08-01T00:00:00Z',
-        end: '2025-09-30T00:00:00Z'
+        end: '2025-09-15T00:00:00Z'
       },
       metadata: { label: internalKey }
     }

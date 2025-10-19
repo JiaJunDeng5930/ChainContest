@@ -5,6 +5,7 @@ import { migrate } from 'drizzle-orm/node-postgres/migrator';
 import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
 import type { DrizzleDatabase } from '../../src/adapters/connection.js';
+import { dbSchema, type DbSchema } from '../../src/schema/index.js';
 
 const CURRENT_DIR = dirname(fileURLToPath(import.meta.url));
 const MIGRATIONS_DIR = join(CURRENT_DIR, '../../migrations');
@@ -13,7 +14,7 @@ export interface TestDatabaseFixture {
   readonly name: string;
   readonly connectionString: string;
   readonly pool: Pool;
-  readonly db: DrizzleDatabase;
+  readonly db: DrizzleDatabase<DbSchema>;
   reset(): Promise<void>;
   cleanup(): Promise<void>;
 }
@@ -34,7 +35,7 @@ export async function createDatabaseFixture(connectionString?: string): Promise<
   testDatabaseUrl.pathname = `/${testDatabaseName}`;
 
   const pool = new Pool({ connectionString: testDatabaseUrl.href });
-  const db = drizzle(pool);
+  const db = drizzle(pool, { schema: dbSchema });
 
   await migrate(db, { migrationsFolder: MIGRATIONS_DIR });
 
@@ -98,9 +99,10 @@ const cleanupDatabase = async (adminConnectionString: string, databaseName: stri
   });
 };
 
-const resetDatabase = async (pool: Pool, db: DrizzleDatabase): Promise<void> => {
+const resetDatabase = async (pool: Pool, db: DrizzleDatabase<DbSchema>): Promise<void> => {
   await pool.query('DROP SCHEMA IF EXISTS public CASCADE');
   await pool.query('CREATE SCHEMA public AUTHORIZATION CURRENT_USER');
   await pool.query('GRANT ALL ON SCHEMA public TO public');
+  await pool.query('DROP SCHEMA IF EXISTS drizzle CASCADE');
   await migrate(db, { migrationsFolder: MIGRATIONS_DIR });
 };

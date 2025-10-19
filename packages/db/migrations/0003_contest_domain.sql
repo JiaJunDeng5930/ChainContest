@@ -52,7 +52,7 @@ CREATE TABLE participants (
   updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
   created_by TEXT,
   updated_by TEXT,
-  CONSTRAINT participants_wallet_format CHECK (wallet_address ~ '^0x[0-9a-fA-F]{40}$'),
+  CONSTRAINT participants_wallet_format CHECK (wallet_address ~ '^0x[0-9a-zA-Z]{1,64}$'),
   CONSTRAINT participants_amount_non_negative CHECK (amount_wei >= 0),
   CONSTRAINT participants_event_locator_shape CHECK (event_locator ? 'tx_hash' AND event_locator ? 'log_index')
 );
@@ -89,7 +89,7 @@ CREATE TABLE reward_claims (
   updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
   created_by TEXT,
   updated_by TEXT,
-  CONSTRAINT reward_claims_wallet_format CHECK (wallet_address ~ '^0x[0-9a-fA-F]{40}$'),
+  CONSTRAINT reward_claims_wallet_format CHECK (wallet_address ~ '^0x[0-9a-zA-Z]{1,64}$'),
   CONSTRAINT reward_claims_event_locator_shape CHECK (event_locator ? 'tx_hash' AND event_locator ? 'log_index')
 );
 

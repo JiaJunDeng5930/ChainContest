@@ -1,0 +1,34 @@
+{
+  "version": "1",
+  "dialect": "postgresql",
+  "entries": [
+    {
+      "idx": 0,
+      "version": "0001",
+      "when": 1750185600000,
+      "tag": "0001_user_bindings",
+      "breakpoints": false
+    },
+    {
+      "idx": 1,
+      "version": "0002",
+      "when": 1750185601000,
+      "tag": "0002_wallet_binding_audit",
+      "breakpoints": false
+    },
+    {
+      "idx": 2,
+      "version": "0003",
+      "when": 1750185602000,
+      "tag": "0003_contest_domain",
+      "breakpoints": false
+    },
+    {
+      "idx": 3,
+      "version": "0004",
+      "when": 1750185603000,
+      "tag": "0004_ingestion",
+      "breakpoints": false
+    }
+  ]
+}

@@ -52,7 +52,7 @@ export const lookupUserWalletRecords = async (
     conditions.push(eq(walletBindings.walletAddress, walletFilter));
   }
 
-  const rows = await db
+  let query = db
     .select({
       identityId: userIdentities.id,
       externalId: userIdentities.externalId,
@@ -68,9 +68,13 @@ export const lookupUserWalletRecords = async (
       updatedBy: walletBindings.updatedBy
     })
     .from(walletBindings)
-    .innerJoin(userIdentities, eq(walletBindings.userId, userIdentities.id))
-    .$if(conditions.length > 0, (qb) => qb.where(and(...conditions)))
-    .orderBy(asc(walletBindings.boundAt), asc(walletBindings.walletAddress));
+    .innerJoin(userIdentities, eq(walletBindings.userId, userIdentities.id));
+
+  if (conditions.length > 0) {
+    query = query.where(and(...conditions));
+  }
+
+  const rows = await query.orderBy(asc(walletBindings.boundAt), asc(walletBindings.walletAddress));
 
   return rows.map((row) => ({
     ...row,

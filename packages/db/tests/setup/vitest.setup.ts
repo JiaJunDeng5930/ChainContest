@@ -1,7 +1,7 @@
-import { afterAll, beforeEach } from 'vitest';
+import { afterAll, afterEach } from 'vitest';
 import { cleanupAllFixtures, resetAllFixtures } from '../fixtures/database.js';
 
-beforeEach(async () => {
+afterEach(async () => {
   await resetAllFixtures();
 });
 
