@@ -46,7 +46,7 @@
 
 ### Implementation & Validation
 
-- [ ] T007 [US1] 开发 `infra/postgres/scripts/health-check.sh`，调用 `_lib.sh` 执行 `pg_isready`、诊断 SQL 与磁盘余量计算，将结果写入 `logs/health-*.log`。
+- [X] T007 [US1] 开发 `infra/postgres/scripts/health-check.sh`，调用 `_lib.sh` 执行 `pg_isready`、诊断 SQL 与磁盘余量计算，将结果写入 `logs/health-*.log`。
 - [ ] T008 [P] [US1] 开发 `infra/postgres/scripts/connection-info.sh`，解析 env 并执行只读 SQL 验证，将连接摘要输出为纯文本/JSON。
 - [ ] T009 [US1] 开发 `infra/postgres/scripts/init.sh`，自动创建数据卷权限、拉取 `postgres:16-alpine`、执行 `docker compose up -d` 并串联健康检查与日志归档。
 - [ ] T010 [P] [US1] 更新 `specs/008-infra-postgres-postgres/quickstart.md`，补充初始化、健康检查与连接验证的命令示例及预期输出片段。
