@@ -29,7 +29,7 @@
 
 **Purpose**: 搭建所有故事共用的配置、Compose 与脚本底座；完成前禁止进入任何用户故事开发。
 
-- [ ] T003 [FOUND] 编写 `infra/postgres/env/sample.env`，定义 `POSTGRES_IMAGE=postgres:16-alpine`、端口、卷路径与凭证占位，并附安全提示。
+- [X] T003 [FOUND] 编写 `infra/postgres/env/sample.env`，定义 `POSTGRES_IMAGE=postgres:16-alpine`、端口、卷路径与凭证占位，并附安全提示。
 - [ ] T004 [FOUND] 创建 `infra/postgres/docker-compose.yaml`，声明官方 Postgres 服务、持久卷映射、网络隔离及基础 healthcheck 占位。
 - [ ] T005 [FOUND] 实现共享库 `infra/postgres/scripts/_lib.sh`，封装 env 加载、依赖检查（docker、pg_isready、pg_dump）、审计日志输出与安全退出策略。
 - [ ] T006 [P] [FOUND] 撰写 `infra/postgres/docs/operations.md` 基线章节，记录前置条件、目录布局、安全优先栈与回滚原则。
