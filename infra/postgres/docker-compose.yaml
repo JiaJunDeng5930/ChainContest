@@ -1,0 +1,43 @@
+services:
+  postgres:
+    image: "${POSTGRES_IMAGE}"
+    container_name: "${POSTGRES_CONTAINER_NAME}"
+    restart: unless-stopped
+    env_file:
+      - ./env/.env.local
+    environment:
+      POSTGRES_DB: "${POSTGRES_DATABASE_NAME}"
+      POSTGRES_USER: "${POSTGRES_SUPERUSER_NAME}"
+      POSTGRES_PASSWORD: "${POSTGRES_SUPERUSER_PASSWORD}"
+    ports:
+      - "${POSTGRES_PORT}:${POSTGRES_PORT}"
+    volumes:
+      - type: bind
+        source: "${POSTGRES_DATA_DIRECTORY}"
+        target: /var/lib/postgresql/data
+      - type: bind
+        source: "${POSTGRES_LOG_DIRECTORY}"
+        target: /var/log/postgresql
+      - type: bind
+        source: "${POSTGRES_BACKUP_DIRECTORY}"
+        target: /backups
+    networks:
+      - postgres_network
+    healthcheck:
+      test:
+        - CMD-SHELL
+        - >
+          pg_isready
+          --host=localhost
+          --port="${POSTGRES_PORT}"
+          --username="${POSTGRES_SUPERUSER_NAME}"
+          --dbname="${POSTGRES_DATABASE_NAME}"
+      interval: 10s
+      timeout: 5s
+      start_period: 30s
+      retries: 5
+
+networks:
+  postgres_network:
+    name: "${POSTGRES_NETWORK_NAME}"
+    driver: bridge
