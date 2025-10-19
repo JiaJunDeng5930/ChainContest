@@ -1,0 +1,440 @@
+openapi: 3.1.0
+info:
+  title: Contest Chain Gateway
+  version: 0.1.0
+  description: |
+    Logical contract for the packages/chain gateway. Actual delivery is a TypeScript module
+    whose public methods mirror the REST endpoints below. Each endpoint documents inputs,
+    outputs and error classifications for reference and testing.
+servers:
+  - url: https://gateway.placeholder
+    description: Documentation stub (non-production)
+
+x-changelog:
+  - date: 2025-10-19
+    changes:
+      - Implemented registration, rebalance, settlement, reward, redemption, and event APIs in alignment with packages/chain gateway.
+      - Added additional ContestChainError codes (AUTHORIZATION_REQUIRED, PRICING_STALE, VALIDATION_FAILED, NOT_IMPLEMENTED).
+      - Documented event batch response structure with cursor and latest block anchors.
+
+components:
+  schemas:
+    ContestIdentifier:
+      type: object
+      required: [contestId, chainId, addresses]
+      properties:
+        contestId:
+          type: string
+        chainId:
+          type: integer
+        gatewayVersion:
+          type: string
+        addresses:
+          type: object
+          additionalProperties:
+            type: string
+    LifecycleSnapshot:
+      type: object
+      required: [phase, timeline, prizePool, registrationCapacity, qualificationVerdict, derivedAt]
+      properties:
+        phase:
+          type: string
+          enum: [registering, live, frozen, sealed, closed]
+        timeline:
+          type: object
+        prizePool:
+          type: object
+        registrationCapacity:
+          type: object
+        qualificationVerdict:
+          type: object
+        derivedAt:
+          type: object
+    RegistrationPlan:
+      type: object
+      required: [status, qualifications, requiredApprovals, estimatedFees, derivedAt]
+      properties:
+        status:
+          type: string
+          enum: [ready, blocked]
+        qualifications:
+          type: array
+          items:
+            type: object
+        requiredApprovals:
+          type: array
+          items:
+            type: object
+        registrationCall:
+          type: object
+        estimatedFees:
+          type: object
+        rejectionReason:
+          type: object
+        derivedAt:
+          type: object
+    RebalancePlan:
+      type: object
+      required: [status, policyChecks, transaction, derivedAt]
+      properties:
+        status:
+          type: string
+          enum: [ready, blocked]
+        policyChecks:
+          type: array
+          items:
+            type: object
+        transaction:
+          type: object
+        rollbackAdvice:
+          type: string
+        rejectionReason:
+          type: object
+        derivedAt:
+          type: object
+    SettlementResult:
+      type: object
+      required: [status, leaderboardVersion, frozenAt]
+      properties:
+        status:
+          type: string
+          enum: [applied, noop, blocked]
+        settlementCall:
+          type: object
+        leaderboardVersion:
+          type: string
+        frozenAt:
+          type: object
+        detail:
+          type: object
+    RewardClaimResult:
+      type: object
+      required: [status, payout, derivedAt]
+      properties:
+        status:
+          type: string
+          enum: [applied, noop, blocked]
+        payout:
+          type: object
+        claimCall:
+          type: object
+        reason:
+          type: object
+        derivedAt:
+          type: object
+    RedemptionResult:
+      allOf:
+        - $ref: '#/components/schemas/RewardClaimResult'
+    ContestEventEnvelope:
+      type: object
+      required: [type, blockNumber, logIndex, txHash, cursor, payload, derivedAt]
+      properties:
+        type:
+          type: string
+          enum: [registration, rebalance, settlement, reward, redemption]
+        blockNumber:
+          type: integer
+        logIndex:
+          type: integer
+        txHash:
+          type: string
+        cursor:
+          type: object
+        payload:
+          type: object
+        reorgFlag:
+          type: boolean
+        derivedAt:
+          type: object
+          description: Block anchor (blockNumber, blockHash, optional timestamp)
+    ContestEventBatch:
+      type: object
+      required: [events, nextCursor, latestBlock]
+      properties:
+        events:
+          type: array
+          items:
+            $ref: '#/components/schemas/ContestEventEnvelope'
+        nextCursor:
+          type: object
+          properties:
+            blockNumber:
+              type: integer
+            logIndex:
+              type: integer
+        latestBlock:
+          type: object
+          properties:
+            blockNumber:
+              type: integer
+            blockHash:
+              type: string
+            timestamp:
+              type: string
+    ContestChainError:
+      type: object
+      required: [code, message]
+      properties:
+        code:
+          type: string
+          enum:
+            [
+              QUALIFICATION_FAILED,
+              RULE_VIOLATION,
+              CHAIN_UNAVAILABLE,
+              STATE_CONFLICT,
+              AUTHORIZATION_REQUIRED,
+              PRICING_STALE,
+              VALIDATION_FAILED,
+              NOT_IMPLEMENTED,
+              INTERNAL_ERROR
+            ]
+        message:
+          type: string
+        detail:
+          type: object
+
+paths:
+  /contests/{contestId}/lifecycle:
+    get:
+      summary: Describe lifecycle snapshot
+      parameters:
+        - name: contestId
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: chainId
+          in: query
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Lifecycle snapshot
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LifecycleSnapshot'
+        '409':
+          description: State conflict
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ContestChainError'
+  /contests/{contestId}/registration-plan:
+    post:
+      summary: Build registration execution plan
+      parameters:
+        - name: contestId
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [chainId, participant]
+              properties:
+                chainId:
+                  type: integer
+                participant:
+                  type: string
+      responses:
+        '200':
+          description: Plan generated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RegistrationPlan'
+        '422':
+          description: Qualification failed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ContestChainError'
+  /contests/{contestId}/rebalance-plan:
+    post:
+      summary: Build constrained rebalance plan
+      parameters:
+        - name: contestId
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [chainId, participant, intent]
+              properties:
+                chainId:
+                  type: integer
+                participant:
+                  type: string
+                intent:
+                  type: object
+      responses:
+        '200':
+          description: Plan generated or blocked
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RebalancePlan'
+        '409':
+          description: Rule violation
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ContestChainError'
+  /contests/{contestId}/settlement:
+    post:
+      summary: Execute settlement when eligible
+      parameters:
+        - name: contestId
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [chainId, caller]
+              properties:
+                chainId:
+                  type: integer
+                caller:
+                  type: string
+      responses:
+        '200':
+          description: Settlement result
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SettlementResult'
+        '409':
+          description: Contest not ready
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ContestChainError'
+  /contests/{contestId}/reward-claim:
+    post:
+      summary: Execute reward claim for winner
+      parameters:
+        - name: contestId
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [chainId, participant]
+              properties:
+                chainId:
+                  type: integer
+                participant:
+                  type: string
+      responses:
+        '200':
+          description: Reward claim outcome
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RewardClaimResult'
+        '409':
+          description: Not eligible or already claimed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ContestChainError'
+  /contests/{contestId}/principal-redemption:
+    post:
+      summary: Execute principal redemption after settlement
+      parameters:
+        - name: contestId
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [chainId, participant]
+              properties:
+                chainId:
+                  type: integer
+                participant:
+                  type: string
+      responses:
+        '200':
+          description: Redemption outcome
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RedemptionResult'
+        '409':
+          description: Contest not releasable or already redeemed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ContestChainError'
+  /contests/{contestId}/events:
+    get:
+      summary: Pull contest events in block range
+      parameters:
+        - name: contestId
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: chainId
+          in: query
+          required: true
+          schema:
+            type: integer
+        - name: fromBlock
+          in: query
+          schema:
+            type: integer
+        - name: toBlock
+          in: query
+          schema:
+            type: integer
+        - name: cursor
+          in: query
+          schema:
+            type: string
+            description: JSON stringified cursor `{ "blockNumber": number, "logIndex": number }`
+        - name: limit
+          in: query
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Event batch
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ContestEventBatch'
+        '503':
+          description: Chain temporarily unavailable
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ContestChainError'

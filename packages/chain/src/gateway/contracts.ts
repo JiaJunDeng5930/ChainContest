@@ -1,0 +1,113 @@
+import type { Address } from 'viem';
+import type { ContestChainError } from '@chain/errors/contestChainError';
+import type {
+  ContestEventBatch,
+  ContestIdentifier,
+  EventCursor,
+  LifecycleSnapshot,
+  RedemptionResult,
+  RegistrationPlan,
+  RebalancePlan,
+  RewardClaimResult,
+  SettlementResult,
+} from './domainModels';
+import type { GatewayValidationAdapter, ValidationContext } from '@chain/policies/validationContext';
+import type { RpcClientFactory, SignerLocator } from '@chain/adapters/rpcClientFactory';
+import type { ContestChainDataProvider } from './types';
+
+export interface DescribeContestLifecycleInput {
+  readonly contest: ContestIdentifier;
+  readonly participant?: Address;
+  readonly blockTag?: bigint | 'latest';
+  readonly includeQualification?: boolean;
+}
+
+export interface PlanParticipantRegistrationInput {
+  readonly contest: ContestIdentifier;
+  readonly participant: Address;
+  readonly referrer?: Address;
+  readonly blockTag?: bigint | 'latest';
+  readonly dryRun?: boolean;
+}
+
+export interface RebalanceIntent {
+  readonly sellAsset: Address;
+  readonly buyAsset: Address;
+  readonly amount: string;
+  readonly minimumReceived?: string;
+  readonly quoteId?: string;
+}
+
+export interface PlanPortfolioRebalanceInput {
+  readonly contest: ContestIdentifier;
+  readonly participant: Address;
+  readonly intent: RebalanceIntent;
+  readonly blockTag?: bigint | 'latest';
+  readonly dryRun?: boolean;
+}
+
+export interface ExecuteContestSettlementInput {
+  readonly contest: ContestIdentifier;
+  readonly caller: Address;
+  readonly blockTag?: bigint | 'latest';
+}
+
+export interface ExecuteRewardClaimInput {
+  readonly contest: ContestIdentifier;
+  readonly participant: Address;
+  readonly blockTag?: bigint | 'latest';
+}
+
+export interface ExecutePrincipalRedemptionInput {
+  readonly contest: ContestIdentifier;
+  readonly participant: Address;
+  readonly blockTag?: bigint | 'latest';
+}
+
+export interface PullContestEventsInput {
+  readonly contest: ContestIdentifier;
+  readonly cursor?: EventCursor;
+  readonly fromBlock?: bigint;
+  readonly toBlock?: bigint;
+  readonly limit?: number;
+}
+
+export interface ContestChainGateway {
+  readonly describeContestLifecycle: (
+    input: DescribeContestLifecycleInput,
+  ) => Promise<LifecycleSnapshot>;
+  readonly planParticipantRegistration: (
+    input: PlanParticipantRegistrationInput,
+  ) => Promise<RegistrationPlan>;
+  readonly planPortfolioRebalance: (
+    input: PlanPortfolioRebalanceInput,
+  ) => Promise<RebalancePlan>;
+  readonly executeContestSettlement: (
+    input: ExecuteContestSettlementInput,
+  ) => Promise<SettlementResult>;
+  readonly executeRewardClaim: (
+    input: ExecuteRewardClaimInput,
+  ) => Promise<RewardClaimResult>;
+  readonly executePrincipalRedemption: (
+    input: ExecutePrincipalRedemptionInput,
+  ) => Promise<RedemptionResult>;
+  readonly pullContestEvents: (
+    input: PullContestEventsInput,
+  ) => Promise<ContestEventBatch>;
+}
+
+export interface CreateContestChainGatewayOptions {
+  readonly validators: GatewayValidationAdapter | ValidationContext;
+  readonly rpcClientFactory: RpcClientFactory;
+  readonly signerLocator: SignerLocator;
+  readonly errorLogger?: (error: ContestChainError) => void;
+  readonly dataProvider: ContestChainDataProvider;
+}
+
+export interface GatewayRuntime {
+  readonly validation: GatewayValidationAdapter;
+  readonly rpcClientFactory: RpcClientFactory;
+  readonly signerLocator: SignerLocator;
+  readonly errorLogger?: (error: ContestChainError) => void;
+  readonly dataProvider: ContestChainDataProvider;
+}
