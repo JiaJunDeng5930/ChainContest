@@ -65,7 +65,7 @@
 
 ### Implementation & Validation
 
-- [ ] T013 [US2] 实现 `infra/postgres/scripts/backup.sh`，封装 `pg_dump` 逻辑备份、校验 checksum、应用保留策略并写入 `backups/metadata.json`。
+- [X] T013 [US2] 实现 `infra/postgres/scripts/backup.sh`，封装 `pg_dump` 逻辑备份、校验 checksum、应用保留策略并写入 `backups/metadata.json`。
 - [ ] T014 [US2] 实现 `infra/postgres/scripts/restore.sh`，加载指定备份，执行核心表校验 SQL，并在失败时自动回滚。
 - [ ] T015 [US2] 实现 `infra/postgres/scripts/shutdown.sh`，触发增量备份、优雅停止容器、验证资源释放并记录操作日志。
 - [ ] T016 [P] [US2] 实现 `infra/postgres/scripts/start.sh`，读取现有卷配置重新启动实例并执行快速健康检查。
