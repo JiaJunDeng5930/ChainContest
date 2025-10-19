@@ -21,7 +21,7 @@
 **Purpose**: 建立 `infra/postgres` 基础目录与忽略规则，便于后续脚本与数据存放。
 
 - [X] T001 [SETUP] 创建目录骨架 `infra/postgres/{env,scripts,docs,logs,backups,snapshots}` 并添加 `.gitkeep`/README 提示，确保团队结构一致。
-- [ ] T002 [P] [SETUP] 更新根目录 `.gitignore`，忽略 `infra/postgres/logs/`、`infra/postgres/backups/`、`infra/postgres/env/.env.local` 等敏感或生成文件。
+- [X] T002 [P] [SETUP] 更新根目录 `.gitignore`，忽略 `infra/postgres/logs/`、`infra/postgres/backups/`、`infra/postgres/env/.env.local` 等敏感或生成文件。
 
 ---
 

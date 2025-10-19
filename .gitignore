@@ -12,3 +12,8 @@ frontend/.cache/
 
 # TypeScript build outputs
 packages/**/dist/
+
+# Infra/Postgres runtime artifacts
+infra/postgres/logs/
+infra/postgres/backups/
+infra/postgres/env/.env.local
