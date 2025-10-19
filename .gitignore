@@ -17,3 +17,4 @@ packages/**/dist/
 infra/postgres/logs/
 infra/postgres/backups/
 infra/postgres/env/.env.local
+infra/postgres/data/
