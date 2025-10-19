@@ -40,6 +40,52 @@ infra/postgres/
    - `logs/health-*.log`：健康检查详情，内含磁盘使用率与服务版本。
 4. 使用 `bash infra/postgres/scripts/connection-info.sh --format text` 验证连接参数，并将输出附加到交付记录。
 
+## 备份策略与保留
+1. 手动触发逻辑备份：
+   ```bash
+   bash infra/postgres/scripts/backup.sh --label <可选标签>
+   ```
+   - 备份文件保存在 `infra/postgres/backups/`，命名格式 `YYYYMMDDTHHMMSSZ[-label].dump`。
+   - 校验摘要与元数据会追加到 `infra/postgres/backups/metadata.json`，保留最新条目并剔除缺失文件。
+2. 保留策略：
+   - `BACKUP_RETENTION_COUNT`（默认 7）超出后自动删除最旧备份。
+   - `BACKUP_RETENTION_DAYS`（默认 14）会清理超过指定天数的备份。
+   - 调整策略需在 `.env.local` 中修改对应变量，再次执行备份脚本即可生效。
+3. 告警建议：备份失败或验签不通过时立即通知运维频道，并使用 `docker compose ... logs postgres` 与审计日志定位原因。
+
+## 恢复流程（US2）
+1. 准备恢复命令：
+   ```bash
+   bash infra/postgres/scripts/restore.sh --backup <备份文件名>
+   ```
+   - 默认先生成一次 `pre-restore` 备份，若恢复或验证失败会自动回滚。
+   - 备份文件必须位于 `infra/postgres/backups/`，如需使用外部来源请先复制到该目录。
+2. 验证步骤：脚本会运行诊断 SQL，统计用户表数量与数据体积，结果写入审计日志。
+3. 失败处理：
+   - 如脚本自动回滚仍失败，应立即暂停进一步操作，保留日志并升级到数据库管理员。
+   - 若需跳过 safeguard，需提供第三方回滚方案并使用 `--skip-safeguard` 显式声明。
+
+## 停机 / 启动 SOP
+1. **安全停机**：
+   ```bash
+   bash infra/postgres/scripts/shutdown.sh
+   ```
+   - 停机前自动执行一次 `shutdown-<timestamp>` 备份。
+   - `docker compose down --remove-orphans` 确保容器、网络完全释放，脚本会验证容器已消失。
+2. **重新启动**：
+   ```bash
+   bash infra/postgres/scripts/start.sh
+   ```
+   - 在确认容器未运行时启动实例，并串联健康检查确保恢复在线。
+3. **最小化停机窗口**：组合使用 `shutdown.sh` → `start.sh`，并在 `health-*.log` 中确认恢复时间，必要时通知依赖服务更新连接。
+
+## 告警响应与沟通
+- 出现健康检查 WARN/ERROR、备份/恢复失败、磁盘即将耗尽等事件时：
+  1. 立即查看 `logs/audit-*.log` 获取详细上下文。
+  2. 将事件记录到运维频道，附上最近一次 `health-*.log` 或备份元数据条目。
+  3. 评估是否需要触发 `restore.sh` 或 `reset-test.sh`（详见后续章节）的回滚/重置流程。
+- 若停机时间超过 5 分钟未恢复，需通知平台负责人并评估业务影响。
+
 ## 失败与回滚步骤
 - **容器启动失败**：执行 `docker compose -f infra/postgres/docker-compose.yaml --project-directory infra/postgres down --volumes`，随后修正 `.env.local` 或权限问题，再次运行初始化脚本。
 - **健康检查未通过**：保留失败日志，先运行 `docker compose ... logs postgres` 定位问题；如属配置错误，执行 `shutdown.sh`（完成后将在后续任务提供）并清理数据卷，再重新初始化。

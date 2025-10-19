@@ -69,7 +69,7 @@
 - [X] T014 [US2] 实现 `infra/postgres/scripts/restore.sh`，加载指定备份，执行核心表校验 SQL，并在失败时自动回滚。
 - [X] T015 [US2] 实现 `infra/postgres/scripts/shutdown.sh`，触发增量备份、优雅停止容器、验证资源释放并记录操作日志。
 - [X] T016 [P] [US2] 实现 `infra/postgres/scripts/start.sh`，读取现有卷配置重新启动实例并执行快速健康检查。
-- [ ] T017 [P] [US2] 更新 `infra/postgres/docs/operations.md`，补充备份保留策略、停机/恢复 SOP 与告警响应步骤。
+- [X] T017 [P] [US2] 更新 `infra/postgres/docs/operations.md`，补充备份保留策略、停机/恢复 SOP 与告警响应步骤。
 - [ ] T018 [US2] 执行备份→停机→重启→恢复全流程，附带健康检查截图/日志至 `docs/operations.md`，满足验收要求。
 
 **Checkpoint**: US1 + US2 独立可用，生命周期管理可复现。
