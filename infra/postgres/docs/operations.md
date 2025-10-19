@@ -103,3 +103,9 @@ infra/postgres/
   - 启动日志：`infra/postgres/logs/bootstrap-20251019T053735Z.log`
   - 健康检查：`infra/postgres/logs/health-20251019T053735Z.log`
 - 通过 `bash infra/postgres/scripts/connection-info.sh --format text` 验证连接，脚本输出确认容器在线且当前角色为 `postgres_admin`。
+- US2 流程演练（备份→停机→启动→恢复）：
+  - 备份：`infra/postgres/backups/20251019T060308Z-us2-accept.dump`
+  - 停机前备份：`infra/postgres/backups/20251019T060315Z-shutdown-20251019T060315Z.dump`
+  - 启动后健康检查：`infra/postgres/logs/health-20251019T060321Z.log`
+  - 恢复前 safeguard：`infra/postgres/backups/20251019T060326Z-pre-restore-20251019T060325Z.dump`
+  - 恢复目标：`infra/postgres/backups/20251019T060308Z-us2-accept.dump`
