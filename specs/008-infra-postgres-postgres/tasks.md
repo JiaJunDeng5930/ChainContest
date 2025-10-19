@@ -84,10 +84,10 @@
 
 ### Implementation & Validation
 
-- [ ] T019 [US3] 生成标准快照资产 `infra/postgres/snapshots/standard.sql` 及 `metadata.json`，记录生成时间、适用 schema 与校验摘要。
-- [ ] T020 [US3] 实现 `infra/postgres/scripts/reset-test.sh`，封装只在测试标志下执行的清理、快照导入与健康检查，并防止生产环境误用。
-- [ ] T021 [P] [US3] 更新 `quickstart.md` 与 `docs/operations.md` 的 CI 章节，描述快照维护、参数化运行与回滚策略。
-- [ ] T022 [US3] 在测试实例运行 `reset-test.sh`，记录执行耗时与自动化验证结果，更新文档验收部分。
+- [X] T019 [US3] 生成标准快照资产 `infra/postgres/snapshots/standard.sql` 及 `metadata.json`，记录生成时间、适用 schema 与校验摘要。
+- [X] T020 [US3] 实现 `infra/postgres/scripts/reset-test.sh`，封装只在测试标志下执行的清理、快照导入与健康检查，并防止生产环境误用。
+- [X] T021 [P] [US3] 更新 `quickstart.md` 与 `docs/operations.md` 的 CI 章节，描述快照维护、参数化运行与回滚策略。
+- [X] T022 [US3] 在测试实例运行 `reset-test.sh`，记录执行耗时与自动化验证结果，更新文档验收部分。
 
 **Checkpoint**: 三个用户故事均可独立测试，支撑自动化验证。
 

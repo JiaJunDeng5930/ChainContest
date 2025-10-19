@@ -21,6 +21,9 @@ services:
       - type: bind
         source: "${POSTGRES_BACKUP_DIRECTORY}"
         target: /backups
+      - type: bind
+        source: "${POSTGRES_SNAPSHOT_DIRECTORY}"
+        target: /snapshots
     networks:
       - postgres_network
     healthcheck:

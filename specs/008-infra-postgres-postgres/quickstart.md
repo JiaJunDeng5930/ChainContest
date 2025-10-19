@@ -40,6 +40,10 @@
 - **安全停机**：执行 `scripts/shutdown.sh`，确保在停止容器前生成增量备份。
 - **重启实例**：执行 `scripts/start.sh`，重新附加卷并验证状态。
 - **测试环境快速重置**：执行 `scripts/reset-test.sh [--snapshot <id>]`，在 5 分钟内恢复标准快照。
+- **测试环境快速重置**：
+  1. 在 `.env.local` 将 `ALLOW_TEST_RESET=true`，确认 `RESET_ENVIRONMENT_NAME` 为 `local`/`ci` 等非生产值。
+  2. 运行 `bash infra/postgres/scripts/reset-test.sh --snapshot standard`，日志写入 `infra/postgres/logs/reset-*.log`。
+  3. 脚本会结束所有活动连接、重建 schema 并导入 `snapshots/standard.sql`，随后自动执行健康检查。
 
 ## 备份与恢复策略
 1. 默认保留最近 7 份备份，可通过 `BACKUP_RETENTION_COUNT` 环境变量调整。

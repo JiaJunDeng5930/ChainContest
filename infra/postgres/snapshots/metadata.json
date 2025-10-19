@@ -1,0 +1,11 @@
+{
+  "snapshots": [
+    {
+      "snapshotId": "standard",
+      "sqlFile": "standard.sql",
+      "generatedAt": "2025-10-19T06:05:00Z",
+      "schemaSummary": "Baseline schema with reset_control placeholder table and pgcrypto extension.",
+      "checksumSha256": "79e7f528bcf65888a0abab8011ba6dbffa2bf3a8da86a8a5de9859c81acb3083"
+    }
+  ]
+}

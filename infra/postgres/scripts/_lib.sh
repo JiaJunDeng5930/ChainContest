@@ -94,6 +94,9 @@ prepare_runtime() {
   ensure_directory "${INFRA_ROOT}/backups"
   ensure_directory "${INFRA_ROOT}/snapshots"
   ensure_directory "${INFRA_ROOT}/data"
+  if [[ -n "${POSTGRES_SNAPSHOT_DIRECTORY:-}" ]]; then
+    ensure_directory "${POSTGRES_SNAPSHOT_DIRECTORY}"
+  fi
 }
 
 safe_exit() {

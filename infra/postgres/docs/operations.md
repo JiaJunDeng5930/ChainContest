@@ -109,3 +109,7 @@ infra/postgres/
   - 启动后健康检查：`infra/postgres/logs/health-20251019T060321Z.log`
   - 恢复前 safeguard：`infra/postgres/backups/20251019T060326Z-pre-restore-20251019T060325Z.dump`
   - 恢复目标：`infra/postgres/backups/20251019T060308Z-us2-accept.dump`
+- US3 流程演练（reset-test 快照重置）：
+  - 快照：`infra/postgres/snapshots/standard.sql`（校验值 `79e7f528bcf65888a0abab8011ba6dbffa2bf3a8da86a8a5de9859c81acb3083`）
+  - 重置日志：`infra/postgres/logs/reset-20251019T061916Z.log`
+  - 重置后健康检查：`infra/postgres/logs/health-20251019T061918Z.log`
