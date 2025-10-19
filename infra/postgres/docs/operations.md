@@ -51,3 +51,9 @@ infra/postgres/
 - **应用凭证**（`POSTGRES_APP_USER_NAME`）开放给 `/packages/db` 与相关服务，确保业务操作具备读写权限。
 - **只读凭证**（`POSTGRES_READONLY_USER_NAME`）用于报告或紧急诊断，不得执行写操作。
 - 凭证更新需在 `.env.local` 内同步，并立即触发 `health-check.sh` 验证连接；更新记录写入 `logs/audit-*.log`。
+
+## 验收记录（2025-10-19）
+- 已使用 `bash infra/postgres/scripts/init.sh` 完成初始化与健康检查，关键日志：
+  - 启动日志：`infra/postgres/logs/bootstrap-20251019T053735Z.log`
+  - 健康检查：`infra/postgres/logs/health-20251019T053735Z.log`
+- 通过 `bash infra/postgres/scripts/connection-info.sh --format text` 验证连接，脚本输出确认容器在线且当前角色为 `postgres_admin`。

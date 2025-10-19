@@ -51,7 +51,7 @@
 - [X] T009 [US1] 开发 `infra/postgres/scripts/init.sh`，自动创建数据卷权限、拉取 `postgres:16-alpine`、执行 `docker compose up -d` 并串联健康检查与日志归档。
 - [X] T010 [P] [US1] 更新 `specs/008-infra-postgres-postgres/quickstart.md`，补充初始化、健康检查与连接验证的命令示例及预期输出片段。
 - [X] T011 [P] [US1] 扩写 `infra/postgres/docs/operations.md`，记录供应流程步骤、失败回滚策略与凭证分发指引。
-- [ ] T012 [US1] 在本地执行 `init.sh` + `health-check.sh`，将结果链接写入 `docs/operations.md` 的验收章节，满足验收场景。
+- [X] T012 [US1] 在本地执行 `init.sh` + `health-check.sh`，将结果链接写入 `docs/operations.md` 的验收章节，满足验收场景。
 
 **Checkpoint**: US1 可独立演示，形成最小可行产品。
 
