@@ -55,7 +55,7 @@ export const walletBindings = pgTable(
       .where(sql`${table.unboundAt} IS NULL`),
     userIndex: index('wallet_bindings_user_idx').on(table.userId),
     walletIdx: index('wallet_bindings_wallet_idx').on(table.walletAddress),
-    walletFormat: check('wallet_bindings_wallet_format', sql`wallet_address ~ '^0x[0-9a-zA-Z]{1,64}$'`),
+    walletFormat: check('wallet_bindings_wallet_format', sql`wallet_address ~ '^0x[0-9a-fA-F]{40}$'`),
     unboundAfterBound: check(
       'wallet_bindings_unbound_after_bound',
       sql`unbound_at IS NULL OR unbound_at >= bound_at`

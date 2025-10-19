@@ -45,19 +45,19 @@ describe('contest queries', () => {
       contractAddress: '0xabc0000000000000000000000000000000000001',
       metadata: {
         keywords: 'defi,racing',
-        creatorWallet: '0xcreator00000000000000000000000000000001',
+        creatorWallet: '0xc000000000000000000000000000000000000001',
         contestsHosted: 3
       }
     });
 
     await seedLeaderboardVersion(contestId, 1n, [
-      { rank: 1, walletAddress: '0xwallet00000000000000000000000000000001', score: '100' }
+      { rank: 1, walletAddress: '0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa', score: '100' }
     ]);
 
-    await seedParticipant(contestId, '0xwallet00000000000000000000000000000001', '250000000000000000', new Date('2025-09-01T00:00:00Z'));
-    await seedParticipant(contestId, '0xwallet00000000000000000000000000000002', '100000000000000000', new Date('2025-09-02T00:00:00Z'));
+    await seedParticipant(contestId, '0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa', '250000000000000000', new Date('2025-09-01T00:00:00Z'));
+    await seedParticipant(contestId, '0xbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb', '100000000000000000', new Date('2025-09-02T00:00:00Z'));
 
-    await seedRewardClaim(contestId, '0xwallet00000000000000000000000000000001', '500000000000000000', new Date('2025-09-05T00:00:00Z'));
+    await seedRewardClaim(contestId, '0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa', '500000000000000000', new Date('2025-09-05T00:00:00Z'));
 
     const response: QueryContestsResponse = await queryContests({
       selector: {
@@ -77,7 +77,7 @@ describe('contest queries', () => {
     expect(aggregate.participants).toHaveLength(2);
     expect(aggregate.rewards).toHaveLength(1);
     expect(aggregate.leaderboard?.version).toBe('1');
-    expect(aggregate.leaderboard?.entries[0]?.walletAddress).toBe('0xwallet00000000000000000000000000000001');
+    expect(aggregate.leaderboard?.entries[0]?.walletAddress).toBe('0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa');
     expect(aggregate.creatorSummary?.totalRewards).toBe('500000000000000000');
   });
 
@@ -94,7 +94,7 @@ describe('contest queries', () => {
   });
 
   it('aggregates contests for a specific user across wallets', async () => {
-    const { identityId, walletAddress } = await seedUser('user-123', '0xuserwallet0000000000000000000000000000001');
+    const { identityId, walletAddress } = await seedUser('user-123', '0xcccccccccccccccccccccccccccccccccccccccc');
 
     const contestA = await seedContest({
       chainId: 1,

@@ -98,7 +98,7 @@ export const participants = pgTable(
     updatedBy: text('updated_by')
   },
   (table) => ({
-    walletFormat: check('participants_wallet_format', sql`${table.walletAddress} ~ '^0x[0-9a-zA-Z]{1,64}$'`),
+    walletFormat: check('participants_wallet_format', sql`${table.walletAddress} ~ '^0x[0-9a-fA-F]{40}$'`),
     amountNonNegative: check('participants_amount_non_negative', sql`${table.amountWei} >= 0`),
     eventLocatorShape: check(
       'participants_event_locator_shape',
@@ -152,7 +152,7 @@ export const rewardClaims = pgTable(
     updatedBy: text('updated_by')
   },
   (table) => ({
-    walletFormat: check('reward_claims_wallet_format', sql`${table.walletAddress} ~ '^0x[0-9a-zA-Z]{1,64}$'`),
+    walletFormat: check('reward_claims_wallet_format', sql`${table.walletAddress} ~ '^0x[0-9a-fA-F]{40}$'`),
     eventLocatorShape: check(
       'reward_claims_event_locator_shape',
       sql`${table.eventLocator} ? 'tx_hash' AND ${table.eventLocator} ? 'log_index'`
