@@ -2,4 +2,5 @@ packages:
   - "contracts"
   - "apps/dev-console"
   - "packages/db"
+  - "packages/chain"
   - "packages/shared/*"
