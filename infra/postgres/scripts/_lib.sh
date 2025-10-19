@@ -17,7 +17,9 @@ ensure_directory() {
     exit 1
   }
   mkdir -p "${target_dir}"
-  chmod 700 "${target_dir}"
+  if ! chmod 700 "${target_dir}" >/dev/null 2>&1; then
+    audit_warn "无法调整目录权限：${target_dir}，请确认当前用户具备写权限。"
+  fi
 }
 
 audit_log() {
