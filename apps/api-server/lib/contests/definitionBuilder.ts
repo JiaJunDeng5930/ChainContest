@@ -81,7 +81,11 @@ const toBigInt = (value: unknown, context: string): bigint => {
   }
   if (typeof value === 'string' && value.length > 0) {
     try {
-      return BigInt(value.startsWith('0x') ? value : Number.parseInt(value, 10));
+      const normalized = value.trim();
+      if (normalized.length === 0) {
+        throw new Error('Empty string');
+      }
+      return BigInt(normalized);
     } catch (error) {
       throw httpErrors.internal('Contest metadata numeric field invalid', {
         detail: { field: context, value },
