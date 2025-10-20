@@ -3,6 +3,7 @@ import { cookies } from 'next/headers';
 import { getServerSession } from 'next-auth';
 import type { Session } from 'next-auth';
 import { authOptions, getAuthAdapter, SESSION_COOKIE, SESSION_MAX_AGE_SECONDS, SESSION_RENEW_THRESHOLD_MS } from '@/lib/auth/config';
+import { getRequestLogger } from '@/lib/observability/logger';
 
 /* eslint-disable @typescript-eslint/no-redundant-type-constituents, @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access */
 
@@ -120,18 +121,24 @@ export const refreshSession = async (token?: string | null): Promise<void> => {
   const expires = new Date(Date.now() + SESSION_MAX_AGE_SECONDS * 1000);
   const updateSession = getUpdateSession();
   await updateSession({ sessionToken, expires });
+  const logger = getRequestLogger({ route: 'auth.session', sessionId: sessionToken });
+  logger.info({ refreshed: true }, 'Session refreshed');
 };
 
 export const invalidateSession = async (token?: string | null): Promise<void> => {
   const sessionToken = token ?? readSessionToken();
   if (!sessionToken) {
     clearSessionCookie();
+    const logger = getRequestLogger({ route: 'auth.session' });
+    logger.info({ invalidated: true, reason: 'missing_token' }, 'Cleared session cookie');
     return;
   }
 
   const deleteSession = getDeleteSession();
   await deleteSession(sessionToken);
   clearSessionCookie();
+  const logger = getRequestLogger({ route: 'auth.session', sessionId: sessionToken });
+  logger.info({ invalidated: true }, 'Session invalidated');
 };
 
 export interface SessionContext {
@@ -153,4 +160,26 @@ export const withSession = async <T>(handler: (context: SessionContext) => Promi
   };
 
   return handler(context);
+};
+
+export const ensureFreshSession = async (): Promise<ActiveSession> => {
+  const active = await requireSession();
+  if (!active.needsRefresh) {
+    return active;
+  }
+
+  const logger = getRequestLogger({ route: 'auth.session', sessionId: active.sessionToken ?? undefined });
+
+  try {
+    await refreshSession(active.sessionToken);
+    logger.info({ autoRefresh: true }, 'Session auto-refreshed');
+    return {
+      ...active,
+      needsRefresh: false
+    };
+  } catch (error) {
+    logger.warn({ refreshFailed: true, error: error instanceof Error ? error.message : error }, 'Session refresh failed');
+    await invalidateSession(active.sessionToken);
+    throw new SessionNotFoundError('Session refresh failed');
+  }
 };

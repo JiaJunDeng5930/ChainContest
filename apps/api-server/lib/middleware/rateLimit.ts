@@ -1,4 +1,3 @@
-import { performance } from 'node:perf_hooks';
 import { getEnv } from '@/lib/config/env';
 import { httpErrors } from '@/lib/http/errors';
 
@@ -36,12 +35,20 @@ const composeKey = ({ sessionToken, ip, route }: RateLimitKey): string => {
   return [sessionPart, ipPart, routePart].join('|');
 };
 
+const timestamp = (): number => {
+  if (typeof performance !== 'undefined' && typeof performance.now === 'function') {
+    return performance.now();
+  }
+
+  return Date.now();
+};
+
 const resolveOptions = (options: RateLimitOptions = {}): Required<RateLimitOptions> => {
   const env = getEnv();
   return {
     limit: options.limit ?? env.rateLimit.maxRequests,
     windowMs: options.windowMs ?? env.rateLimit.windowMs,
-    now: options.now ?? performance.now()
+    now: options.now ?? timestamp()
   };
 };
 
