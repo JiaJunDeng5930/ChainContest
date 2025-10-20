@@ -252,9 +252,7 @@ export const listContests = async (filters: ContestListFilters): Promise<Contest
   if (typeof status === 'string' && status.length > 0) {
     filter.statuses = [status];
   }
-  if (Object.keys(filter).length > 0) {
-    selector.filter = filter;
-  }
+  selector.filter = Object.keys(filter).length > 0 ? filter : {};
 
   const response = await queryContests({
     selector,
