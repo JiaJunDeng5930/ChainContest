@@ -7,7 +7,11 @@
     "lint": "pnpm -r --filter '!@chaincontest/dev-console' lint",
     "test": "pnpm -r test",
     "build": "pnpm -r build",
-    "db:test": "pnpm --filter @chaincontest/db test"
+    "db:test": "pnpm --filter @chaincontest/db test",
+    "dev:api-server": "pnpm --filter @chaincontest/api-server dev",
+    "build:api-server": "pnpm --filter @chaincontest/api-server build",
+    "start:api-server": "pnpm --filter @chaincontest/api-server start",
+    "test:api-server": "pnpm --filter @chaincontest/api-server test"
   },
   "engines": {
     "node": ">=20.12.0",

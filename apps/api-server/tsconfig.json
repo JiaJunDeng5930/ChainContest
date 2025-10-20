@@ -1,0 +1,53 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "baseUrl": ".",
+    "moduleResolution": "bundler",
+    "paths": {
+      "@/app/*": [
+        "app/*"
+      ],
+      "@/auth/*": [
+        "auth/*"
+      ],
+      "@/lib/*": [
+        "lib/*"
+      ],
+      "@/tests/*": [
+        "tests/*"
+      ]
+    },
+    "types": [
+      "node"
+    ],
+    "noEmit": true,
+    "lib": [
+      "dom",
+      "dom.iterable",
+      "esnext"
+    ],
+    "allowJs": true,
+    "incremental": true,
+    "jsx": "preserve",
+    "plugins": [
+      {
+        "name": "next"
+      }
+    ]
+  },
+  "include": [
+    "next-env.d.ts",
+    "app/**/*",
+    "auth/**/*",
+    "lib/**/*",
+    "tests/**/*",
+    "types/**/*.d.ts",
+    "next.config.js",
+    ".next/types/**/*.ts"
+  ],
+  "exclude": [
+    "node_modules",
+    ".next",
+    "dist"
+  ]
+}

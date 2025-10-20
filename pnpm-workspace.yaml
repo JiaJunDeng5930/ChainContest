@@ -1,6 +1,7 @@
 packages:
   - "contracts"
   - "apps/dev-console"
+  - "apps/api-server"
   - "packages/db"
   - "packages/chain"
   - "packages/shared/*"
