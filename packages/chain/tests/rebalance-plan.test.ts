@@ -121,6 +121,14 @@ const baseDefinition: ContestDefinition = {
   },
 };
 
+const buildDefinition = (
+  mutator?: (definition: ContestDefinition) => void,
+): ContestDefinition => {
+  const clone = structuredClone(baseDefinition);
+  mutator?.(clone);
+  return clone;
+};
+
 const createGatewayForDefinition = (definition: ContestDefinition) => {
   const dataProvider = createInMemoryContestDataProvider([definition]);
   (dataProvider as { register?: (definition: ContestDefinition) => void }).register?.(
@@ -321,6 +329,41 @@ describe('planPortfolioRebalance', () => {
       (check) => check.rule === 'rebalance.phase',
     );
     expect(phaseCheck?.status).toBe('fail');
+  });
+
+  it('interprets unix second timestamps during rule evaluation', async () => {
+    const baseInstantSeconds = Math.floor(Date.UTC(2025, 9, 19, 12, 0, 0) / 1000);
+    const definition = buildDefinition((next) => {
+      next.derivedAt.timestamp = String(baseInstantSeconds);
+      next.rebalance!.lastPriceUpdatedAt = String((baseInstantSeconds - 120) * 1000);
+      const readyParticipantProfile =
+        next.participants[participantReady.toLowerCase()];
+      readyParticipantProfile.cooldownEndsAt = String(baseInstantSeconds - 60);
+    });
+
+    const gateway = createGatewayForDefinition(definition);
+
+    const plan = await gateway.planPortfolioRebalance({
+      contest: definition.contest,
+      participant: participantReady,
+      intent: {
+        sellAsset,
+        buyAsset,
+        amount: '500000000000000000',
+        minimumReceived: '400000000000000000',
+        quoteId: 'quote-using-seconds',
+      },
+    });
+
+    expect(plan.status).toBe('ready');
+    const cooldownCheck = plan.policyChecks.find(
+      (check) => check.rule === 'rebalance.cooldown',
+    );
+    expect(cooldownCheck?.status).toBe('pass');
+    const priceCheck = plan.policyChecks.find(
+      (check) => check.rule === 'rebalance.price-freshness',
+    );
+    expect(priceCheck?.status).toBe('pass');
   });
 
   it('uses provided default route metadata', async () => {

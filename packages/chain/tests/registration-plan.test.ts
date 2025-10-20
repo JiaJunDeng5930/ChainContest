@@ -242,6 +242,29 @@ describe('planParticipantRegistration', () => {
     expect(result.status).toBe('blocked');
     expect(result.rejectionReason?.code).toBe('REGISTRATION_CAPACITY_FULL');
   });
+
+  it('accepts unix second timestamps for registration window evaluation', async () => {
+    const baseInstantSeconds = Math.floor(Date.UTC(2025, 9, 19, 12, 0, 0) / 1000);
+    const definition = buildDefinition((next) => {
+      next.derivedAt.timestamp = String(baseInstantSeconds);
+      next.registration.window = {
+        opensAt: String(baseInstantSeconds - 3600),
+        closesAt: String(baseInstantSeconds + 3600),
+      };
+    });
+    const gateway = createGateway(definition);
+
+    const result = await gateway.planParticipantRegistration({
+      contest: definition.contest,
+      participant: participantA,
+    });
+
+    expect(result.status).toBe('ready');
+    const windowCheck = result.qualifications.find(
+      (check) => check.rule === 'registration.window',
+    );
+    expect(windowCheck?.passed).toBe(true);
+  });
 });
 
 describe('describeContestLifecycle', () => {

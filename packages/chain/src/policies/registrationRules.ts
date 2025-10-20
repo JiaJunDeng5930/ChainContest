@@ -34,10 +34,14 @@ export interface RegistrationRulesResult {
 }
 
 const toDate = (value: string): Date | null => {
-  const timestamp = Number.isFinite(Number(value))
-    ? new Date(Number(value))
-    : new Date(value);
-  return Number.isNaN(timestamp.getTime()) ? null : timestamp;
+  const numeric = Number(value);
+  if (Number.isFinite(numeric)) {
+    const normalized = Math.abs(numeric) < 1e12 ? numeric * 1000 : numeric;
+    const interpreted = new Date(normalized);
+    return Number.isNaN(interpreted.getTime()) ? null : interpreted;
+  }
+  const interpreted = new Date(value);
+  return Number.isNaN(interpreted.getTime()) ? null : interpreted;
 };
 
 const zero = BigInt(0);
