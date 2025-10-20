@@ -78,7 +78,12 @@ const recordCheck = (
 const isAssetAllowed = (
   whitelist: readonly string[],
   asset: string,
-): boolean => whitelist.includes(asset.toLowerCase());
+): boolean => {
+  const normalizedAsset = asset.toLowerCase();
+  return whitelist.some(
+    (candidate) => candidate.toLowerCase() === normalizedAsset,
+  );
+};
 
 export const evaluateRebalanceRules = (
   input: RebalanceRulesInput,
