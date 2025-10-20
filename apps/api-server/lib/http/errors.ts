@@ -252,13 +252,13 @@ export const httpErrors = {
   rateLimited: (retryAfterMs: number, message = 'Too many requests', options: HttpErrorOptions = {}) =>
     new HttpError('rate_limited', {
       message,
-      detail: { retryAfterMs, ...(options.detail as Record<string, unknown> | undefined) },
+      ...options,
+      detail: { ...(options.detail as Record<string, unknown> | undefined), retryAfterMs },
       headers: {
-        'Retry-After': Math.max(Math.ceil(retryAfterMs / 1000), 1).toString(),
-        ...(options.headers ?? {})
+        ...(options.headers ?? {}),
+        'Retry-After': Math.max(Math.ceil(retryAfterMs / 1000), 1).toString()
       },
-      status: options.status ?? 429,
-      ...options
+      status: options.status ?? 429
     }),
   serviceUnavailable: (message = 'Service unavailable', options: HttpErrorOptions = {}) =>
     new HttpError('service_unavailable', { message, ...options, status: options.status ?? 503 }),
