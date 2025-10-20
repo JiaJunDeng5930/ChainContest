@@ -162,15 +162,17 @@ export const evaluateRebalanceRules = (
     );
   }
 
-  const lastRebalance =
-    input.participant.cooldownEndsAt
-      ? toDate(input.participant.cooldownEndsAt)
-      : input.participant.lastRebalanceAt
-        ? toDate(input.participant.lastRebalanceAt)
-        : null;
+  const cooldownEnds = input.participant.cooldownEndsAt
+    ? toDate(input.participant.cooldownEndsAt)
+    : null;
+  const lastRebalance = input.participant.lastRebalanceAt
+    ? toDate(input.participant.lastRebalanceAt)
+    : null;
 
   let cooldownPassed = true;
-  if (lastRebalance) {
+  if (cooldownEnds) {
+    cooldownPassed = now.getTime() >= cooldownEnds.getTime();
+  } else if (lastRebalance) {
     const diffSeconds = (now.getTime() - lastRebalance.getTime()) / 1000;
     cooldownPassed = diffSeconds >= input.config.cooldownSeconds;
   }
@@ -183,8 +185,10 @@ export const evaluateRebalanceRules = (
       ? 'Cooldown fulfilled for participant'
       : 'Participant must wait before next rebalance',
     {
+      cooldownEndsAt: input.participant.cooldownEndsAt,
       lastRebalanceAt: input.participant.lastRebalanceAt,
       cooldownSeconds: input.config.cooldownSeconds,
+      evaluatedAt: now.toISOString(),
     },
   );
   if (!cooldownPassed) {
@@ -194,8 +198,10 @@ export const evaluateRebalanceRules = (
       'RULE_VIOLATION',
       'Participant is within rebalance cooldown window',
       {
+        cooldownEndsAt: input.participant.cooldownEndsAt,
         lastRebalanceAt: input.participant.lastRebalanceAt,
         cooldownSeconds: input.config.cooldownSeconds,
+        evaluatedAt: now.toISOString(),
       },
     );
   }
