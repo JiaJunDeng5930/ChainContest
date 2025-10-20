@@ -43,7 +43,7 @@ const buildRoute = (
       `${intent.sellAsset.toLowerCase()}->${intent.buyAsset.toLowerCase()}`,
     ];
   const minimumOutput =
-    defaultRoute?.minimumOutput ?? intent.minimumReceived ?? intent.amount;
+    defaultRoute?.minimumOutput ?? intent.minimumReceived ?? '0';
   const maximumSlippageBps = defaultRoute?.maximumSlippageBps ?? config.slippageBps;
   const expiresAt =
     defaultRoute?.expiresAt ??

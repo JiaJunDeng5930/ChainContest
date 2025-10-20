@@ -331,6 +331,27 @@ describe('planPortfolioRebalance', () => {
     expect(phaseCheck?.status).toBe('fail');
   });
 
+  it('defaults minimum output to zero when unset', async () => {
+    const definition = buildDefinition((next) => {
+      delete next.rebalance!.defaultRoute;
+    });
+    const gateway = createGatewayForDefinition(definition);
+
+    const plan = await gateway.planPortfolioRebalance({
+      contest: definition.contest,
+      participant: participantReady,
+      intent: {
+        sellAsset,
+        buyAsset,
+        amount: '1000000000000000000',
+        quoteId: 'no-minimum-provided',
+      },
+    });
+
+    expect(plan.transaction?.route?.minimumOutput).toBe('0');
+    expect(plan.status).toBe('ready');
+  });
+
   it('interprets unix second timestamps during rule evaluation', async () => {
     const baseInstantSeconds = Math.floor(Date.UTC(2025, 9, 19, 12, 0, 0) / 1000);
     const definition = buildDefinition((next) => {
