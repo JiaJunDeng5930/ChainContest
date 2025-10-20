@@ -352,6 +352,25 @@ describe('planPortfolioRebalance', () => {
     expect(plan.status).toBe('ready');
   });
 
+  it('prefers intent minimum received when default route present', async () => {
+    const definition = buildDefinition();
+    const gateway = createGatewayForDefinition(definition);
+
+    const plan = await gateway.planPortfolioRebalance({
+      contest: definition.contest,
+      participant: participantReady,
+      intent: {
+        sellAsset,
+        buyAsset,
+        amount: '900000000000000000',
+        minimumReceived: '850000000',
+        quoteId: 'intent-minimum-overrides-default',
+      },
+    });
+
+    expect(plan.transaction?.route?.minimumOutput).toBe('850000000');
+  });
+
   it('interprets unix second timestamps during rule evaluation', async () => {
     const baseInstantSeconds = Math.floor(Date.UTC(2025, 9, 19, 12, 0, 0) / 1000);
     const definition = buildDefinition((next) => {
