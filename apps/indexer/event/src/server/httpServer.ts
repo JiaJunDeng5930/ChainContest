@@ -3,15 +3,10 @@ import type { Logger } from 'pino';
 import type { AppConfig } from '../config/loadConfig.js';
 import type { IndexerMetrics } from '../telemetry/metrics.js';
 import { registerHttpRoutes, type ReplayRouteHandler } from './httpRoutes.js';
+import type { ServiceHealthStatus, StatusSnapshot } from '../services/healthTracker.js';
 
-export interface HealthStatus {
-  status: 'ok' | 'degraded' | 'error';
-  reasons?: string[];
-}
-
-export interface StatusSnapshot {
-  streams: Array<Record<string, unknown>>;
-}
+export type HealthStatus = ServiceHealthStatus;
+export type { StatusSnapshot };
 
 export interface HttpServerOptions {
   config: AppConfig;
@@ -24,7 +19,7 @@ export interface HttpServer {
   start: () => Promise<void>;
   stop: () => Promise<void>;
   isListening: () => boolean;
-  setHealthEvaluator: (evaluator: () => Promise<HealthStatus>) => void;
+  setHealthEvaluator: (evaluator: () => Promise<ServiceHealthStatus>) => void;
   setStatusProvider: (provider: () => Promise<StatusSnapshot>) => void;
   setReplayHandler: (handler: ReplayRouteHandler) => void;
 }
@@ -35,7 +30,7 @@ export const createHttpServer = (options: HttpServerOptions): HttpServer => {
   const instance = Fastify({ logger: false });
 
   let listening = false;
-  let healthEvaluator: () => Promise<HealthStatus> = () => Promise.resolve({ status: 'ok', reasons: [] });
+  let healthEvaluator: () => Promise<ServiceHealthStatus> = () => Promise.resolve({ status: 'ok', reasons: [] });
   let statusProvider: () => Promise<StatusSnapshot> = () => Promise.resolve({ streams: [] });
   let replayHandler: ReplayRouteHandler = () =>
     Promise.reject(Object.assign(new Error('replay handler not configured'), { statusCode: 503 }));

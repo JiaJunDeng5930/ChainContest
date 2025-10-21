@@ -21,19 +21,18 @@
     "noEmitOnError": true,
     "paths": {
       "@chaincontest/chain": [
-        "../../packages/chain/src/index.ts"
+        "../../../packages/chain/src/index.ts"
       ],
       "@chaincontest/db": [
-        "../../packages/db/src/index.ts"
+        "../../../packages/db/src/index.ts"
       ],
       "@chaincontest/shared-schemas": [
-        "../../packages/shared/schemas/src/index.ts"
+        "../../../packages/shared/schemas/src/index.ts"
       ]
     }
   },
   "include": [
-    "src",
-    "tests"
+    "src"
   ],
   "exclude": [
     "dist",

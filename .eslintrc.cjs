@@ -23,7 +23,7 @@ module.exports = {
           path.join(__dirname, "contracts/tsconfig.json"),
           path.join(__dirname, "apps/dev-console/tsconfig.json"),
           path.join(__dirname, "apps/api-server/tsconfig.json"),
-          path.join(__dirname, "apps/indexer/event/tsconfig.json"),
+          path.join(__dirname, "apps/indexer/event/tsconfig.eslint.json"),
         ],
         tsconfigRootDir: __dirname,
         ecmaVersion: "latest",

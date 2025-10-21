@@ -39,7 +39,7 @@ export const registerHttpRoutes = (
     const health = await evaluateHealth();
     const body = {
       status: health.status === 'ok' ? 'ok' : 'error',
-      reasons: health.reasons ?? [],
+      reasons: health.reasons,
       timestamp: new Date().toISOString(),
     };
 
@@ -73,9 +73,7 @@ export const registerHttpRoutes = (
       const result = await handleReplay(parsed.value);
       return reply.code(202).send(result);
     } catch (error) {
-      const statusCode = typeof (error as Record<string, unknown> | undefined)?.statusCode === 'number'
-        ? ((error as Record<string, unknown>).statusCode as number)
-        : 500;
+      const statusCode = isHttpError(error) ? error.statusCode : 500;
       const message = error instanceof Error ? error.message : String(error);
       if (statusCode >= 500) {
         routeLogger.error({ err: message }, 'replay scheduling failed');
@@ -84,6 +82,18 @@ export const registerHttpRoutes = (
     }
   });
 };
+
+interface HttpErrorLike {
+  statusCode: number;
+}
+
+const isHttpError = (error: unknown): error is HttpErrorLike =>
+  Boolean(
+    error &&
+      typeof error === 'object' &&
+      'statusCode' in error &&
+      typeof (error as { statusCode: unknown }).statusCode === 'number',
+  );
 
 const parseReplayBody = (body: unknown):
   | { valid: true; value: ReplayRouteRequest }
