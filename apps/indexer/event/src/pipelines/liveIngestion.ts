@@ -3,10 +3,14 @@ import type { Logger } from 'pino';
 import type { AppConfig } from '../config/loadConfig.js';
 import type { DbClient } from '../services/dbClient.js';
 import type { RegistryStream } from '../services/ingestionRegistry.js';
-import { ContestGatewayAdapter } from '../adapters/contestGateway.js';
+import { ContestGatewayAdapter, ContestGatewayError } from '../adapters/contestGateway.js';
 import { IngestionWriter } from '../services/ingestionWriter.js';
 import type { IndexerMetrics } from '../telemetry/metrics.js';
 import { logBatchResult, withIngestionBindings } from '../telemetry/logging.js';
+import type { RpcEndpointManager, RpcEndpointSelection } from '../services/rpcEndpointManager.js';
+import { HealthTracker } from '../services/healthTracker.js';
+import type { JobDispatcher } from '../services/jobDispatcher.js';
+import type { ContestEventEnvelope, ContestEventType } from '@chaincontest/chain';
 
 export interface LiveIngestionDependencies {
   config: AppConfig;
@@ -15,6 +19,9 @@ export interface LiveIngestionDependencies {
   writer: IngestionWriter;
   metrics: IndexerMetrics;
   logger: Logger;
+  rpc: RpcEndpointManager;
+  health: HealthTracker;
+  jobDispatcher: JobDispatcher;
 }
 
 export interface LiveIngestionResult {
@@ -27,78 +34,151 @@ export const runLiveIngestion = async (
   deps: LiveIngestionDependencies,
   stream: RegistryStream,
 ): Promise<LiveIngestionResult> => {
-  const { db, gateway, writer, metrics, logger, config } = deps;
+  const { db, gateway, writer, metrics, logger, config, rpc, health, jobDispatcher } = deps;
   const scopedLogger = withIngestionBindings(logger, {
     contestId: stream.contestId,
     chainId: stream.chainId,
     pipeline: 'live',
   });
 
-  const cursorState = await db.readIngestionStatus({
-    contestId: stream.contestId,
-    chainId: stream.chainId,
-    contractAddress: stream.addresses.registrar,
-  });
+  const initialRpc = rpc.getActiveEndpoint(stream.chainId);
 
-  const cursorHeight = cursorState.cursorHeight ? BigInt(cursorState.cursorHeight) : null;
-  const cursor: { blockNumber: bigint; logIndex: number } | undefined =
-    cursorHeight !== null
-      ? {
-          blockNumber: cursorHeight,
-          logIndex: 0,
-        }
-      : undefined;
+  try {
+    const cursorState = await db.readIngestionStatus({
+      contestId: stream.contestId,
+      chainId: stream.chainId,
+      contractAddress: stream.addresses.registrar,
+    });
 
-  const fromBlock = cursorHeight === null ? stream.startBlock : undefined;
-  const limit = config.service.maxBatchSize;
+    const cursorHeight = cursorState.cursorHeight ? BigInt(cursorState.cursorHeight) : null;
+    const cursor: { blockNumber: bigint; logIndex: number } | undefined =
+      cursorHeight !== null
+        ? {
+            blockNumber: cursorHeight,
+            logIndex: 0,
+          }
+        : undefined;
 
-  const startedAt = performance.now();
+    const fromBlock = cursorHeight === null ? stream.startBlock : undefined;
+    const limit = config.service.maxBatchSize;
 
-  const batch = await gateway.pullEvents({
-    stream,
-    cursor,
-    fromBlock,
-    limit,
-  });
+    const startedAt = performance.now();
 
-  await writer.writeBatch({ stream, batch });
+    const { batch, rpc: rpcSelection } = await gateway.pullEvents({
+      stream,
+      cursor,
+      fromBlock,
+      limit,
+    });
 
-  const durationMs = performance.now() - startedAt;
-  const eventsProcessed = batch.events.length;
+    await writer.writeBatch({ stream, batch });
+    await dispatchMilestones(jobDispatcher, scopedLogger, stream, batch.events);
 
-  logBatchResult(scopedLogger, {
-    batchSize: eventsProcessed,
-    durationMs,
-    fromHeight: batch.events[0]?.cursor.blockNumber,
-    toHeight: batch.events.at(-1)?.cursor.blockNumber,
-    cursor: batch.nextCursor.blockNumber.toString(),
-    rpcEndpointId: undefined,
-  });
+    const durationMs = performance.now() - startedAt;
+    const eventsProcessed = batch.events.length;
+    const rpcEndpoint = rpcSelection ?? initialRpc;
 
-  const labels = {
-    contestId: stream.contestId,
-    chainId: stream.chainId.toString(),
-    pipeline: 'live',
-  } as const;
+    logBatchResult(scopedLogger, {
+      batchSize: eventsProcessed,
+      durationMs,
+      fromHeight: batch.events[0]?.cursor.blockNumber,
+      toHeight: batch.events.at(-1)?.cursor.blockNumber,
+      cursor: batch.nextCursor.blockNumber.toString(),
+      rpcEndpointId: rpcEndpoint?.endpointId,
+    });
 
-  metrics.ingestionBatchDuration.observe(labels, durationMs);
-  metrics.ingestionBatchSize.observe(labels, eventsProcessed);
+    const labels = {
+      contestId: stream.contestId,
+      chainId: stream.chainId.toString(),
+      pipeline: 'live',
+    } as const;
 
-  const latestBlockNumber = Number(batch.latestBlock.blockNumber);
-  if (!Number.isNaN(latestBlockNumber)) {
-    const lag = cursorHeight !== null ? latestBlockNumber - Number(cursorHeight) : 0;
-    metrics.ingestionLagBlocks.set(
-      {
-        contestId: stream.contestId,
-        chainId: stream.chainId.toString(),
-      },
-      Math.max(lag, 0),
-    );
+    metrics.ingestionBatchDuration.observe(labels, durationMs);
+    metrics.ingestionBatchSize.observe(labels, eventsProcessed);
+
+    const latestBlockNumber = Number(batch.latestBlock.blockNumber);
+    let lag = 0;
+    if (!Number.isNaN(latestBlockNumber)) {
+      const currentCursor = cursorHeight !== null ? Number(cursorHeight) : Number(stream.startBlock);
+      lag = Math.max(latestBlockNumber - currentCursor, 0);
+      metrics.ingestionLagBlocks.set(
+        {
+          contestId: stream.contestId,
+          chainId: stream.chainId.toString(),
+        },
+        lag,
+      );
+    }
+
+    health.recordSuccess({
+      stream,
+      lagBlocks: lag,
+      rpc: rpcEndpoint ?? null,
+      nextPollAt: Date.now() + config.service.pollIntervalMs,
+    });
+
+    return {
+      contestId: stream.contestId,
+      chainId: stream.chainId,
+      eventsProcessed,
+    };
+  } catch (error) {
+    const rpcEndpoint = extractRpcSelection(error) ?? initialRpc;
+    const reason = error instanceof Error ? error.message : String(error);
+    health.recordFailure({
+      stream,
+      reason,
+      rpc: rpcEndpoint ?? undefined,
+    });
+    throw error;
   }
+};
 
-  return {
-    contestId: stream.contestId,
-    chainId: stream.chainId,
-    eventsProcessed,
-  };
+const extractRpcSelection = (error: unknown): RpcEndpointSelection | null => {
+  if (error instanceof ContestGatewayError) {
+    return error.rpc;
+  }
+  return null;
+};
+
+const milestoneMap: Partial<Record<ContestEventType, string>> = {
+  settlement: 'settled',
+  reward: 'reward_ready',
+  redemption: 'redemption_ready',
+};
+
+const dispatchMilestones = async (
+  dispatcher: JobDispatcher,
+  logger: Logger,
+  stream: RegistryStream,
+  events: ContestEventEnvelope[],
+): Promise<void> => {
+  for (const event of events) {
+    const milestone = milestoneMap[event.type];
+    if (!milestone) {
+      continue;
+    }
+
+    try {
+      await dispatcher.dispatchMilestone({
+        contestId: stream.contestId,
+        chainId: stream.chainId,
+        milestone,
+        sourceEvent: {
+          txHash: event.txHash,
+          blockNumber: event.blockNumber.toString(),
+          logIndex: event.logIndex,
+        },
+        generatedAt: new Date().toISOString(),
+      });
+    } catch (error) {
+      logger.warn(
+        {
+          err: error instanceof Error ? { message: error.message } : { message: String(error) },
+          milestone,
+        },
+        'failed to dispatch milestone job',
+      );
+    }
+  }
 };

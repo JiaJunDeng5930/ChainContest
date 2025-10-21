@@ -4,11 +4,17 @@ import { createRootLogger, withIngestionBindings } from '../telemetry/logging.js
 import { createMetricsRegistry } from '../telemetry/metrics.js';
 import { createDbClient, type DbClient } from '../services/dbClient.js';
 import { createQueueClient, type QueueClient } from '../services/queueClient.js';
-import { createHttpServer, type HttpServer } from '../server/httpServer.js';
-import { IngestionRegistry, type RegistryStream } from '../services/ingestionRegistry.js';
+import { createHttpServer, type HealthStatus, type HttpServer } from '../server/httpServer.js';
+import type { ReplayRouteRequest, ReplayRouteResponse } from '../server/httpRoutes.js';
+import { IngestionRegistry } from '../services/ingestionRegistry.js';
 import { ContestGatewayAdapter } from '../adapters/contestGateway.js';
 import { IngestionWriter } from '../services/ingestionWriter.js';
 import { runLiveIngestion } from '../pipelines/liveIngestion.js';
+import { runReplayIngestion } from '../pipelines/replayIngestion.js';
+import { RpcEndpointManager } from '../services/rpcEndpointManager.js';
+import { HealthTracker } from '../services/healthTracker.js';
+import { JobDispatcher } from '../services/jobDispatcher.js';
+import { ReconciliationReportService } from '../services/reconciliationReport.js';
 import type { ContestChainGateway } from '@chaincontest/chain';
 
 export interface BootstrapOptions {
@@ -28,6 +34,10 @@ export interface AppContext {
   registry: IngestionRegistry;
   gateway: ContestGatewayAdapter;
   writer: IngestionWriter;
+  rpc: RpcEndpointManager;
+  health: HealthTracker;
+  jobs: JobDispatcher;
+  reconciliation: ReconciliationReportService;
   start: () => Promise<void>;
   shutdown: () => Promise<void>;
   runLiveCycle: () => Promise<void>;
@@ -46,29 +56,36 @@ export const bootstrapContext = (options: BootstrapOptions = {}): AppContext => 
   const queue = createQueueClient({ config, logger });
   const http = createHttpServer({ config, logger, metrics });
   const registry = new IngestionRegistry(config, logger);
+  const rpc = new RpcEndpointManager({ config, logger, metrics });
+  const health = new HealthTracker();
+  const jobs = new JobDispatcher(queue, logger);
+  const reconciliation = new ReconciliationReportService();
 
   const contestGateway = options.contestGateway;
   if (!contestGateway) {
     throw new Error('Contest gateway instance is required to bootstrap context');
   }
 
-  const gateway = new ContestGatewayAdapter(contestGateway, logger);
+  const gateway = new ContestGatewayAdapter(contestGateway, logger, rpc);
   const writer = new IngestionWriter(db, logger);
 
-  http.setHealthEvaluator(async () => {
-    if (!db.isReady) {
-      return { status: 'degraded', reason: 'database-not-initialised' };
-    }
-
-    const queueHealth = queue.getHealth();
-    if (queueHealth.status === 'error') {
-      return { status: 'degraded', reason: 'queue-error' };
-    }
-
-    return { status: 'ok' };
-  });
-
-  http.setStatusProvider(async () => ({ streams: registry.list().map(normalizeStreamForStatus) }));
+  http.setHealthEvaluator(() => Promise.resolve(aggregateHealth({ db, queue, health })));
+  http.setStatusProvider(() => Promise.resolve(health.snapshot()));
+  http.setReplayHandler(async (request) =>
+    scheduleReplay({
+      request,
+      registry,
+      health,
+      jobs,
+      config,
+      db,
+      gateway,
+      writer,
+      logger,
+      rpc,
+      reconciliation,
+    }),
+  );
 
   const start = async (): Promise<void> => {
     await registry.initialise();
@@ -78,7 +95,8 @@ export const bootstrapContext = (options: BootstrapOptions = {}): AppContext => 
   };
 
   registry.subscribe((streams) => {
-    http.setStatusProvider(async () => ({ streams: streams.map(normalizeStreamForStatus) }));
+    streams.forEach((stream) => health.register(stream));
+    http.setStatusProvider(() => Promise.resolve(health.snapshot()));
   });
 
   const shutdown = async (): Promise<void> => {
@@ -90,6 +108,11 @@ export const bootstrapContext = (options: BootstrapOptions = {}): AppContext => 
   const runLiveCycle = async (): Promise<void> => {
     const streams = registry.list();
     for (const stream of streams) {
+      const mode = health.getMode({ contestId: stream.contestId, chainId: stream.chainId });
+      if (mode !== 'live') {
+        logger.debug({ contestId: stream.contestId, chainId: stream.chainId, mode }, 'skipping live cycle due to non-live mode');
+        continue;
+      }
       const scopedLogger = withIngestionBindings(logger, {
         contestId: stream.contestId,
         chainId: stream.chainId,
@@ -98,7 +121,17 @@ export const bootstrapContext = (options: BootstrapOptions = {}): AppContext => 
 
       try {
         await runLiveIngestion(
-          { config, db, gateway, writer, metrics, logger: scopedLogger },
+          {
+            config,
+            db,
+            gateway,
+            writer,
+            metrics,
+            logger: scopedLogger,
+            rpc,
+            health,
+            jobDispatcher: jobs,
+          },
           stream,
         );
       } catch (error) {
@@ -120,15 +153,156 @@ export const bootstrapContext = (options: BootstrapOptions = {}): AppContext => 
     registry,
     gateway,
     writer,
+    rpc,
+    health,
+    jobs,
+    reconciliation,
     start,
     shutdown,
     runLiveCycle,
   };
 };
 
-const normalizeStreamForStatus = (stream: RegistryStream): Record<string, unknown> => ({
-  contestId: stream.contestId,
-  chainId: stream.chainId,
-  mode: 'live',
-  nextScheduledAt: null,
-});
+const aggregateHealth = ({
+  db,
+  queue,
+  health,
+}: {
+  db: DbClient;
+  queue: QueueClient;
+  health: HealthTracker;
+}): HealthStatus => {
+  if (!db.isReady) {
+    return { status: 'error', reasons: ['database-not-initialised'] };
+  }
+
+  const queueHealth = queue.getHealth();
+  if (queueHealth.status === 'error') {
+    return {
+      status: 'error',
+      reasons: ['queue-error'],
+    };
+  }
+
+  const trackerHealth = health.getHealth();
+  const reasons = [...(trackerHealth.reasons ?? [])];
+
+  if (queueHealth.status === 'stopped') {
+    reasons.push('queue-stopped');
+  }
+
+  if (trackerHealth.status === 'error') {
+    return { status: 'error', reasons };
+  }
+
+  if (queueHealth.status === 'stopped' || trackerHealth.status === 'degraded') {
+    return { status: 'degraded', reasons };
+  }
+
+  return { status: 'ok', reasons };
+};
+
+const scheduleReplay = async ({
+  request,
+  registry,
+  health,
+  jobs,
+  config,
+  db,
+  gateway,
+  writer,
+  logger,
+  rpc,
+  reconciliation,
+}: {
+  request: ReplayRouteRequest;
+  registry: IngestionRegistry;
+  health: HealthTracker;
+  jobs: JobDispatcher;
+  config: AppConfig;
+  db: DbClient;
+  gateway: ContestGatewayAdapter;
+  writer: IngestionWriter;
+  logger: Logger;
+  rpc: RpcEndpointManager;
+  reconciliation: ReconciliationReportService;
+}): Promise<ReplayRouteResponse> => {
+  const stream = registry.get(request.contestId, request.chainId);
+  if (!stream) {
+    throw createHttpError(404, 'contest or chain not registered');
+  }
+
+  const mode = health.getMode({ contestId: stream.contestId, chainId: stream.chainId });
+  if (mode !== 'live') {
+    throw createHttpError(409, `stream currently in ${mode} mode`);
+  }
+
+  const fromBlock = BigInt(request.fromBlock);
+  const toBlock = BigInt(request.toBlock);
+
+  if (fromBlock < stream.startBlock) {
+    throw createHttpError(400, `fromBlock must be >= stream start block ${stream.startBlock.toString()}`);
+  }
+
+  health.setMode(stream, 'paused');
+
+  let jobId: string | null;
+  try {
+    jobId = await jobs.dispatchReplay({
+      contestId: stream.contestId,
+      chainId: stream.chainId,
+      fromBlock,
+      toBlock,
+      reason: request.reason,
+      actor: request.actor,
+    });
+  } catch (error) {
+    health.setMode(stream, 'live');
+    throw error;
+  }
+
+  void runReplayIngestion(
+    {
+      config,
+      db,
+      gateway,
+      writer,
+      logger,
+      rpc,
+      health,
+      jobDispatcher: jobs,
+      reconciliation,
+    },
+    {
+      stream,
+      fromBlock,
+      toBlock,
+      reason: request.reason,
+      actor: request.actor,
+    },
+  ).catch((error) => {
+    logger.error(
+      {
+        err: error instanceof Error ? { message: error.message, stack: error.stack } : { message: String(error) },
+        contestId: stream.contestId,
+        chainId: stream.chainId,
+      },
+      'replay ingestion failed',
+    );
+    health.setMode(stream, 'live');
+  });
+
+  return {
+    jobId,
+    scheduledRange: {
+      fromBlock: request.fromBlock,
+      toBlock: request.toBlock,
+    },
+  };
+};
+
+const createHttpError = (statusCode: number, message: string): Error & { statusCode: number } => {
+  const error = new Error(message) as Error & { statusCode: number };
+  error.statusCode = statusCode;
+  return error;
+};

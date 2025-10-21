@@ -12,6 +12,18 @@ const main = async (): Promise<void> => {
   await context.start();
   context.logger.warn('contest gateway is running in stub mode; no events will be ingested');
 
+  const initialSnapshot = context.health.snapshot();
+  context.logger.info(
+    {
+      streams: initialSnapshot.streams.map((stream) => ({
+        contestId: stream.contestId,
+        chainId: stream.chainId,
+        mode: stream.mode,
+      })),
+    },
+    'indexer event service started',
+  );
+
   const executeCycle = async () => {
     try {
       await context.runLiveCycle();
@@ -25,42 +37,47 @@ const main = async (): Promise<void> => {
 
   await executeCycle();
 
-  const interval = scheduleInterval(executeCycle, context.config.service.pollIntervalMs);
+  const interval = scheduleInterval(() => {
+    void executeCycle();
+  }, context.config.service.pollIntervalMs);
 
   const shutdown = async () => {
     clearInterval(interval);
+    context.registry.list().forEach((stream) => {
+      context.health.setMode(stream, 'paused');
+    });
     await context.shutdown();
+    context.logger.info({ status: context.health.getHealth() }, 'indexer event service stopped');
     process.exit(0);
   };
 
-  process.on('SIGINT', shutdown);
-  process.on('SIGTERM', shutdown);
+  process.on('SIGINT', () => {
+    void shutdown();
+  });
+  process.on('SIGTERM', () => {
+    void shutdown();
+  });
 };
 
 const createStubContestGateway = (): ContestChainGateway => ({
-  describeContestLifecycle: async () => {
-    throw new Error('describeContestLifecycle is not implemented in stub gateway');
-  },
-  planParticipantRegistration: async () => {
-    throw new Error('planParticipantRegistration is not implemented in stub gateway');
-  },
-  planPortfolioRebalance: async () => {
-    throw new Error('planPortfolioRebalance is not implemented in stub gateway');
-  },
-  executeContestSettlement: async () => {
-    throw new Error('executeContestSettlement is not implemented in stub gateway');
-  },
-  executeRewardClaim: async () => {
-    throw new Error('executeRewardClaim is not implemented in stub gateway');
-  },
-  executePrincipalRedemption: async () => {
-    throw new Error('executePrincipalRedemption is not implemented in stub gateway');
-  },
-  pullContestEvents: async (): Promise<ContestEventBatch> => ({
-    events: [],
-    nextCursor: { blockNumber: 0n, logIndex: 0 },
-    latestBlock: { blockNumber: 0n, blockHash: '0x0' as `0x${string}`, timestamp: new Date().toISOString() },
-  }),
+  describeContestLifecycle: () =>
+    Promise.reject(new Error('describeContestLifecycle is not implemented in stub gateway')),
+  planParticipantRegistration: () =>
+    Promise.reject(new Error('planParticipantRegistration is not implemented in stub gateway')),
+  planPortfolioRebalance: () =>
+    Promise.reject(new Error('planPortfolioRebalance is not implemented in stub gateway')),
+  executeContestSettlement: () =>
+    Promise.reject(new Error('executeContestSettlement is not implemented in stub gateway')),
+  executeRewardClaim: () =>
+    Promise.reject(new Error('executeRewardClaim is not implemented in stub gateway')),
+  executePrincipalRedemption: () =>
+    Promise.reject(new Error('executePrincipalRedemption is not implemented in stub gateway')),
+  pullContestEvents: (): Promise<ContestEventBatch> =>
+    Promise.resolve({
+      events: [],
+      nextCursor: { blockNumber: 0n, logIndex: 0 },
+      latestBlock: { blockNumber: 0n, blockHash: '0x0' as `0x${string}`, timestamp: new Date().toISOString() },
+    }),
 });
 
 void main().catch((error) => {
