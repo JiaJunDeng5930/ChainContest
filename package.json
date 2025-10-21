@@ -11,7 +11,12 @@
     "dev:api-server": "pnpm --filter @chaincontest/api-server dev",
     "build:api-server": "pnpm --filter @chaincontest/api-server build",
     "start:api-server": "pnpm --filter @chaincontest/api-server start",
-    "test:api-server": "pnpm --filter @chaincontest/api-server test"
+    "test:api-server": "pnpm --filter @chaincontest/api-server test",
+    "dev:indexer-event": "pnpm --filter @chaincontest/indexer-event dev",
+    "build:indexer-event": "pnpm --filter @chaincontest/indexer-event build",
+    "start:indexer-event": "pnpm --filter @chaincontest/indexer-event start",
+    "test:indexer-event": "pnpm --filter @chaincontest/indexer-event test",
+    "lint:indexer-event": "pnpm --filter @chaincontest/indexer-event lint"
   },
   "engines": {
     "node": ">=20.12.0",

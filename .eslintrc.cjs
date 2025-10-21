@@ -23,6 +23,7 @@ module.exports = {
           path.join(__dirname, "contracts/tsconfig.json"),
           path.join(__dirname, "apps/dev-console/tsconfig.json"),
           path.join(__dirname, "apps/api-server/tsconfig.json"),
+          path.join(__dirname, "apps/indexer/event/tsconfig.json"),
         ],
         tsconfigRootDir: __dirname,
         ecmaVersion: "latest",
@@ -66,7 +67,13 @@ module.exports = {
       rules: {
         "react/react-in-jsx-scope": "off",
       },
+    },    {
+      files: ["apps/indexer/event/**/*.ts"],
+      env: {
+        node: true,
+      },
     },
+
     {
       files: ["contracts/**/*.ts"],
       env: {

@@ -1,0 +1,49 @@
+{
+  "contestId": "contest-sample",
+  "chainId": 11155111,
+  "addresses": {
+    "registrar": "0x1111111111111111111111111111111111111111",
+    "settlement": "0x2222222222222222222222222222222222222222"
+  },
+  "startBlock": "120000",
+  "batches": [
+    {
+      "events": [
+        {
+          "type": "registration",
+          "blockNumber": "120001",
+          "logIndex": 0,
+          "txHash": "0xaaaabbbbccccddddeeeeffff0000111122223333444455556666777788889999",
+          "cursor": { "blockNumber": "120001", "logIndex": 0 },
+          "payload": { "participant": "0xabcabcabcabcabcabcabcabcabcabcabcabcabca" },
+          "reorgFlag": false,
+          "derivedAt": {
+            "blockNumber": "120001",
+            "blockHash": "0x0000000000000000000000000000000000000000000000000000000001abcd0",
+            "timestamp": "2025-10-21T00:00:00.000Z"
+          }
+        },
+        {
+          "type": "reward",
+          "blockNumber": "120002",
+          "logIndex": 3,
+          "txHash": "0xbbbbccccddddeeeeffff0000111122223333444455556666777788889999aaaa",
+          "cursor": { "blockNumber": "120002", "logIndex": 3 },
+          "payload": { "winner": "0xdefdefdefdefdefdefdefdefdefdefdefdefdefd" },
+          "reorgFlag": false,
+          "derivedAt": {
+            "blockNumber": "120002",
+            "blockHash": "0x0000000000000000000000000000000000000000000000000000000001abcd1",
+            "timestamp": "2025-10-21T00:01:30.000Z"
+          }
+        }
+      ],
+      "nextCursor": { "blockNumber": "120003", "logIndex": 0 },
+      "latestBlock": {
+        "blockNumber": "120003",
+        "blockHash": "0x0000000000000000000000000000000000000000000000000000000001abcd2",
+        "timestamp": "2025-10-21T00:02:00.000Z"
+      }
+    }
+  ]
+}

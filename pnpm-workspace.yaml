@@ -2,6 +2,7 @@ packages:
   - "contracts"
   - "apps/dev-console"
   - "apps/api-server"
+  - "apps/indexer/event"
   - "packages/db"
   - "packages/chain"
   - "packages/shared/*"

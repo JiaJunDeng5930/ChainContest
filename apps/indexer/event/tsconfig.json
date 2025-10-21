@@ -1,0 +1,41 @@
+{
+  "extends": "../../../tsconfig.base.json",
+  "compilerOptions": {
+    "module": "NodeNext",
+    "moduleResolution": "NodeNext",
+    "target": "ES2022",
+    "lib": [
+      "ES2022",
+      "DOM"
+    ],
+    "outDir": "dist",
+    "rootDir": "src",
+    "declaration": true,
+    "declarationMap": true,
+    "sourceMap": true,
+    "baseUrl": ".",
+    "resolveJsonModule": true,
+    "types": [
+      "node"
+    ],
+    "noEmitOnError": true,
+    "paths": {
+      "@chaincontest/chain": [
+        "../../packages/chain/src/index.ts"
+      ],
+      "@chaincontest/db": [
+        "../../packages/db/src/index.ts"
+      ],
+      "@chaincontest/shared-schemas": [
+        "../../packages/shared/schemas/src/index.ts"
+      ]
+    }
+  },
+  "include": [
+    "src"
+  ],
+  "exclude": [
+    "dist",
+    "node_modules"
+  ]
+}
