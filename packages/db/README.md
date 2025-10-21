@@ -65,7 +65,8 @@ if (status.status === 'tracked') {
       contestId: status.contestId!,
       chainId: status.chainId!,
       contractAddress: status.contractAddress!,
-      cursorHeight: BigInt(status.cursorHeight ?? '0') + 1n
+      cursorHeight: BigInt(status.cursorHeight ?? '0') + 1n,
+      cursorLogIndex: 0
     }
   });
 }

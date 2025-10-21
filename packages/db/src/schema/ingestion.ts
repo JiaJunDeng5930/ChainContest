@@ -23,6 +23,7 @@ export const ingestionCursors = pgTable(
     chainId: integer('chain_id').notNull(),
     contractAddress: text('contract_address').notNull(),
     cursorHeight: bigint('cursor_height', { mode: 'bigint' }).notNull(),
+    cursorLogIndex: integer('cursor_log_index').notNull().default(0),
     cursorHash: text('cursor_hash'),
     createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
     updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),

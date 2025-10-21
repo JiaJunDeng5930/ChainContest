@@ -81,6 +81,7 @@ declare module '@chaincontest/db' {
   export interface ReadIngestionStatusResponse {
     status: 'tracked' | 'untracked';
     cursorHeight: string | null;
+    cursorLogIndex: number | null;
     cursorHash: string | null;
     updatedAt: Date | null;
     contestId: string | null;
@@ -97,6 +98,7 @@ declare module '@chaincontest/db' {
   export interface WriteIngestionEventResponse {
     status: 'applied' | 'noop';
     cursorHeight?: string;
+    cursorLogIndex?: number;
     cursorHash?: string | null;
   }
 

@@ -51,11 +51,12 @@ export const runLiveIngestion = async (
     });
 
     const cursorHeight = cursorState.cursorHeight ? BigInt(cursorState.cursorHeight) : null;
+    const cursorLogIndex = cursorState.cursorLogIndex ?? null;
     const cursor: { blockNumber: bigint; logIndex: number } | undefined =
       cursorHeight !== null
         ? {
             blockNumber: cursorHeight,
-            logIndex: 0,
+            logIndex: cursorLogIndex ?? 0,
           }
         : undefined;
 

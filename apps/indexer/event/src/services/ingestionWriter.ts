@@ -78,6 +78,7 @@ export class IngestionWriter {
         chainId: stream.chainId,
         contractAddress: stream.addresses.registrar,
         cursorHeight: batch.nextCursor.blockNumber,
+        cursorLogIndex: batch.nextCursor.logIndex,
         cursorHash: batch.latestBlock.blockHash,
       },
     });

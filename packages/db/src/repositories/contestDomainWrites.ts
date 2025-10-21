@@ -101,6 +101,7 @@ export interface RewardClaimPayload {
 export interface CursorState {
   status: 'tracked' | 'untracked';
   cursorHeight: string | null;
+  cursorLogIndex: number | null;
   cursorHash: string | null;
   updatedAt: Date | null;
   contestId?: string | null;
@@ -119,6 +120,7 @@ export interface IngestionWriteAdvancePayload {
   chainId: number;
   contractAddress: string;
   cursorHeight: bigint | number | string;
+  cursorLogIndex?: number;
   cursorHash?: string | null;
 }
 
@@ -138,6 +140,7 @@ export type IngestionWriteAction =
 export interface IngestionWriteResult {
   status: 'applied' | 'noop';
   cursorHeight?: string;
+  cursorLogIndex?: number;
   cursorHash?: string | null;
 }
 
@@ -184,6 +187,7 @@ export async function readIngestionStatus(
       chainId: ingestionCursors.chainId,
       contractAddress: ingestionCursors.contractAddress,
       cursorHeight: ingestionCursors.cursorHeight,
+      cursorLogIndex: ingestionCursors.cursorLogIndex,
       cursorHash: ingestionCursors.cursorHash,
       updatedAt: ingestionCursors.updatedAt
     })
@@ -199,6 +203,7 @@ export async function readIngestionStatus(
     return {
       status: 'untracked',
       cursorHeight: null,
+      cursorLogIndex: null,
       cursorHash: null,
       updatedAt: null,
       contestId: params.contestId ?? null,
@@ -211,6 +216,7 @@ export async function readIngestionStatus(
   return {
     status: 'tracked',
     cursorHeight: row.cursorHeight.toString(),
+    cursorLogIndex: row.cursorLogIndex ?? 0,
     cursorHash: row.cursorHash ?? null,
     updatedAt: row.updatedAt,
     contestId: row.contestId,
@@ -522,6 +528,7 @@ async function advanceCursor(
   const contractAddress = normalizeAddress(payload.contractAddress);
   const actor = resolveActor(actorContext);
   const cursorHeight = coerceBigInt(payload.cursorHeight, 'cursorHeight');
+  const cursorLogIndex = ensureNonNegativeInteger(payload.cursorLogIndex ?? 0, 'cursorLogIndex');
   const cursorHash = payload.cursorHash ?? null;
 
   let contestId = payload.contestId ?? null;
@@ -544,7 +551,8 @@ async function advanceCursor(
   const current = await tx
     .select({
       id: ingestionCursors.id,
-      cursorHeight: ingestionCursors.cursorHeight
+      cursorHeight: ingestionCursors.cursorHeight,
+      cursorLogIndex: ingestionCursors.cursorLogIndex
     })
     .from(ingestionCursors)
     .where(eq(ingestionCursors.contestId, contestId))
@@ -557,29 +565,58 @@ async function advanceCursor(
       chainId,
       contractAddress,
       cursorHeight,
+      cursorLogIndex,
       cursorHash,
       createdBy: actor,
       updatedBy: actor
     });
-    return { status: 'applied', cursorHeight: cursorHeight.toString(), cursorHash };
+    return { status: 'applied', cursorHeight: cursorHeight.toString(), cursorLogIndex, cursorHash };
   }
 
   const existing = current[0]!;
-  if (cursorHeight <= existing.cursorHeight) {
-    throw new DbError(DbErrorCode.ORDER_VIOLATION, 'Cursor height must strictly increase', {
+  if (cursorHeight < existing.cursorHeight) {
+    throw new DbError(DbErrorCode.ORDER_VIOLATION, 'Cursor height must not regress', {
       detail: {
-        reason: 'cursor_not_monotonic',
+        reason: 'cursor_height_regressed',
         context: { current: existing.cursorHeight.toString(), attempted: cursorHeight.toString() }
       }
     });
   }
 
+  if (cursorHeight === existing.cursorHeight) {
+    if (cursorLogIndex <= (existing.cursorLogIndex ?? 0)) {
+      throw new DbError(DbErrorCode.ORDER_VIOLATION, 'Cursor log index must strictly increase for identical heights', {
+        detail: {
+          reason: 'cursor_not_monotonic',
+          context: {
+            currentHeight: existing.cursorHeight.toString(),
+            currentLogIndex: existing.cursorLogIndex ?? 0,
+            attemptedHeight: cursorHeight.toString(),
+            attemptedLogIndex: cursorLogIndex
+          }
+        }
+      });
+    }
+  }
+
+  const nextCursor = {
+    cursorHeight,
+    cursorLogIndex,
+    cursorHash,
+    updatedBy: actor
+  };
+
   await tx
     .update(ingestionCursors)
-    .set({ cursorHeight, cursorHash, updatedBy: actor })
+    .set(nextCursor)
     .where(eq(ingestionCursors.id, existing.id));
 
-  return { status: 'applied', cursorHeight: cursorHeight.toString(), cursorHash };
+  return {
+    status: 'applied',
+    cursorHeight: cursorHeight.toString(),
+    cursorLogIndex,
+    cursorHash
+  };
 }
 
 async function recordEvent(

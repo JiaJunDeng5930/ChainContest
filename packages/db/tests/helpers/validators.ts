@@ -217,6 +217,7 @@ const ingestionEventSchema = z.discriminatedUnion('action', [
       chainId: z.number().int().positive(),
       contractAddress: z.string().regex(/^0x[a-fA-F0-9]{40}$/),
       cursorHeight: numericLikeSchema,
+      cursorLogIndex: z.number().int().nonnegative().optional(),
       cursorHash: z.string().optional().nullable()
     }),
     actorContext: actorContextSchema.optional()

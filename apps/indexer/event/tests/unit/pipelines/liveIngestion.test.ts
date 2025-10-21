@@ -83,6 +83,7 @@ describe('runLiveIngestion', () => {
     readIngestionStatusMock = vi.fn<[Record<string, unknown>], Promise<Record<string, unknown>>>().mockResolvedValue({
         status: 'untracked',
         cursorHeight: null,
+        cursorLogIndex: null,
         cursorHash: null,
         updatedAt: null,
         contestId: stream.contestId,
@@ -234,6 +235,7 @@ describe('runLiveIngestion', () => {
     readIngestionStatusMock.mockResolvedValueOnce({
       status: 'tracked',
       cursorHeight: '120002',
+      cursorLogIndex: 4,
       cursorHash: '0xhash',
       updatedAt: new Date(),
       contestId: stream.contestId,
@@ -260,7 +262,7 @@ describe('runLiveIngestion', () => {
       expect.objectContaining({
         stream,
         fromBlock: undefined,
-        cursor: { blockNumber: BigInt('120002'), logIndex: 0 },
+        cursor: { blockNumber: BigInt('120002'), logIndex: 4 },
       }),
     );
   });

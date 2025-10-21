@@ -79,6 +79,7 @@ describe('ingestion progress', () => {
         chainId,
         contractAddress,
         cursorHeight: 10,
+        cursorLogIndex: 0,
         cursorHash: '0x' + 'b'.repeat(64)
       }
     });
@@ -86,6 +87,7 @@ describe('ingestion progress', () => {
     const updated = await readIngestionStatus({ contestId });
     expect(updated.status).toBe('tracked');
     expect(updated.cursorHeight).toBe('10');
+    expect(updated.cursorLogIndex).toBe(0);
 
     await writeIngestionEvent({
       action: 'advance_cursor',
@@ -93,12 +95,14 @@ describe('ingestion progress', () => {
         contestId,
         chainId,
         contractAddress,
-        cursorHeight: 25
+        cursorHeight: 25,
+        cursorLogIndex: 2
       }
     });
 
     const advanced = await readIngestionStatus({ chainId, contractAddress });
     expect(advanced.cursorHeight).toBe('25');
+    expect(advanced.cursorLogIndex).toBe(2);
 
     await expect(
       writeIngestionEvent({
@@ -107,7 +111,21 @@ describe('ingestion progress', () => {
           contestId,
           chainId,
           contractAddress,
-          cursorHeight: 24
+          cursorHeight: 25,
+          cursorLogIndex: 1
+        }
+      })
+    ).rejects.toMatchObject({ code: 'ORDER_VIOLATION' });
+
+    await expect(
+      writeIngestionEvent({
+        action: 'advance_cursor',
+        payload: {
+          contestId,
+          chainId,
+          contractAddress,
+          cursorHeight: 24,
+          cursorLogIndex: 0
         }
       })
     ).rejects.toMatchObject({ code: 'ORDER_VIOLATION' });
