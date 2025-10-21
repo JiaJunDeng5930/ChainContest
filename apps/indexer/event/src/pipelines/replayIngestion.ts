@@ -103,7 +103,10 @@ export const runReplayIngestion = async (
 
       health.recordSuccess({ stream, lagBlocks: 0, rpc: rpcSelection ?? null, nextPollAt: null });
 
-      const reachedEnd = batch.nextCursor.blockNumber >= toBlock || batch.events.length === 0;
+      const reachedEnd =
+        batch.events.length === 0 ||
+        (batch.nextCursor.blockNumber > toBlock) ||
+        (batch.nextCursor.blockNumber === toBlock && batch.nextCursor.logIndex === batch.events.at(-1)?.cursor.logIndex);
       if (reachedEnd) {
         hasMore = false;
         continue;
