@@ -62,7 +62,7 @@ export class ContestGatewayAdapter {
       return { batch: result, rpc: rpcSelection };
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
-      if (rpcSelection) {
+      if (rpcSelection && this.shouldRecordRpcFailure(error)) {
         this.rpcManager.recordFailure({
           chainId: stream.chainId,
           endpointId: rpcSelection.endpointId,
@@ -89,5 +89,24 @@ export class ContestGatewayAdapter {
       chainId: stream.chainId,
       addresses: stream.addresses,
     } as ContestIdentifier;
+  }
+
+  private shouldRecordRpcFailure(error: unknown): boolean {
+    const retryable = this.getContestChainErrorRetryable(error);
+    if (retryable !== null) {
+      return retryable === true;
+    }
+    return true;
+  }
+
+  private getContestChainErrorRetryable(error: unknown): boolean | null {
+    if (!error || typeof error !== 'object') {
+      return null;
+    }
+    const candidate = error as { code?: unknown; retryable?: unknown };
+    if (typeof candidate.code === 'string' && typeof candidate.retryable === 'boolean') {
+      return candidate.retryable;
+    }
+    return null;
   }
 }
