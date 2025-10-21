@@ -9,7 +9,7 @@
       "DOM"
     ],
     "outDir": "dist",
-    "rootDir": "src",
+    "rootDir": "../../..",
     "declaration": true,
     "declarationMap": true,
     "sourceMap": true,
@@ -19,17 +19,7 @@
       "node"
     ],
     "noEmitOnError": true,
-    "paths": {
-      "@chaincontest/chain": [
-        "../../../packages/chain/src/index.ts"
-      ],
-      "@chaincontest/db": [
-        "../../../packages/db/src/index.ts"
-      ],
-      "@chaincontest/shared-schemas": [
-        "../../../packages/shared/schemas/src/index.ts"
-      ]
-    }
+    "skipLibCheck": true
   },
   "include": [
     "src"

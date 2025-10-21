@@ -132,7 +132,7 @@ const normalizeAddresses = (addresses: StreamSchema['addresses']): ContestContra
   return normalised;
 };
 
-const ensureLowercaseHex = (value: string): string => value.toLowerCase();
+const ensureLowercaseHex = (value: string): `0x${string}` => value.toLowerCase() as `0x${string}`;
 
 const normalizeError = (error: unknown): Record<string, unknown> => {
   if (error instanceof Error) {

@@ -76,7 +76,7 @@ export class RpcContestDataProvider implements ContestChainDataProvider {
         ? `contest:${contest.chainId}:${contest.contestId}:${options.rpcUrl}`
         : `contest:${contest.chainId}:${contest.contestId}`,
       rpcUrls: options?.rpcUrl ? [options.rpcUrl] : undefined,
-    });
+    }) as PublicClient;
 
     const toBlock = await this.resolveToBlock(client, options?.blockTag);
     const fromBlock = await this.resolveFromBlock(contest, client, toBlock);
@@ -324,10 +324,11 @@ export class RpcContestDataProvider implements ContestChainDataProvider {
         return null;
       }
 
-      const args = isRecord(decoded.args) ? decoded.args : null;
-      if (!args) {
+      if (!isRecord(decoded.args)) {
         return null;
       }
+
+      const args = decoded.args as Record<string, unknown>;
 
       switch (eventName) {
         case 'ContestRegistered':

@@ -12,13 +12,13 @@ declare module '@chaincontest/chain' {
   }
 
   export interface ContestContractAddresses {
-    registrar: string;
-    settlement?: string;
-    rewards?: string;
-    redemption?: string;
-    treasury?: string;
-    oracle?: string;
-    policy?: string;
+    registrar: `0x${string}`;
+    settlement?: `0x${string}`;
+    rewards?: `0x${string}`;
+    redemption?: `0x${string}`;
+    treasury?: `0x${string}`;
+    oracle?: `0x${string}`;
+    policy?: `0x${string}`;
   }
 
   export interface ContestIdentifier {
@@ -51,6 +51,101 @@ declare module '@chaincontest/chain' {
       timestamp?: string;
     };
   }
+
+  export interface ContestDefinition {
+    contest: ContestIdentifier;
+    phase: string;
+    timeline: Record<string, unknown>;
+    prizePool: Record<string, unknown>;
+    registrationCapacity: {
+      registered: number;
+      maximum: number;
+      isFull: boolean;
+    };
+    registration: {
+      window: { opensAt: string; closesAt: string };
+      requirement: {
+        tokenAddress: `0x${string}`;
+        amount: string;
+        spender: `0x${string}`;
+        symbol?: string;
+        decimals?: number;
+        reason?: string;
+      };
+      approvals?: Array<Record<string, unknown>>;
+      template: {
+        call: {
+          to: `0x${string}`;
+          data: `0x${string}`;
+        };
+      };
+    };
+    qualificationVerdict: Record<string, unknown>;
+    derivedAt: {
+      blockNumber: bigint;
+      blockHash: `0x${string}`;
+      timestamp?: string;
+    };
+    participants: Record<string, unknown>;
+    events?: { events: ContestEventEnvelope[] };
+  }
+
+  export interface ContestChainDataProvider {
+    loadContestDefinition(
+      contest: ContestIdentifier,
+      options?: { readonly blockTag?: bigint | 'latest'; readonly rpcUrl?: string },
+    ): Promise<ContestDefinition>;
+  }
+
+  export interface ContestChainError {
+    code: string;
+    message: string;
+    retryable: boolean;
+    details?: unknown;
+    source?: string;
+  }
+
+  export interface RpcClientFactoryRequest {
+    chainId: number;
+    cacheKey?: string;
+    rpcUrls?: readonly string[];
+  }
+
+  export type RpcClientFactory = ((request: RpcClientFactoryRequest) => unknown) & {
+    clear?: (cacheKey?: string) => void;
+  };
+
+  export interface RpcClientFactoryOptions {
+    chains: Record<number, unknown>;
+    defaultRpcUrls?: Record<number, readonly string[]>;
+  }
+
+  export type SignerLocator = (request: {
+    chainId: number;
+    participant: `0x${string}`;
+    contestId: string;
+    cacheKey?: string;
+  }) => Promise<unknown>;
+
+  export const createContestChainGateway: (options: {
+    validators: unknown;
+    rpcClientFactory: RpcClientFactory;
+    signerLocator: SignerLocator;
+    dataProvider: ContestChainDataProvider;
+    errorLogger?: (error: ContestChainError) => void;
+  }) => ContestChainGateway;
+
+  export const createContestChainError: (input: {
+    code: string;
+    message: string;
+    retryable?: boolean;
+    details?: unknown;
+    source?: string;
+  }) => ContestChainError;
+
+  export const createGatewayValidationContext: (options: unknown) => unknown;
+
+  export const createRpcClientFactory: (options: RpcClientFactoryOptions) => RpcClientFactory;
 
   export interface PullContestEventsInput {
     contest: ContestIdentifier;

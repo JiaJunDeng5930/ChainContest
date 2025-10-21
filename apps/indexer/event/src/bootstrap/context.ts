@@ -1,7 +1,7 @@
 import type { Logger } from 'pino';
 import { loadConfig, type AppConfig, resetConfigCache } from '../config/loadConfig.js';
 import { createRootLogger, withIngestionBindings } from '../telemetry/logging.js';
-import { createMetricsRegistry } from '../telemetry/metrics.js';
+import { createMetricsRegistry, type IndexerMetrics } from '../telemetry/metrics.js';
 import { createDbClient, type DbClient } from '../services/dbClient.js';
 import { createQueueClient, type QueueClient } from '../services/queueClient.js';
 import { createHttpServer, type HealthStatus, type HttpServer } from '../server/httpServer.js';
@@ -10,7 +10,7 @@ import { IngestionRegistry } from '../services/ingestionRegistry.js';
 import { ContestGatewayAdapter } from '../adapters/contestGateway.js';
 import { IngestionWriter } from '../services/ingestionWriter.js';
 import { runLiveIngestion } from '../pipelines/liveIngestion.js';
-import { runReplayIngestion } from '../pipelines/replayIngestion.js';
+import { runReplayIngestion, type ReplayIngestionDependencies } from '../pipelines/replayIngestion.js';
 import { RpcEndpointManager } from '../services/rpcEndpointManager.js';
 import { HealthTracker } from '../services/healthTracker.js';
 import { JobDispatcher } from '../services/jobDispatcher.js';
@@ -51,7 +51,7 @@ export const bootstrapContext = (options: BootstrapOptions = {}): AppContext => 
 
   const config = options.config ?? loadConfig({ overrides: options.configOverrides });
   const logger = options.logger ?? createRootLogger({ environment: config.environment });
-  const metrics = createMetricsRegistry({ defaultLabels: { service: 'indexer-event' } });
+  const metrics: IndexerMetrics = createMetricsRegistry({ defaultLabels: { service: 'indexer-event' } });
 
   const db = createDbClient({ config, logger, metricsHook: () => {} });
   const queue = createQueueClient({ config, logger });
@@ -81,6 +81,7 @@ export const bootstrapContext = (options: BootstrapOptions = {}): AppContext => 
       config,
       db,
       gateway,
+      metrics,
       writer,
       logger,
       rpc,
@@ -211,6 +212,7 @@ const scheduleReplay = async ({
   config,
   db,
   gateway,
+  metrics,
   writer,
   logger,
   rpc,
@@ -223,6 +225,7 @@ const scheduleReplay = async ({
   config: AppConfig;
   db: DbClient;
   gateway: ContestGatewayAdapter;
+  metrics: IndexerMetrics;
   writer: IngestionWriter;
   logger: Logger;
   rpc: RpcEndpointManager;
@@ -262,29 +265,33 @@ const scheduleReplay = async ({
     throw error;
   }
 
-  void runReplayIngestion(
-    {
-      config,
-      db,
-      gateway,
-      writer,
-      logger,
-      rpc,
-      health,
-      jobDispatcher: jobs,
-      reconciliation,
-    },
-    {
-      stream,
-      fromBlock,
-      toBlock,
-      reason: request.reason,
-      actor: request.actor,
-    },
-  ).catch((error) => {
+  const replayParams = {
+    stream,
+    fromBlock,
+    toBlock,
+    reason: request.reason,
+    actor: request.actor,
+  };
+
+  /* eslint-disable @typescript-eslint/no-unsafe-assignment */
+  const replayDeps = {
+    config,
+    db,
+    gateway,
+    metrics,
+    writer,
+    logger,
+    rpc,
+    health,
+    jobDispatcher: jobs,
+    reconciliation,
+  } satisfies ReplayIngestionDependencies;
+  /* eslint-enable @typescript-eslint/no-unsafe-assignment */
+
+  void runReplayIngestion(replayDeps, replayParams).catch((error: unknown) => {
     logger.error(
       {
-        err: error instanceof Error ? { message: error.message, stack: error.stack } : { message: String(error) },
+        err: normalizeError(error),
         contestId: stream.contestId,
         chainId: stream.chainId,
       },
@@ -306,4 +313,11 @@ const createHttpError = (statusCode: number, message: string): Error & { statusC
   const error = new Error(message) as Error & { statusCode: number };
   error.statusCode = statusCode;
   return error;
+};
+
+const normalizeError = (error: unknown): { message: string; stack?: string } => {
+  if (error instanceof Error) {
+    return { message: error.message, stack: error.stack };
+  }
+  return { message: String(error) };
 };
