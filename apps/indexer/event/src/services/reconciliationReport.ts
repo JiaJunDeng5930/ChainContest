@@ -52,12 +52,17 @@ export class ReconciliationReportService {
     const baselineMap = new Map<string, ContestEventEnvelope>();
     (request.baselineEvents ?? []).forEach((event) => baselineMap.set(this.key(event), event));
 
+    const baselineProvided = (request.baselineEvents?.length ?? 0) > 0;
+
     const discrepancies: ReconciliationDiscrepancy[] = [];
 
     request.replayEvents.forEach((event) => {
       const key = this.key(event);
       const baseline = baselineMap.get(key);
       if (!baseline) {
+        if (!baselineProvided) {
+          return;
+        }
         discrepancies.push({
           type: 'missing_event',
           details: {
@@ -83,16 +88,18 @@ export class ReconciliationReportService {
       }
     });
 
-    baselineMap.forEach((event) => {
-      discrepancies.push({
-        type: 'extra_event',
-        details: {
-          txHash: event.txHash,
-          logIndex: event.logIndex,
-          blockNumber: event.blockNumber.toString(),
-        },
+    if (baselineProvided) {
+      baselineMap.forEach((event) => {
+        discrepancies.push({
+          type: 'extra_event',
+          details: {
+            txHash: event.txHash,
+            logIndex: event.logIndex,
+            blockNumber: event.blockNumber.toString(),
+          },
+        });
       });
-    });
+    }
 
     const generatedAt = new Date(this.now()).toISOString();
 

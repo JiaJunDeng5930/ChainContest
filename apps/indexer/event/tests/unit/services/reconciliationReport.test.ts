@@ -61,4 +61,23 @@ describe('ReconciliationReportService', () => {
     ]);
     expect(report.actorContext).toEqual({ actor: 'ops@example.com', reason: 'audit' });
   });
+
+  it('skips discrepancy generation when baseline is absent', () => {
+    const service = new ReconciliationReportService({
+      clock: () => new Date('2025-10-21T13:00:00Z').valueOf(),
+      idFactory: () => 'rep-456',
+    });
+
+    const replay = [createEvent(), createEvent({ txHash: '0x222' as `0x${string}`, logIndex: 1 })];
+
+    const report = service.buildReport({
+      stream,
+      range: { fromBlock: 1000n, toBlock: 1300n },
+      replayEvents: replay,
+      baselineEvents: undefined,
+    });
+
+    expect(report.reportId).toBe('rep-456');
+    expect(report.discrepancies).toHaveLength(0);
+  });
 });
