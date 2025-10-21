@@ -22,6 +22,7 @@ export interface BootstrapOptions {
   configOverrides?: Record<string, string | undefined>;
   forceReloadConfig?: boolean;
   contestGateway?: ContestChainGateway;
+  logger?: Logger;
 }
 
 export interface AppContext {
@@ -49,7 +50,7 @@ export const bootstrapContext = (options: BootstrapOptions = {}): AppContext => 
   }
 
   const config = options.config ?? loadConfig({ overrides: options.configOverrides });
-  const logger = createRootLogger({ environment: config.environment });
+  const logger = options.logger ?? createRootLogger({ environment: config.environment });
   const metrics = createMetricsRegistry({ defaultLabels: { service: 'indexer-event' } });
 
   const db = createDbClient({ config, logger, metricsHook: () => {} });

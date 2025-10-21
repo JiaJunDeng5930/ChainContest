@@ -1,16 +1,24 @@
-import { setInterval as scheduleInterval, clearInterval } from 'node:timers';
 import process from 'node:process';
-import type {
-  ContestChainGateway,
-  ContestEventBatch,
-} from '@chaincontest/chain';
+import { clearInterval, setInterval as scheduleInterval } from 'node:timers';
 import { bootstrapContext } from './bootstrap/context.js';
+import { loadConfig } from './config/loadConfig.js';
+import { createContestGateway } from './bootstrap/contestGatewayFactory.js';
+import { createRootLogger } from './telemetry/logging.js';
 
 const main = async (): Promise<void> => {
-  const context = bootstrapContext({ contestGateway: createStubContestGateway() });
+  const config = loadConfig();
+  const rootLogger = createRootLogger({ environment: config.environment });
+  const contestGateway = createContestGateway({
+    config,
+    logger: rootLogger.child({ component: 'contestGateway' }),
+  });
+  const context = bootstrapContext({
+    config,
+    logger: rootLogger,
+    contestGateway,
+  });
 
   await context.start();
-  context.logger.warn('contest gateway is running in stub mode; no events will be ingested');
 
   const initialSnapshot = context.health.snapshot();
   context.logger.info(
@@ -58,27 +66,6 @@ const main = async (): Promise<void> => {
     void shutdown();
   });
 };
-
-const createStubContestGateway = (): ContestChainGateway => ({
-  describeContestLifecycle: () =>
-    Promise.reject(new Error('describeContestLifecycle is not implemented in stub gateway')),
-  planParticipantRegistration: () =>
-    Promise.reject(new Error('planParticipantRegistration is not implemented in stub gateway')),
-  planPortfolioRebalance: () =>
-    Promise.reject(new Error('planPortfolioRebalance is not implemented in stub gateway')),
-  executeContestSettlement: () =>
-    Promise.reject(new Error('executeContestSettlement is not implemented in stub gateway')),
-  executeRewardClaim: () =>
-    Promise.reject(new Error('executeRewardClaim is not implemented in stub gateway')),
-  executePrincipalRedemption: () =>
-    Promise.reject(new Error('executePrincipalRedemption is not implemented in stub gateway')),
-  pullContestEvents: (): Promise<ContestEventBatch> =>
-    Promise.resolve({
-      events: [],
-      nextCursor: { blockNumber: 0n, logIndex: 0 },
-      latestBlock: { blockNumber: 0n, blockHash: '0x0' as `0x${string}`, timestamp: new Date().toISOString() },
-    }),
-});
 
 void main().catch((error) => {
   // eslint-disable-next-line no-console
