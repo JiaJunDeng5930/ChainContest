@@ -98,10 +98,10 @@ export const runLiveIngestion = async (
     metrics.ingestionBatchSize.observe(labels, eventsProcessed);
 
     const latestBlockNumber = Number(batch.latestBlock.blockNumber);
+    const nextCursorBlock = Number(batch.nextCursor.blockNumber);
     let lag = 0;
-    if (!Number.isNaN(latestBlockNumber)) {
-      const currentCursor = cursorHeight !== null ? Number(cursorHeight) : Number(stream.startBlock);
-      lag = Math.max(latestBlockNumber - currentCursor, 0);
+    if (!Number.isNaN(latestBlockNumber) && !Number.isNaN(nextCursorBlock)) {
+      lag = Math.max(latestBlockNumber - nextCursorBlock, 0);
       metrics.ingestionLagBlocks.set(
         {
           contestId: stream.contestId,
