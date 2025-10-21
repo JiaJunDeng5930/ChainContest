@@ -104,7 +104,32 @@ const parseReplayBody = (body: unknown):
     return { valid: false, error: 'contestId, chainId, fromBlock, toBlock and reason are required' };
   }
 
-  if (BigInt(fromBlock) > BigInt(toBlock)) {
+  const parseBlockNumber = (
+    fieldName: 'fromBlock' | 'toBlock',
+    rawValue: string,
+  ): { valid: true; value: bigint } | { valid: false; error: string } => {
+    try {
+      const parsed = BigInt(rawValue);
+      if (parsed < 0n) {
+        return { valid: false, error: `${fieldName} must be greater than or equal to zero` };
+      }
+      return { valid: true, value: parsed };
+    } catch {
+      return { valid: false, error: `${fieldName} must be a numeric string` };
+    }
+  };
+
+  const fromBlockNumber = parseBlockNumber('fromBlock', fromBlock);
+  if (!fromBlockNumber.valid) {
+    return fromBlockNumber;
+  }
+
+  const toBlockNumber = parseBlockNumber('toBlock', toBlock);
+  if (!toBlockNumber.valid) {
+    return toBlockNumber;
+  }
+
+  if (fromBlockNumber.value > toBlockNumber.value) {
     return { valid: false, error: 'fromBlock must be less than or equal to toBlock' };
   }
 
