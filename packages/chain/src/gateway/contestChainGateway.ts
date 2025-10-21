@@ -5,7 +5,6 @@ import {
   createRewardClaimResult,
   createRedemptionResult,
   createContestEventBatch,
-  createContestEventEnvelope,
   createLifecycleSnapshot,
   type RegistrationPlan,
   type RebalancePlan,
@@ -15,11 +14,7 @@ import {
   type ContestEventBatch,
   type LifecycleSnapshot,
 } from './domainModels';
-import {
-  createNotImplementedError,
-  wrapContestChainError,
-  type ContestChainError,
-} from '@chain/errors/contestChainError';
+import { wrapContestChainError, type ContestChainError } from '@chain/errors/contestChainError';
 import type {
   ContestChainGateway,
   DescribeContestLifecycleInput,
@@ -87,9 +82,9 @@ class ContestChainGatewayImpl implements ContestChainGateway {
 
   private async loadDefinition(
     contest: DescribeContestLifecycleInput['contest'],
-    blockTag?: bigint | 'latest',
+    options: { blockTag?: bigint | 'latest'; rpcUrl?: string } = {},
   ): Promise<ContestDefinition> {
-    return this.runtime.dataProvider.loadContestDefinition(contest, { blockTag });
+    return this.runtime.dataProvider.loadContestDefinition(contest, options);
   }
 
   private handleError(error: unknown, source: string): never {
@@ -108,7 +103,7 @@ class ContestChainGatewayImpl implements ContestChainGateway {
     try {
       const definition = await this.loadDefinition(
         input.contest,
-        input.blockTag,
+        { blockTag: input.blockTag },
       );
 
       let qualificationVerdict = definition.qualificationVerdict;
@@ -159,7 +154,7 @@ class ContestChainGatewayImpl implements ContestChainGateway {
     try {
       const definition = await this.loadDefinition(
         input.contest,
-        input.blockTag,
+        { blockTag: input.blockTag },
       );
 
       const participant = resolveParticipantProfile(
@@ -206,7 +201,7 @@ class ContestChainGatewayImpl implements ContestChainGateway {
     try {
       const definition = await this.loadDefinition(
         input.contest,
-        input.blockTag,
+        { blockTag: input.blockTag },
       );
 
       const config = definition.rebalance;
@@ -280,7 +275,7 @@ class ContestChainGatewayImpl implements ContestChainGateway {
     try {
       const definition = await this.loadDefinition(
         input.contest,
-        input.blockTag,
+        { blockTag: input.blockTag },
       );
 
       const config = definition.settlement;
@@ -348,7 +343,7 @@ class ContestChainGatewayImpl implements ContestChainGateway {
     try {
       const definition = await this.loadDefinition(
         input.contest,
-        input.blockTag,
+        { blockTag: input.blockTag },
       );
 
       const rewards = definition.rewards ?? {};
@@ -396,7 +391,7 @@ class ContestChainGatewayImpl implements ContestChainGateway {
     try {
       const definition = await this.loadDefinition(
         input.contest,
-        input.blockTag,
+        { blockTag: input.blockTag },
       );
 
       const redemption = definition.redemption ?? {};
@@ -441,7 +436,10 @@ class ContestChainGatewayImpl implements ContestChainGateway {
     input: PullContestEventsInput,
   ): Promise<ContestEventBatch> {
     try {
-      const definition = await this.loadDefinition(input.contest, input.toBlock);
+      const definition = await this.loadDefinition(input.contest, {
+        blockTag: input.toBlock,
+        rpcUrl: input.rpcUrl,
+      });
 
       const eventsConfig = definition.events;
       const fallbackCursor = input.cursor ?? {

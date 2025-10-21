@@ -52,6 +52,7 @@ export class ContestGatewayAdapter {
         cursor,
         fromBlock,
         toBlock,
+        rpcUrl: rpcSelection?.url,
         limit,
       });
 

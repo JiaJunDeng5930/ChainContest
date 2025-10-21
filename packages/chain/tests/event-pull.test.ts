@@ -161,6 +161,7 @@ describe('pullContestEvents', () => {
       contest,
       cursor: { blockNumber: 10n, logIndex: 0 },
       limit: 1,
+      rpcUrl: 'https://example.com',
     });
 
     expect(batch.events).toHaveLength(1);

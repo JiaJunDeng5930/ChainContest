@@ -58,6 +58,7 @@ declare module '@chaincontest/chain' {
     fromBlock?: bigint;
     toBlock?: bigint;
     limit?: number;
+    rpcUrl?: string;
   }
 
   export interface ContestChainGateway {

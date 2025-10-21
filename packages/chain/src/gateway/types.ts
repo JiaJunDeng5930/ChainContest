@@ -1,4 +1,4 @@
-import type { Address, Hex } from 'viem';
+import type { Address } from 'viem';
 import type {
   BlockAnchorShape,
   ContestEventEnvelopeShape,
@@ -120,7 +120,7 @@ export interface ContestDefinition {
 export interface ContestChainDataProvider {
   loadContestDefinition(
     contest: ContestIdentifier,
-    options?: { readonly blockTag?: bigint | 'latest' },
+    options?: { readonly blockTag?: bigint | 'latest'; readonly rpcUrl?: string },
   ): Promise<ContestDefinition>;
 }
 

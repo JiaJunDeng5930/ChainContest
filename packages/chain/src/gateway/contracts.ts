@@ -70,6 +70,7 @@ export interface PullContestEventsInput {
   readonly fromBlock?: bigint;
   readonly toBlock?: bigint;
   readonly limit?: number;
+  readonly rpcUrl?: string;
 }
 
 export interface ContestChainGateway {

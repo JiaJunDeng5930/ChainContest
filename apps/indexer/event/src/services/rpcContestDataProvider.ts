@@ -68,11 +68,14 @@ export class RpcContestDataProvider implements ContestChainDataProvider {
 
   public async loadContestDefinition(
     contest: ContestIdentifier,
-    options?: { readonly blockTag?: bigint | 'latest' },
+    options?: { readonly blockTag?: bigint | 'latest'; readonly rpcUrl?: string },
   ): Promise<ContestDefinition> {
     const client = this.rpcClientFactory({
       chainId: contest.chainId,
-      cacheKey: `contest:${contest.chainId}:${contest.contestId}`,
+      cacheKey: options?.rpcUrl
+        ? `contest:${contest.chainId}:${contest.contestId}:${options.rpcUrl}`
+        : `contest:${contest.chainId}:${contest.contestId}`,
+      rpcUrls: options?.rpcUrl ? [options.rpcUrl] : undefined,
     });
 
     const toBlock = await this.resolveToBlock(client, options?.blockTag);

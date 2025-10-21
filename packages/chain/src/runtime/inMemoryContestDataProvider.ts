@@ -21,8 +21,9 @@ class InMemoryContestDataProvider implements ContestChainDataProvider {
     this.definitions.set(makeKey(definition.contest), definition);
   }
 
-  public async loadContestDefinition(
+  public loadContestDefinition(
     contest: ContestIdentifier,
+    _options?: { readonly blockTag?: bigint | 'latest'; readonly rpcUrl?: string },
   ): Promise<ContestDefinition> {
     const definition = this.definitions.get(makeKey(contest));
     if (!definition) {
@@ -33,7 +34,8 @@ class InMemoryContestDataProvider implements ContestChainDataProvider {
       });
     }
 
-    return definition;
+    void _options;
+    return Promise.resolve(definition);
   }
 }
 

@@ -220,6 +220,7 @@ describe('runLiveIngestion', () => {
       stream,
       cursor: undefined,
       fromBlock: stream.startBlock,
+      rpcUrl: undefined,
       limit: config.service.maxBatchSize,
     });
     expect(writeBatchMock).toHaveBeenCalledWith(
@@ -269,6 +270,7 @@ describe('runLiveIngestion', () => {
         stream,
         fromBlock: undefined,
         cursor: { blockNumber: BigInt('120002'), logIndex: 4 },
+        rpcUrl: undefined,
       }),
     );
 
