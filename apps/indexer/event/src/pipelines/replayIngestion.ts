@@ -76,7 +76,7 @@ export const runReplayIngestion = async (
       });
 
       batches += 1;
-      await writer.writeBatch({ stream, batch });
+      await writer.writeBatch({ stream, batch, advanceCursor: false });
       totalEvents += batch.events.length;
       replayedEvents.push(...batch.events);
 

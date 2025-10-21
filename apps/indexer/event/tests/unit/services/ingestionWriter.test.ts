@@ -107,4 +107,42 @@ describe('IngestionWriter', () => {
     expect(writeIngestionEventMock.mock.calls[0][0]).toMatchObject({ action: 'record_event' });
     expect(writeIngestionEventMock.mock.calls[1][0]).toMatchObject({ action: 'advance_cursor' });
   });
+
+  it('does not advance cursor when explicitly disabled', async () => {
+    const event: ContestEventEnvelope = {
+      type: 'registration',
+      blockNumber: 200n,
+      logIndex: 1,
+      txHash: hex('e'.repeat(64)),
+      cursor: { blockNumber: 200n, logIndex: 1 },
+      payload: {},
+      reorgFlag: false,
+      derivedAt: {
+        blockNumber: 200n,
+        blockHash: hex('f'.repeat(64)),
+        timestamp: new Date().toISOString(),
+      },
+    };
+
+    const batch: ContestEventBatch = {
+      events: [event],
+      nextCursor: event.cursor,
+      latestBlock: {
+        blockNumber: 200n,
+        blockHash: hex('c'.repeat(64)),
+        timestamp: new Date().toISOString(),
+      },
+    };
+
+    const writer = new IngestionWriter(db, logger);
+
+    await writer.writeBatch({ stream, batch, advanceCursor: false });
+
+    expect(writeIngestionEventMock).toHaveBeenCalledTimes(1);
+    expect(writeIngestionEventMock.mock.calls[0][0]).toMatchObject({ action: 'record_event' });
+    expect(loggerDebug).toHaveBeenCalledWith(
+      expect.objectContaining({ contestId: stream.contestId, chainId: stream.chainId }),
+      'cursor advance disabled for batch; leaving live cursor unchanged',
+    );
+  });
 });

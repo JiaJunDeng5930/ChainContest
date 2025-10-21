@@ -10,6 +10,7 @@ import type { DbClient } from './dbClient.js';
 export interface WriteBatchParams {
   stream: RegistryStream;
   batch: ContestEventBatch;
+  advanceCursor?: boolean;
 }
 
 export type DomainWriteContext = {
@@ -29,7 +30,7 @@ export class IngestionWriter {
   }
 
   public async writeBatch(params: WriteBatchParams): Promise<void> {
-    const { stream, batch } = params;
+    const { stream, batch, advanceCursor = true } = params;
 
     for (const event of batch.events) {
       await this.recordEvent(stream, event);
@@ -43,6 +44,17 @@ export class IngestionWriter {
           chainId: stream.chainId,
         },
         'no events ingested; skipping cursor advance',
+      );
+      return;
+    }
+
+    if (!advanceCursor) {
+      this.logger.debug(
+        {
+          contestId: stream.contestId,
+          chainId: stream.chainId,
+        },
+        'cursor advance disabled for batch; leaving live cursor unchanged',
       );
       return;
     }

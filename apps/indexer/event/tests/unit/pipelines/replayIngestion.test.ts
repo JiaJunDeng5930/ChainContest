@@ -226,6 +226,12 @@ describe('runReplayIngestion', () => {
     );
 
     expect(writeBatchMock).toHaveBeenCalled();
+    expect(writeBatchMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        stream,
+        advanceCursor: false,
+      }),
+    );
     expect(dispatchReconcileMock).toHaveBeenCalledWith(report);
     expect(buildReportMock).toHaveBeenCalled();
     expect(result.eventsProcessed).toBeGreaterThan(0);
