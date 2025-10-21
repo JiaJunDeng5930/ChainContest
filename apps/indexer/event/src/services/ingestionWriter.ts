@@ -36,6 +36,17 @@ export class IngestionWriter {
       await this.invokeDomainHandler(event.type, { stream, event });
     }
 
+    if (batch.events.length === 0) {
+      this.logger.debug(
+        {
+          contestId: stream.contestId,
+          chainId: stream.chainId,
+        },
+        'no events ingested; skipping cursor advance',
+      );
+      return;
+    }
+
     await this.advanceCursor(stream, batch);
   }
 
