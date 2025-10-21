@@ -51,7 +51,7 @@ describe('IngestionWriter', () => {
     } as unknown as Logger;
   });
 
-  it('skips cursor advance when batch has no events', async () => {
+  it('advances cursor when batch has no events but cursor progresses', async () => {
     const batch: ContestEventBatch = {
       events: [],
       nextCursor: { blockNumber: 120n, logIndex: 0 },
@@ -64,13 +64,14 @@ describe('IngestionWriter', () => {
 
     const writer = new IngestionWriter(db, logger);
 
-    await writer.writeBatch({ stream, batch });
+    await writer.writeBatch({ stream, batch, currentCursor: { blockNumber: 100n, logIndex: 0 } });
 
     expect(loggerDebug).toHaveBeenCalledWith(
       expect.objectContaining({ contestId: stream.contestId, chainId: stream.chainId }),
-      'no events ingested; skipping cursor advance',
+      'no events ingested in batch',
     );
-    expect(writeIngestionEventMock).not.toHaveBeenCalled();
+    expect(writeIngestionEventMock).toHaveBeenCalledTimes(1);
+    expect(writeIngestionEventMock.mock.calls[0][0]).toMatchObject({ action: 'advance_cursor' });
   });
 
   it('records events and advances cursor when batch contains events', async () => {
@@ -101,11 +102,37 @@ describe('IngestionWriter', () => {
 
     const writer = new IngestionWriter(db, logger);
 
-    await writer.writeBatch({ stream, batch });
+    await writer.writeBatch({ stream, batch, currentCursor: { blockNumber: 100n, logIndex: 1 } });
 
     expect(writeIngestionEventMock).toHaveBeenCalledTimes(2);
     expect(writeIngestionEventMock.mock.calls[0][0]).toMatchObject({ action: 'record_event' });
     expect(writeIngestionEventMock.mock.calls[1][0]).toMatchObject({ action: 'advance_cursor' });
+  });
+
+  it('skips cursor advance when cursor does not move', async () => {
+    const batch: ContestEventBatch = {
+      events: [],
+      nextCursor: { blockNumber: 50n, logIndex: 0 },
+      latestBlock: {
+        blockNumber: 50n,
+        blockHash: hex('1'.repeat(64)),
+        timestamp: new Date().toISOString(),
+      },
+    };
+
+    const writer = new IngestionWriter(db, logger);
+
+    await writer.writeBatch({ stream, batch, currentCursor: { blockNumber: 50n, logIndex: 0 } });
+
+    expect(writeIngestionEventMock).not.toHaveBeenCalled();
+    expect(loggerDebug).toHaveBeenCalledWith(
+      expect.objectContaining({ contestId: stream.contestId, chainId: stream.chainId }),
+      'no events ingested in batch',
+    );
+    expect(loggerDebug).toHaveBeenCalledWith(
+      expect.objectContaining({ contestId: stream.contestId, chainId: stream.chainId }),
+      'cursor unchanged; skipping advance',
+    );
   });
 
   it('does not advance cursor when explicitly disabled', async () => {
@@ -136,7 +163,7 @@ describe('IngestionWriter', () => {
 
     const writer = new IngestionWriter(db, logger);
 
-    await writer.writeBatch({ stream, batch, advanceCursor: false });
+    await writer.writeBatch({ stream, batch, currentCursor: { blockNumber: 199n, logIndex: 1 }, advanceCursor: false });
 
     expect(writeIngestionEventMock).toHaveBeenCalledTimes(1);
     expect(writeIngestionEventMock.mock.calls[0][0]).toMatchObject({ action: 'record_event' });

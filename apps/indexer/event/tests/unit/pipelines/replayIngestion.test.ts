@@ -226,12 +226,14 @@ describe('runReplayIngestion', () => {
     );
 
     expect(writeBatchMock).toHaveBeenCalled();
-    expect(writeBatchMock).toHaveBeenCalledWith(
-      expect.objectContaining({
-        stream,
-        advanceCursor: false,
-      }),
-    );
+    const firstCall = writeBatchMock.mock.calls[0]![0] as {
+      stream: RegistryStream;
+      advanceCursor: boolean;
+      currentCursor?: { blockNumber: bigint; logIndex: number };
+    };
+    expect(firstCall.stream).toBe(stream);
+    expect(firstCall.advanceCursor).toBe(false);
+    expect(firstCall.currentCursor).toEqual({ blockNumber: params.fromBlock, logIndex: 0 });
     expect(dispatchReconcileMock).toHaveBeenCalledWith(report);
     expect(buildReportMock).toHaveBeenCalled();
     expect(result.eventsProcessed).toBeGreaterThan(0);

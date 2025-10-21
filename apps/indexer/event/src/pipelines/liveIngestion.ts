@@ -72,7 +72,7 @@ export const runLiveIngestion = async (
       limit,
     });
 
-    await writer.writeBatch({ stream, batch });
+    await writer.writeBatch({ stream, batch, currentCursor: cursor });
     await dispatchMilestones(jobDispatcher, scopedLogger, stream, batch.events);
 
     const durationMs = performance.now() - startedAt;

@@ -26,6 +26,7 @@
     "pg-boss": "^8.4.0",
     "pino": "^9.3.1",
     "prom-client": "^14.2.0",
+    "viem": "^1.21.4",
     "zod": "^3.23.8"
   },
   "devDependencies": {

@@ -10,6 +10,7 @@ import type { DbClient } from './dbClient.js';
 export interface WriteBatchParams {
   stream: RegistryStream;
   batch: ContestEventBatch;
+  currentCursor?: { blockNumber: bigint; logIndex: number };
   advanceCursor?: boolean;
 }
 
@@ -30,7 +31,7 @@ export class IngestionWriter {
   }
 
   public async writeBatch(params: WriteBatchParams): Promise<void> {
-    const { stream, batch, advanceCursor = true } = params;
+    const { stream, batch, advanceCursor = true, currentCursor } = params;
 
     for (const event of batch.events) {
       await this.recordEvent(stream, event);
@@ -43,9 +44,8 @@ export class IngestionWriter {
           contestId: stream.contestId,
           chainId: stream.chainId,
         },
-        'no events ingested; skipping cursor advance',
+        'no events ingested in batch',
       );
-      return;
     }
 
     if (!advanceCursor) {
@@ -55,6 +55,19 @@ export class IngestionWriter {
           chainId: stream.chainId,
         },
         'cursor advance disabled for batch; leaving live cursor unchanged',
+      );
+      return;
+    }
+
+    if (!this.shouldAdvanceCursor(currentCursor, batch.nextCursor)) {
+      this.logger.debug(
+        {
+          contestId: stream.contestId,
+          chainId: stream.chainId,
+          currentCursor,
+          nextCursor: batch.nextCursor,
+        },
+        'cursor unchanged; skipping advance',
       );
       return;
     }
@@ -105,5 +118,21 @@ export class IngestionWriter {
         cursorHash: batch.latestBlock.blockHash,
       },
     });
+  }
+
+  private shouldAdvanceCursor(
+    current: { blockNumber: bigint; logIndex: number } | undefined,
+    next: { blockNumber: bigint; logIndex: number },
+  ): boolean {
+    if (!current) {
+      return true;
+    }
+    if (next.blockNumber > current.blockNumber) {
+      return true;
+    }
+    if (next.blockNumber === current.blockNumber && next.logIndex > current.logIndex) {
+      return true;
+    }
+    return false;
   }
 }

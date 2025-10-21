@@ -222,7 +222,13 @@ describe('runLiveIngestion', () => {
       fromBlock: stream.startBlock,
       limit: config.service.maxBatchSize,
     });
-    expect(writeBatchMock).toHaveBeenCalledWith({ stream, batch });
+    expect(writeBatchMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        stream,
+        batch,
+        currentCursor: undefined,
+      }),
+    );
     expect(batchDurationMock).toHaveBeenCalled();
     expect(batchSizeMock).toHaveBeenCalledWith(
       expect.objectContaining({ contestId: stream.contestId }),
@@ -263,6 +269,14 @@ describe('runLiveIngestion', () => {
         stream,
         fromBlock: undefined,
         cursor: { blockNumber: BigInt('120002'), logIndex: 4 },
+      }),
+    );
+
+    expect(writeBatchMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        stream,
+        batch,
+        currentCursor: { blockNumber: 120002n, logIndex: 4 },
       }),
     );
   });
