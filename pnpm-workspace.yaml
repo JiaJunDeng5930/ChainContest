@@ -3,6 +3,7 @@ packages:
   - "apps/dev-console"
   - "apps/api-server"
   - "apps/indexer/event"
+  - "apps/indexer/tasks"
   - "packages/db"
   - "packages/chain"
   - "packages/shared/*"

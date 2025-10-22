@@ -16,7 +16,12 @@
     "build:indexer-event": "pnpm --filter @chaincontest/indexer-event build",
     "start:indexer-event": "pnpm --filter @chaincontest/indexer-event start",
     "test:indexer-event": "pnpm --filter @chaincontest/indexer-event test",
-    "lint:indexer-event": "pnpm --filter @chaincontest/indexer-event lint"
+    "lint:indexer-event": "pnpm --filter @chaincontest/indexer-event lint",
+    "dev:indexer-tasks": "pnpm --filter @chaincontest/indexer-tasks dev",
+    "build:indexer-tasks": "pnpm --filter @chaincontest/indexer-tasks build",
+    "start:indexer-tasks": "pnpm --filter @chaincontest/indexer-tasks start",
+    "lint:indexer-tasks": "pnpm --filter @chaincontest/indexer-tasks lint",
+    "test:indexer-tasks": "pnpm --filter @chaincontest/indexer-tasks test"
   },
   "engines": {
     "node": ">=20.12.0",
