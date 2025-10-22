@@ -57,6 +57,24 @@ import {
   type IngestionWriteResult,
   type ReadIngestionStatusParams
 } from './repositories/contestDomainWrites.js';
+import {
+  findMilestoneExecutionByEvent as findMilestoneExecutionByEventRecord,
+  findMilestoneExecutionByIdempotencyKey as findMilestoneExecutionByIdempotencyKeyRecord,
+  transitionMilestoneExecutionStatus as transitionMilestoneExecutionStatusRecord,
+  upsertMilestoneExecutionRecord as upsertMilestoneExecutionRecordTx,
+  type MilestoneExecutionLookupParams,
+  type MilestoneExecutionStatusTransitionParams,
+  type MilestoneExecutionUpsertParams
+} from './repositories/milestoneExecutionRepository.js';
+import {
+  findReconciliationReportByReportId as findReconciliationReportByReportIdRecord,
+  transitionReconciliationReportStatus as transitionReconciliationReportStatusRecord,
+  upsertReconciliationReportRecord as upsertReconciliationReportRecordTx,
+  type ReconciliationReportStatusTransitionParams,
+  type ReconciliationReportUpsertParams
+} from './repositories/reconciliationReportRepository.js';
+import type { MilestoneExecutionRecord, MilestoneExecutionStatus } from './schema/milestoneExecution.js';
+import type { ReconciliationReportLedger, ReconciliationReportStatus } from './schema/reconciliationReport.js';
 import { dbSchema } from './schema/index.js';
 
 let pool: DatabasePool | null = null;
@@ -117,6 +135,17 @@ export interface ReadIngestionStatusResponse extends CursorState {}
 
 export interface WriteIngestionEventResponse extends IngestionWriteResult {}
 
+export interface UpsertMilestoneExecutionRequest extends MilestoneExecutionUpsertParams {}
+
+export interface MilestoneExecutionStatusTransitionRequest extends MilestoneExecutionStatusTransitionParams {}
+
+export interface MilestoneExecutionLookupRequest extends MilestoneExecutionLookupParams {}
+
+export interface UpsertReconciliationReportRequest extends ReconciliationReportUpsertParams {}
+
+export interface ReconciliationReportStatusTransitionRequest
+  extends ReconciliationReportStatusTransitionParams {}
+
 export type {
   ContestAggregate,
   ContestRecord,
@@ -127,7 +156,11 @@ export type {
   LeaderboardRecord,
   CreatorSummaryRecord,
   IngestionWriteAction,
-  ErrorLogger
+  ErrorLogger,
+  MilestoneExecutionRecord,
+  MilestoneExecutionStatus,
+  ReconciliationReportLedger,
+  ReconciliationReportStatus
 };
 
 export const init = async (options: DbInitOptions): Promise<void> => {
@@ -273,6 +306,71 @@ export const writeIngestionEvent = async (
   return withMetrics('writeIngestionEvent', operation);
 };
 
+export const upsertMilestoneExecution = async (
+  request: UpsertMilestoneExecutionRequest
+): Promise<MilestoneExecutionRecord> => {
+  const database = ensurePool();
+
+  const operation = (): Promise<MilestoneExecutionRecord> =>
+    database.withTransaction((tx) => upsertMilestoneExecutionRecordTx(tx, request));
+
+  return withMetrics('milestoneExecution.upsert', operation);
+};
+
+export const updateMilestoneExecutionStatus = async (
+  request: MilestoneExecutionStatusTransitionRequest
+): Promise<MilestoneExecutionRecord> => {
+  const database = ensurePool();
+
+  const operation = (): Promise<MilestoneExecutionRecord> =>
+    database.withTransaction((tx) => transitionMilestoneExecutionStatusRecord(tx, request));
+
+  return withMetrics('milestoneExecution.transition', operation);
+};
+
+export const getMilestoneExecutionByIdempotencyKey = async (
+  idempotencyKey: string
+): Promise<MilestoneExecutionRecord | null> => {
+  const database = ensurePool();
+  return findMilestoneExecutionByIdempotencyKeyRecord(database.db, idempotencyKey);
+};
+
+export const getMilestoneExecutionByEvent = async (
+  request: MilestoneExecutionLookupRequest
+): Promise<MilestoneExecutionRecord | null> => {
+  const database = ensurePool();
+  return findMilestoneExecutionByEventRecord(database.db, request);
+};
+
+export const upsertReconciliationReport = async (
+  request: UpsertReconciliationReportRequest
+): Promise<ReconciliationReportLedger> => {
+  const database = ensurePool();
+
+  const operation = (): Promise<ReconciliationReportLedger> =>
+    database.withTransaction((tx) => upsertReconciliationReportRecordTx(tx, request));
+
+  return withMetrics('reconciliationReport.upsert', operation);
+};
+
+export const updateReconciliationReportStatus = async (
+  request: ReconciliationReportStatusTransitionRequest
+): Promise<ReconciliationReportLedger> => {
+  const database = ensurePool();
+
+  const operation = (): Promise<ReconciliationReportLedger> =>
+    database.withTransaction((tx) => transitionReconciliationReportStatusRecord(tx, request));
+
+  return withMetrics('reconciliationReport.transition', operation);
+};
+
+export const getReconciliationReportByReportId = async (
+  reportId: string
+): Promise<ReconciliationReportLedger | null> => {
+  const database = ensurePool();
+  return findReconciliationReportByReportIdRecord(database.db, reportId);
+};
+
 export const shutdown = async (): Promise<void> => {
   if (!pool) {
     return;
@@ -296,6 +394,13 @@ export const db = {
   writeContestDomain,
   readIngestionStatus,
   writeIngestionEvent,
+  upsertMilestoneExecution,
+  updateMilestoneExecutionStatus,
+  getMilestoneExecutionByIdempotencyKey,
+  getMilestoneExecutionByEvent,
+  upsertReconciliationReport,
+  updateReconciliationReportStatus,
+  getReconciliationReportByReportId,
   shutdown,
   isInitialised
 };

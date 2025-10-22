@@ -29,6 +29,13 @@
       "when": 1750185603000,
       "tag": "0004_ingestion",
       "breakpoints": false
+    },
+    {
+      "idx": 4,
+      "version": "20251022",
+      "when": 1761091200000,
+      "tag": "20251022_add_milestone_execution_record",
+      "breakpoints": false
     }
   ]
 }
