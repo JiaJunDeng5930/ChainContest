@@ -150,9 +150,15 @@ export const createReconciliationProcessor = (
     const { envelope, payload, idempotencyKey } = input;
 
     const existing = await db.getByReportId(payload.reportId);
-    if (existing && existing.status !== 'needs_attention') {
+    const isSameJobAttempt = existing?.jobId === envelope.jobId;
+    if (existing && !isSameJobAttempt && existing.status !== 'needs_attention') {
       logger.debug(
-        { reportId: payload.reportId, status: existing.status },
+        {
+          reportId: payload.reportId,
+          status: existing.status,
+          jobId: envelope.jobId,
+          existingJobId: existing.jobId
+        },
         'reconciliation report already processed'
       );
       throw new ReportAlreadyProcessedError('Reconciliation report already processed', {
