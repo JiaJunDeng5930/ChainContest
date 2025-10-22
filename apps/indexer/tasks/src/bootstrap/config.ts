@@ -5,6 +5,7 @@ const envSchema = z.object({
   LOG_LEVEL: z.string().optional(),
   INDEXER_TASKS_LOG_LEVEL: z.string().optional(),
   INDEXER_TASKS_PRETTY_LOGS: z.coerce.boolean().optional(),
+  INDEXER_TASKS_ADMIN_TOKEN: z.string().optional(),
   DATABASE_URL: z.string({ required_error: 'DATABASE_URL is required' }),
   PG_BOSS_URL: z.string({ required_error: 'PG_BOSS_URL is required' }),
   TASKS_VALIDATION_REGISTRY_PATH: z.string({
@@ -47,9 +48,19 @@ const envSchema = z.object({
     .min(1_000)
     .default(30_000),
   INDEXER_TASKS_DISABLE_NOTIFICATIONS: z.coerce.boolean().optional()
+}).superRefine((env, context) => {
+  const token = env.INDEXER_TASKS_ADMIN_TOKEN?.trim();
+  if (env.NODE_ENV !== 'development' && (!token || token.length === 0)) {
+    context.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ['INDEXER_TASKS_ADMIN_TOKEN'],
+      message: 'INDEXER_TASKS_ADMIN_TOKEN is required when NODE_ENV is not development'
+    });
+  }
 });
 
 const configSchema = envSchema.transform((env) => {
+  const adminToken = env.INDEXER_TASKS_ADMIN_TOKEN?.trim();
   const level = env.INDEXER_TASKS_LOG_LEVEL ?? env.LOG_LEVEL ?? 'info';
   const pretty = env.INDEXER_TASKS_PRETTY_LOGS ?? env.NODE_ENV === 'development';
 
@@ -85,6 +96,9 @@ const configSchema = envSchema.transform((env) => {
     },
     features: {
       notificationsEnabled: !(env.INDEXER_TASKS_DISABLE_NOTIFICATIONS ?? false)
+    },
+    auth: {
+      adminBearerToken: adminToken && adminToken.length > 0 ? adminToken : null
     }
   } as const;
 });

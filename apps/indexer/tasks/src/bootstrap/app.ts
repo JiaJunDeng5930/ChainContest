@@ -1,3 +1,4 @@
+import { timingSafeEqual } from 'node:crypto';
 import type { FastifyReply, FastifyRequest } from 'fastify';
 import type { Logger } from 'pino';
 import {
@@ -167,6 +168,9 @@ export const createApp = (options: AppBootstrapOptions = {}): TasksApplication =
   };
 
   const http = createHttpServer({ config, logger, metrics });
+  const adminBearerTokenBuffer = config.auth.adminBearerToken
+    ? Buffer.from(config.auth.adminBearerToken, 'utf8')
+    : null;
   const authenticate = async (request: FastifyRequest, reply: FastifyReply): Promise<void> => {
     if (config.env === 'development') {
       return;
@@ -174,6 +178,29 @@ export const createApp = (options: AppBootstrapOptions = {}): TasksApplication =
 
     const authHeader = request.headers.authorization;
     if (!authHeader || !authHeader.toLowerCase().startsWith('bearer ')) {
+      reply.status(401).send({ error: 'unauthorised' });
+      return;
+    }
+
+    const presentedToken = authHeader.slice(7).trim();
+    if (!presentedToken) {
+      reply.status(401).send({ error: 'unauthorised' });
+      return;
+    }
+
+    if (!adminBearerTokenBuffer) {
+      request.log.error('admin bearer token not configured');
+      reply.status(500).send({ error: 'unauthorised' });
+      return;
+    }
+
+    const presentedTokenBuffer = Buffer.from(presentedToken, 'utf8');
+    if (presentedTokenBuffer.length !== adminBearerTokenBuffer.length) {
+      reply.status(401).send({ error: 'unauthorised' });
+      return;
+    }
+
+    if (!timingSafeEqual(presentedTokenBuffer, adminBearerTokenBuffer)) {
       reply.status(401).send({ error: 'unauthorised' });
       return;
     }
