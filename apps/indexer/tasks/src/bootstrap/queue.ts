@@ -74,6 +74,20 @@ class SerialExecutor {
   }
 }
 
+const resolveQueueTimings = (config: TasksConfig): {
+  fetchIntervalMs: number;
+  pollIntervalSeconds: number;
+  retryDelaySeconds: number;
+} => {
+  const fetchIntervalMs = Math.max(100, config.queue.fetchIntervalMs);
+  const pollIntervalSeconds = Math.max(1, Math.ceil(fetchIntervalMs / 1000));
+  return {
+    fetchIntervalMs,
+    pollIntervalSeconds,
+    retryDelaySeconds: pollIntervalSeconds
+  };
+};
+
 export const bootstrapQueue = async (options: QueueInitOptions = {}): Promise<void> => {
   if (running && bossInstance) {
     return;
@@ -83,15 +97,13 @@ export const bootstrapQueue = async (options: QueueInitOptions = {}): Promise<vo
   const logger = options.logger ?? getLogger();
 
   const retryLimit = Math.max(1, config.thresholds.rpcFailure);
-
-  const fetchIntervalMs = Math.max(100, config.queue.fetchIntervalMs);
-  const pollIntervalSeconds = Math.max(1, Math.ceil(fetchIntervalMs / 1000));
+  const { fetchIntervalMs, pollIntervalSeconds, retryDelaySeconds } = resolveQueueTimings(config);
 
   const boss = new PgBoss({
     connectionString: config.queue.url,
     application_name: 'indexer-tasks',
     retryLimit,
-    retryDelay: Math.max(1, Math.ceil(fetchIntervalMs / 1000)),
+    retryDelay: retryDelaySeconds,
     newJobCheckInterval: pollIntervalSeconds,
   });
 
@@ -152,6 +164,7 @@ export const registerWorker = async <TPayload>(
   const boss = ensureBoss();
   const config = ensureConfig();
   const logger = ensureLogger();
+  const { pollIntervalSeconds } = resolveQueueTimings(config);
 
   const serialExecutor = options.keyResolver ? new SerialExecutor() : null;
 
