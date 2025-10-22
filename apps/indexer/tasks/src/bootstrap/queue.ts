@@ -86,11 +86,13 @@ export const bootstrapQueue = async (options: QueueInitOptions = {}): Promise<vo
 
   const fetchIntervalMs = Math.max(100, config.queue.fetchIntervalMs);
 
+  const retryDelaySeconds = Math.max(1, Math.ceil(fetchIntervalMs / 1000));
+
   const boss = new PgBoss({
     connectionString: config.queue.url,
     application_name: 'indexer-tasks',
     retryLimit,
-    retryDelay: Math.max(100, fetchIntervalMs),
+    retryDelay: retryDelaySeconds,
     newJobCheckInterval: fetchIntervalMs,
   });
 
