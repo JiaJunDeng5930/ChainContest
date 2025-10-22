@@ -195,7 +195,9 @@ export const createReconciliationProcessor = (
       const shouldDispatchNotifications =
         features.notificationsEnabled &&
         payload.notifications.length > 0 &&
-        (!existing || existing.status === 'needs_attention');
+        (!existing ||
+          existing.status === 'needs_attention' ||
+          existing.jobId === envelope.jobId);
 
       if (shouldDispatchNotifications) {
         await notifications.dispatch({
