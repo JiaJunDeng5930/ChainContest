@@ -40,7 +40,7 @@ export const registerMilestoneWorker = async (
         if (isContestPaused(payload.contestId, payload.chainId)) {
           const durationSeconds = Number(process.hrtime.bigint() - start) / 1_000_000_000;
           await app.publishJob(QUEUE_NAME, job.data, {
-            dedupeKey: envelope.singletonKey ?? idempotencyKey,
+            dedupeKey: idempotencyKey,
             startAfter: new Date(Date.now() + 30_000)
           });
           recordJobResult(app.metrics, QUEUE_NAME, 'deferred', durationSeconds);
