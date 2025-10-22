@@ -66,6 +66,8 @@ export const createMilestoneProcessor = (
     const idempotencyKey = buildMilestoneIdempotencyKey(payload);
 
     const existing = await db.getByIdempotencyKey(idempotencyKey);
+    const previousAttempts = existing?.attempts ?? 0;
+    const trackedAttempts = Math.max(previousAttempts, envelope.attempt);
     if (existing && existing.status === 'succeeded') {
       logger.debug({ jobId: envelope.jobId, idempotencyKey }, 'milestone already processed');
       throw new MilestoneAlreadyProcessedError('Milestone already processed', {
@@ -86,7 +88,7 @@ export const createMilestoneProcessor = (
       sourceLogIndex: payload.sourceLogIndex,
       sourceBlockNumber: payload.sourceBlockNumber,
       payload: payload.payload,
-      attempt: envelope.attempt,
+      attempt: trackedAttempts,
       status: initialStatus
     });
 
@@ -98,7 +100,7 @@ export const createMilestoneProcessor = (
       await db.transition({
         idempotencyKey,
         toStatus: 'succeeded',
-        attempts: envelope.attempt,
+        attempts: trackedAttempts,
         completedAt: new Date()
       });
 
@@ -109,7 +111,7 @@ export const createMilestoneProcessor = (
 
       return { status: 'processed' };
     } catch (error) {
-      const nextAttempts = envelope.attempt + 1;
+      const nextAttempts = trackedAttempts + 1;
       const escalate = shouldEscalateToNeedsAttention(nextAttempts, { maxAttempts });
       const toStatus: MilestoneExecutionStatus = escalate ? 'needs_attention' : 'retrying';
 
