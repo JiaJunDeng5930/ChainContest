@@ -85,15 +85,14 @@ export const bootstrapQueue = async (options: QueueInitOptions = {}): Promise<vo
   const retryLimit = Math.max(1, config.thresholds.rpcFailure);
 
   const fetchIntervalMs = Math.max(100, config.queue.fetchIntervalMs);
-
-  const retryDelaySeconds = Math.max(1, Math.ceil(fetchIntervalMs / 1000));
+  const pollIntervalSeconds = Math.max(1, Math.ceil(fetchIntervalMs / 1000));
 
   const boss = new PgBoss({
     connectionString: config.queue.url,
     application_name: 'indexer-tasks',
     retryLimit,
-    retryDelay: retryDelaySeconds,
-    newJobCheckInterval: fetchIntervalMs,
+    retryDelay: Math.max(1, Math.ceil(fetchIntervalMs / 1000)),
+    newJobCheckInterval: pollIntervalSeconds,
   });
 
   boss.on('error', (error: unknown) => {
@@ -161,7 +160,7 @@ export const registerWorker = async <TPayload>(
     teamSize,
     includeMetadata: options.includeMetadata ?? true,
     lockDuration: options.lockDuration,
-    newJobCheckInterval: Math.max(100, config.queue.fetchIntervalMs),
+    newJobCheckInterval: pollIntervalSeconds,
   };
 
   await boss.work<TPayload>(queueName, workOptions, async (job) => {
