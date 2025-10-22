@@ -19,3 +19,12 @@ infra/postgres/logs/
 infra/postgres/backups/
 infra/postgres/env/.env.local
 infra/postgres/data/
+
+# General workspace artifacts
+.env*
+*.log
+coverage/
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db

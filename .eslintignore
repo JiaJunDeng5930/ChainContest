@@ -1,0 +1,6 @@
+# Ignore generated and dependency directories for ESLint
+node_modules/
+dist/
+build/
+coverage/
+*.min.js
