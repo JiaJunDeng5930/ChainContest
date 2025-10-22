@@ -82,10 +82,12 @@ export const bootstrapQueue = async (options: QueueInitOptions = {}): Promise<vo
   const config = options.config ?? getConfig();
   const logger = options.logger ?? getLogger();
 
+  const retryLimit = Math.max(1, config.thresholds.rpcFailure);
+
   const boss = new PgBoss({
     connectionString: config.queue.url,
     application_name: 'indexer-tasks',
-    retryLimit: 3,
+    retryLimit,
     retryDelay: Math.max(1, Math.round(config.queue.fetchIntervalMs / 1000)),
     newJobCheckInterval: Math.max(1, Math.round(config.queue.fetchIntervalMs / 1000)),
   });
