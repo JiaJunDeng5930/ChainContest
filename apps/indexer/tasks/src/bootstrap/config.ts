@@ -1,10 +1,33 @@
 import { z } from 'zod';
 
+const booleanFlagSchema = z
+  .union([z.boolean(), z.string()])
+  .transform((value, context) => {
+    if (typeof value === 'boolean') {
+      return value;
+    }
+
+    const normalised = value.trim().toLowerCase();
+    if (['true', '1', 'yes', 'on'].includes(normalised)) {
+      return true;
+    }
+
+    if (['false', '0', 'no', 'off'].includes(normalised)) {
+      return false;
+    }
+
+    context.addIssue({
+      code: z.ZodIssueCode.custom,
+      message: `expected boolean-like value, received "${value}"`
+    });
+    return z.NEVER;
+  });
+
 const envSchema = z.object({
   NODE_ENV: z.enum(['development', 'test', 'production']).default('development'),
   LOG_LEVEL: z.string().optional(),
   INDEXER_TASKS_LOG_LEVEL: z.string().optional(),
-  INDEXER_TASKS_PRETTY_LOGS: z.coerce.boolean().optional(),
+  INDEXER_TASKS_PRETTY_LOGS: booleanFlagSchema.optional(),
   INDEXER_TASKS_ADMIN_TOKEN: z.string().optional(),
   DATABASE_URL: z.string({ required_error: 'DATABASE_URL is required' }),
   PG_BOSS_URL: z.string({ required_error: 'PG_BOSS_URL is required' }),
@@ -47,7 +70,7 @@ const envSchema = z.object({
     .int()
     .min(1_000)
     .default(30_000),
-  INDEXER_TASKS_DISABLE_NOTIFICATIONS: z.coerce.boolean().optional()
+  INDEXER_TASKS_DISABLE_NOTIFICATIONS: booleanFlagSchema.optional()
 }).superRefine((env, context) => {
   const token = env.INDEXER_TASKS_ADMIN_TOKEN?.trim();
   if (env.NODE_ENV !== 'development' && (!token || token.length === 0)) {
