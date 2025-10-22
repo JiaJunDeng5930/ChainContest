@@ -59,18 +59,18 @@ class SerialExecutor {
   run(taskKey: string, handler: () => Promise<void>): Promise<void> {
     const previous = this.chains.get(taskKey) ?? Promise.resolve();
 
-    let current: Promise<void>;
-    current = previous
+    const chain = previous.catch(() => undefined).then(handler);
+
+    const tracked = chain
       .catch(() => undefined)
-      .then(handler)
       .finally(() => {
-        if (this.chains.get(taskKey) === current) {
+        if (this.chains.get(taskKey) === tracked) {
           this.chains.delete(taskKey);
         }
       });
 
-    this.chains.set(taskKey, current.catch(() => undefined));
-    return current;
+    this.chains.set(taskKey, tracked);
+    return chain;
   }
 }
 
