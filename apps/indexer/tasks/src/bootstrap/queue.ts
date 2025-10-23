@@ -104,7 +104,7 @@ export const bootstrapQueue = async (options: QueueInitOptions = {}): Promise<vo
     application_name: 'indexer-tasks',
     retryLimit,
     retryDelay: retryDelaySeconds,
-    newJobCheckInterval: fetchIntervalMs,
+    newJobCheckInterval: pollIntervalSeconds,
   });
 
   boss.on('error', (error: unknown) => {
@@ -173,7 +173,7 @@ export const registerWorker = async <TPayload>(
     teamSize,
     includeMetadata: options.includeMetadata ?? true,
     lockDuration: options.lockDuration,
-    newJobCheckInterval: fetchIntervalMs,
+    newJobCheckInterval: pollIntervalSeconds,
   };
 
   await boss.work<TPayload>(queueName, workOptions, async (job) => {
