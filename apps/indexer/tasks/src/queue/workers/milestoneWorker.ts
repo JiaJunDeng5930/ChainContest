@@ -39,10 +39,36 @@ export const registerMilestoneWorker = async (
 
         if (isContestPaused(payload.contestId, payload.chainId)) {
           const durationSeconds = Number(process.hrtime.bigint() - start) / 1_000_000_000;
-          await app.publishJob(QUEUE_NAME, job.data, {
-            dedupeKey: idempotencyKey,
-            startAfter: new Date(Date.now() + 30_000)
+          setImmediate(() => {
+            void app
+              .publishJob(QUEUE_NAME, job.data, {
+                dedupeKey: idempotencyKey,
+                startAfter: new Date(Date.now() + 30_000)
+              })
+              .then((rescheduledJobId) => {
+                if (!rescheduledJobId) {
+                  jobLogger.warn(
+                    {
+                      contestId: payload.contestId,
+                      chainId: payload.chainId,
+                      reason: 'singleton_conflict'
+                    },
+                    'deferred milestone job already scheduled'
+                  );
+                }
+              })
+              .catch((error) => {
+                jobLogger.error(
+                  {
+                    err: serialiseError(error),
+                    contestId: payload.contestId,
+                    chainId: payload.chainId
+                  },
+                  'failed to reschedule paused milestone job'
+                );
+              });
           });
+
           recordJobResult(app.metrics, QUEUE_NAME, 'deferred', durationSeconds);
           jobLogger.info(
             {
