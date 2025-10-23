@@ -251,6 +251,9 @@ export const createApp = (options: AppBootstrapOptions = {}): TasksApplication =
     await shutdownQueue();
     await shutdownDatabaseConnection(logger);
 
+    milestoneWorkerRegistered = false;
+    reconciliationWorkerRegistered = false;
+
     started = false;
     logger.info('indexer tasks application stopped');
   };
