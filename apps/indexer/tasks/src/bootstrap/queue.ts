@@ -104,7 +104,7 @@ export const bootstrapQueue = async (options: QueueInitOptions = {}): Promise<vo
     application_name: 'indexer-tasks',
     retryLimit,
     retryDelay: retryDelaySeconds,
-    newJobCheckInterval: pollIntervalSeconds,
+    newJobCheckInterval: fetchIntervalMs,
   });
 
   boss.on('error', (error: unknown) => {
@@ -164,7 +164,7 @@ export const registerWorker = async <TPayload>(
   const boss = ensureBoss();
   const config = ensureConfig();
   const logger = ensureLogger();
-  const { pollIntervalSeconds } = resolveQueueTimings(config);
+  const { fetchIntervalMs, pollIntervalSeconds } = resolveQueueTimings(config);
 
   const serialExecutor = options.keyResolver ? new SerialExecutor() : null;
 
@@ -173,7 +173,7 @@ export const registerWorker = async <TPayload>(
     teamSize,
     includeMetadata: options.includeMetadata ?? true,
     lockDuration: options.lockDuration,
-    newJobCheckInterval: pollIntervalSeconds,
+    newJobCheckInterval: fetchIntervalMs,
   };
 
   await boss.work<TPayload>(queueName, workOptions, async (job) => {
