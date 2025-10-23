@@ -8,6 +8,7 @@ const BASE_PAYLOAD_SCHEMA = z
     chainId: z.coerce.number().int().min(0, 'chainId must be non-negative'),
     milestone: z.string().min(1, 'milestone is required'),
     payload: z.record(z.string(), z.unknown()).default({}),
+    generatedAt: z.union([z.string(), z.date()]).optional(),
     sourceTxHash: z
       .string()
       .regex(/^0x[0-9a-fA-F]{64}$/, 'sourceTxHash must be a 32-byte hex string prefixed with 0x')
@@ -29,7 +30,7 @@ const BASE_PAYLOAD_SCHEMA = z
       })
       .optional()
   })
-  .strict()
+  .catchall(z.unknown())
   .superRefine((value, ctx) => {
     const hasTopLevelSource =
       value.sourceTxHash !== undefined &&
