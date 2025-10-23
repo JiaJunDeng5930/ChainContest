@@ -37,7 +37,7 @@ export const createHealthSnapshotBuilder = (
 
   return async (): Promise<TaskServiceHealthSnapshot> => {
     const backlog = await dependencies.readQueueBacklog(dependencies.queueNames);
-    const lastSuccess = readLastSuccessTimestamps(dependencies.metrics);
+    const lastSuccess = await readLastSuccessTimestamps(dependencies.metrics);
     const lastErrors = dependencies.getRecentFailures?.() ?? new Map<string, string>();
 
     const queues = backlog.map((metric) => ({
@@ -102,8 +102,8 @@ const deriveAlerts = (queues: QueueHealthSnapshot[], pendingThreshold: number): 
   return alerts;
 };
 
-const readLastSuccessTimestamps = (metrics: TaskMetrics): Map<string, Date> => {
-  const gauge = metrics.lastSuccessGauge.get();
+const readLastSuccessTimestamps = async (metrics: TaskMetrics): Promise<Map<string, Date>> => {
+  const gauge = await metrics.lastSuccessGauge.get();
   const timestamps = new Map<string, Date>();
 
   const values = Array.isArray(gauge.values) ? gauge.values : [];
