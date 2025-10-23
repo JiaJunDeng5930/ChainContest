@@ -40,7 +40,7 @@ export class ManualActionError extends Error {
   }
 }
 
-const ALLOWED_RETRY_STATUSES = new Set(['needs_attention', 'retrying', 'pending']);
+const ALLOWED_RETRY_STATUSES = new Set(['needs_attention', 'retrying']);
 const pausedContests = new Map<string, { actor: string; reason?: string; updatedAt: Date }>();
 
 export const createMilestoneManualActions = (
