@@ -135,16 +135,33 @@ export const listPausedContests = (): Array<{
   reason?: string;
   updatedAt: Date;
 }> =>
-  Array.from(pausedContests.entries()).map(([key, value]) => {
-    const [contestId, chainId] = key.split(':');
-    return {
+  Array.from(pausedContests.entries()).reduce<Array<{
+    contestId: string;
+    chainId: number;
+    actor: string;
+    reason?: string;
+    updatedAt: Date;
+  }>>((acc, [key, value]) => {
+    const [contestId, chainIdPart] = key.split(':');
+    if (!contestId || !chainIdPart) {
+      return acc;
+    }
+
+    const chainId = Number.parseInt(chainIdPart, 10);
+    if (Number.isNaN(chainId)) {
+      return acc;
+    }
+
+    acc.push({
       contestId,
-      chainId: Number.parseInt(chainId, 10),
+      chainId,
       actor: value.actor,
       reason: value.reason,
       updatedAt: value.updatedAt
-    };
-  });
+    });
+
+    return acc;
+  }, []);
 
 const buildMilestonePayload = (record: MilestoneExecutionRecord): Record<string, unknown> => ({
   contestId: record.contestId,

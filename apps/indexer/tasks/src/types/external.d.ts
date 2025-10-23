@@ -118,6 +118,69 @@ declare module '@chaincontest/db' {
     request: MilestoneExecutionLookupRequest
   ) => Promise<MilestoneExecutionRecord | null>;
 
+  export type ReconciliationReportStatus = 'pending_review' | 'in_review' | 'resolved' | 'needs_attention';
+
+  export interface ReconciliationReportLedger {
+    id: string;
+    idempotencyKey: string;
+    reportId: string;
+    jobId: string;
+    contestId: string;
+    chainId: number;
+    rangeFromBlock: string;
+    rangeToBlock: string;
+    generatedAt: Date;
+    status: ReconciliationReportStatus;
+    attempts: number;
+    differences: unknown[];
+    notifications: unknown[];
+    payload: Record<string, unknown>;
+    actorContext: Record<string, unknown> | null;
+    lastError: Record<string, unknown> | null;
+    completedAt: Date | null;
+    createdAt: Date;
+    updatedAt: Date;
+  }
+
+  export interface UpsertReconciliationReportRequest {
+    idempotencyKey: string;
+    reportId: string;
+    jobId: string;
+    contestId: string;
+    chainId: number;
+    rangeFromBlock: string;
+    rangeToBlock: string;
+    generatedAt: Date;
+    status: ReconciliationReportStatus;
+    attempts: number;
+    differences: unknown[];
+    notifications: unknown[];
+    payload: Record<string, unknown>;
+    actorContext?: Record<string, unknown> | null;
+    lastError?: Record<string, unknown> | null;
+    completedAt?: Date | string | null;
+  }
+
+  export interface ReconciliationReportStatusTransitionRequest {
+    reportId: string;
+    toStatus: ReconciliationReportStatus;
+    attempts?: number;
+    lastError?: Record<string, unknown> | null;
+    actorContext?: Record<string, unknown> | null;
+    notifications?: unknown[];
+    completedAt?: Date | string | null;
+  }
+
+  export const upsertReconciliationReport: (
+    request: UpsertReconciliationReportRequest
+  ) => Promise<ReconciliationReportLedger>;
+  export const updateReconciliationReportStatus: (
+    request: ReconciliationReportStatusTransitionRequest
+  ) => Promise<ReconciliationReportLedger>;
+  export const getReconciliationReportByReportId: (
+    reportId: string
+  ) => Promise<ReconciliationReportLedger | null>;
+
   export type ErrorLogger = (error: DbError) => void;
 
   export interface DbInitOptions {

@@ -65,6 +65,7 @@ declare module 'pg-boss' {
     cancel(jobId: string): Promise<void>;
     complete(jobId: string, data?: unknown): Promise<void>;
     fail(jobId: string, error: unknown): Promise<void>;
+    countStates(): Promise<Record<string, unknown>>;
   }
 
   export default PgBoss;
