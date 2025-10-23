@@ -106,7 +106,23 @@ export const registerMilestoneWorker = async (
     },
     {
       includeMetadata: true,
-      concurrency: app.config.queue.concurrency
+      concurrency: app.config.queue.concurrency,
+      keyResolver: (job) => {
+        try {
+          const parsed = dependencies.parsePayload(job.data);
+          return `${parsed.contestId}:${parsed.chainId}`;
+        } catch (error) {
+          baseLogger.warn(
+            {
+              err: serialiseError(error),
+              jobId: job.id,
+              queue: job.name
+            },
+            'failed to derive milestone job key resolver value'
+          );
+          return null;
+        }
+      }
     }
   );
 
