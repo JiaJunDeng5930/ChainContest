@@ -121,7 +121,7 @@ export const registerMilestoneWorker = async (
           return null;
         }
       },
-      onComplete: async (job, outcome) => {
+      onComplete: async (job) => {
         const reschedule = deferredReschedules.get(job.id);
         if (!reschedule) {
           return;
