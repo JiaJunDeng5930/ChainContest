@@ -34,10 +34,6 @@ export const registerMilestoneWorker = async (
         attempt: envelope.attempt
       });
 
-      const clearDeferredReschedule = (): void => {
-        deferredReschedules.delete(job.id);
-      };
-
       try {
         const payload = dependencies.parsePayload(job.data);
         const idempotencyKey = buildMilestoneIdempotencyKey(payload);
@@ -51,7 +47,14 @@ export const registerMilestoneWorker = async (
             });
 
             if (!rescheduledJobId) {
-              throw new Error('failed to enqueue deferred milestone job');
+              jobLogger.debug(
+                {
+                  contestId: payload.contestId,
+                  chainId: payload.chainId
+                },
+                'deferred milestone job already scheduled'
+              );
+              return;
             }
 
             jobLogger.info(
@@ -85,7 +88,6 @@ export const registerMilestoneWorker = async (
 
         jobLogger.info({ outcome }, 'milestone job handled');
       } catch (error) {
-        clearDeferredReschedule();
         if (error instanceof MilestoneAlreadyProcessedError) {
           const durationSeconds = Number(process.hrtime.bigint() - start) / 1_000_000_000;
           recordJobResult(app.metrics, QUEUE_NAME, 'skipped', durationSeconds);
@@ -119,14 +121,40 @@ export const registerMilestoneWorker = async (
           return null;
         }
       },
-      onComplete: async (job) => {
+      onComplete: async (job, outcome) => {
         const reschedule = deferredReschedules.get(job.id);
         if (!reschedule) {
           return;
         }
 
         deferredReschedules.delete(job.id);
-        await reschedule();
+
+        if (job.retrycount >= job.retrylimit) {
+          baseLogger.warn(
+            {
+              jobId: job.id,
+              queue: job.name,
+              attempts: job.retrycount,
+              retryLimit: job.retrylimit
+            },
+            'skipping deferred reschedule because job reached retry limit'
+          );
+          return;
+        }
+
+        try {
+          await reschedule();
+        } catch (error) {
+          baseLogger.error(
+            {
+              jobId: job.id,
+              queue: job.name,
+              err: serialiseError(error)
+            },
+            'failed to schedule deferred milestone job'
+          );
+          throw error;
+        }
       }
     }
   );
