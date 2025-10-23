@@ -96,7 +96,7 @@ export const bootstrapQueue = async (options: QueueInitOptions = {}): Promise<vo
   const config = options.config ?? getConfig();
   const logger = options.logger ?? getLogger();
 
-  const retryLimit = Math.max(1, config.thresholds.rpcFailure);
+  const retryLimit = Math.max(0, config.thresholds.rpcFailure - 1);
   const { fetchIntervalMs, pollIntervalSeconds, retryDelaySeconds } = resolveQueueTimings(config);
 
   const boss = new PgBoss({
