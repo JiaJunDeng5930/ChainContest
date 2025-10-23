@@ -67,9 +67,13 @@ export const createMilestoneManualActions = (
     }
 
     const payload = buildMilestonePayload(record);
-    await dependencies.publish('indexer.milestone', payload, {
+    const jobId = await dependencies.publish('indexer.milestone', payload, {
       dedupeKey: record.idempotencyKey
     });
+
+    if (!jobId) {
+      throw new ManualActionError('Milestone retry already queued', 'CONFLICT');
+    }
 
     await dependencies.transitionExecution({
       idempotencyKey: record.idempotencyKey,
