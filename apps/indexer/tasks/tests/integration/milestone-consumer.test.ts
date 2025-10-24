@@ -81,7 +81,7 @@ describe('milestone queue consumer', () => {
       stop: vi.fn(),
       isRunning: vi.fn(),
       publishJob: vi.fn(),
-      registerWorker: vi.fn(async (_queue, handler, _options) => {
+      registerWorker: vi.fn((_queue, handler, _options) => {
         registeredHandler = handler as (job: Job<unknown>) => Promise<void>;
       })
     } as unknown as TasksApplication;

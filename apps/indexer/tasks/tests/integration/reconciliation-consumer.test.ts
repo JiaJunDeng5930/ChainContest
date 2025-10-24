@@ -92,7 +92,7 @@ describe('reconciliation queue consumer', () => {
       stop: vi.fn(),
       isRunning: vi.fn(),
       publishJob: vi.fn(),
-      registerWorker: vi.fn(async (_queue, handler) => {
+      registerWorker: vi.fn((_queue, handler) => {
         registeredHandler = handler as (job: Job<unknown>) => Promise<void>;
       })
     } as unknown as TasksApplication;
