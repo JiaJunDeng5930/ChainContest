@@ -4,6 +4,8 @@ import {
   createSettlementResult,
   createRewardClaimResult,
   createRedemptionResult,
+  createRegistrationExecutionResult,
+  createRebalanceExecutionResult,
   createContestEventBatch,
   createLifecycleSnapshot,
   type RegistrationPlan,
@@ -11,6 +13,8 @@ import {
   type SettlementResult,
   type RewardClaimResult,
   type RedemptionResult,
+  type RegistrationExecutionResult,
+  type RebalanceExecutionResult,
   type ContestEventBatch,
   type LifecycleSnapshot,
 } from './domainModels';
@@ -20,6 +24,8 @@ import type {
   DescribeContestLifecycleInput,
   PlanParticipantRegistrationInput,
   PlanPortfolioRebalanceInput,
+  ExecuteParticipantRegistrationInput,
+  ExecutePortfolioRebalanceInput,
   ExecuteContestSettlementInput,
   ExecuteRewardClaimInput,
   ExecutePrincipalRedemptionInput,
@@ -195,6 +201,36 @@ class ContestChainGatewayImpl implements ContestChainGateway {
     }
   }
 
+  public async executeParticipantRegistration(
+    input: ExecuteParticipantRegistrationInput,
+  ): Promise<RegistrationExecutionResult> {
+    try {
+      const plan = await this.planParticipantRegistration(input);
+
+      if (plan.status !== 'ready' || !plan.registrationCall) {
+        const reason =
+          plan.rejectionReason ?? ({ code: 'registration_blocked', message: 'Registration not executable' } as const);
+
+        return createRegistrationExecutionResult({
+          status: 'noop',
+          reason,
+          requiredApprovals: plan.requiredApprovals,
+          transaction: undefined,
+          derivedAt: plan.derivedAt,
+        });
+      }
+
+      return createRegistrationExecutionResult({
+        status: 'executed',
+        transaction: plan.registrationCall,
+        requiredApprovals: plan.requiredApprovals,
+        derivedAt: plan.derivedAt,
+      });
+    } catch (error) {
+      return this.handleError(error, 'ContestChainGateway.executeParticipantRegistration');
+    }
+  }
+
   public async planPortfolioRebalance(
     input: PlanPortfolioRebalanceInput,
   ): Promise<RebalancePlan> {
@@ -266,6 +302,36 @@ class ContestChainGatewayImpl implements ContestChainGateway {
       });
     } catch (error) {
       return this.handleError(error, 'ContestChainGateway.planPortfolioRebalance');
+    }
+  }
+
+  public async executePortfolioRebalance(
+    input: ExecutePortfolioRebalanceInput,
+  ): Promise<RebalanceExecutionResult> {
+    try {
+      const plan = await this.planPortfolioRebalance(input);
+
+      if (plan.status !== 'ready' || !plan.transaction) {
+        const reason =
+          plan.rejectionReason ?? ({ code: 'rebalance_blocked', message: 'Rebalance not executable' } as const);
+
+        return createRebalanceExecutionResult({
+          status: 'noop',
+          reason,
+          rollbackAdvice: plan.rollbackAdvice,
+          transaction: undefined,
+          derivedAt: plan.derivedAt,
+        });
+      }
+
+      return createRebalanceExecutionResult({
+        status: 'executed',
+        transaction: plan.transaction,
+        rollbackAdvice: plan.rollbackAdvice,
+        derivedAt: plan.derivedAt,
+      });
+    } catch (error) {
+      return this.handleError(error, 'ContestChainGateway.executePortfolioRebalance');
     }
   }
 

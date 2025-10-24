@@ -1,4 +1,5 @@
 export * from './gateway/createContestChainGateway';
+export * from './gateway/creationGateway';
 export * from './gateway/domainModels';
 export * from './errors/contestChainError';
 export * from './policies/validationContext';

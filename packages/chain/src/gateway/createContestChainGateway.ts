@@ -42,6 +42,8 @@ export type {
   DescribeContestLifecycleInput,
   PlanParticipantRegistrationInput,
   PlanPortfolioRebalanceInput,
+  ExecuteParticipantRegistrationInput,
+  ExecutePortfolioRebalanceInput,
   ExecuteContestSettlementInput,
   ExecuteRewardClaimInput,
   ExecutePrincipalRedemptionInput,

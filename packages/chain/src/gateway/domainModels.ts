@@ -213,6 +213,26 @@ export interface RebalancePlanShape {
 
 export type RebalancePlan = DeepReadonly<RebalancePlanShape>;
 
+export interface RegistrationExecutionResultShape {
+  status: 'executed' | 'noop';
+  reason?: PlanRejectionReasonShape;
+  transaction?: ExecutionCallShape;
+  requiredApprovals?: readonly TokenApprovalRequestShape[];
+  derivedAt: BlockAnchorShape;
+}
+
+export type RegistrationExecutionResult = DeepReadonly<RegistrationExecutionResultShape>;
+
+export interface RebalanceExecutionResultShape {
+  status: 'executed' | 'noop';
+  reason?: PlanRejectionReasonShape;
+  transaction?: ExecutionCallShape & { route?: RouteDescriptorShape };
+  rollbackAdvice?: string;
+  derivedAt: BlockAnchorShape;
+}
+
+export type RebalanceExecutionResult = DeepReadonly<RebalanceExecutionResultShape>;
+
 export interface SettlementDetailShape {
   leaderboardVersion: string;
   snapshotHash?: string;
@@ -296,6 +316,41 @@ export interface ContestEventBatchShape {
 
 export type ContestEventBatch = DeepReadonly<ContestEventBatchShape>;
 
+export interface OrganizerContractRegistrationShape {
+  status: 'registered' | 'noop';
+  organizer: Address;
+  networkId: number;
+  contractType: string;
+  address: Address;
+  metadata?: Record<string, unknown>;
+}
+
+export type OrganizerContractRegistrationResult = DeepReadonly<OrganizerContractRegistrationShape>;
+
+export interface ContestDeploymentArtifactShape {
+  networkId: number;
+  registrarAddress: Address;
+  treasuryAddress?: Address;
+  settlementAddress?: Address;
+  rewardsAddress?: Address;
+  metadata?: Record<string, unknown>;
+}
+
+export type ContestDeploymentArtifact = DeepReadonly<ContestDeploymentArtifactShape>;
+
+export interface ContestCreationReceiptShape {
+  status: 'accepted' | 'noop';
+  requestId: string;
+  organizer: Address;
+  networkId: number;
+  artifact: ContestDeploymentArtifactShape | null;
+  acceptedAt: string;
+  metadata?: Record<string, unknown>;
+  reason?: string;
+}
+
+export type ContestCreationReceipt = DeepReadonly<ContestCreationReceiptShape>;
+
 export const createContestIdentifier = (
   payload: ContestIdentifierShape,
 ): ContestIdentifier => cloneAndFreeze(payload);
@@ -314,6 +369,14 @@ export const createRegistrationPlan = (
 export const createRebalancePlan = (
   payload: RebalancePlanShape,
 ): RebalancePlan => cloneAndFreeze(payload);
+
+export const createRegistrationExecutionResult = (
+  payload: RegistrationExecutionResultShape,
+): RegistrationExecutionResult => cloneAndFreeze(payload);
+
+export const createRebalanceExecutionResult = (
+  payload: RebalanceExecutionResultShape,
+): RebalanceExecutionResult => cloneAndFreeze(payload);
 
 export const createSettlementResult = (
   payload: SettlementResultShape,
@@ -334,3 +397,15 @@ export const createContestEventEnvelope = (
 export const createContestEventBatch = (
   payload: ContestEventBatchShape,
 ): ContestEventBatch => cloneAndFreeze(payload);
+
+export const createOrganizerContractRegistrationResult = (
+  payload: OrganizerContractRegistrationShape,
+): OrganizerContractRegistrationResult => cloneAndFreeze(payload);
+
+export const createContestDeploymentArtifact = (
+  payload: ContestDeploymentArtifactShape,
+): ContestDeploymentArtifact => cloneAndFreeze(payload);
+
+export const createContestCreationReceipt = (
+  payload: ContestCreationReceiptShape,
+): ContestCreationReceipt => cloneAndFreeze(payload);

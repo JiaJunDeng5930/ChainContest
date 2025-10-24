@@ -224,6 +224,33 @@ describe('planParticipantRegistration', () => {
     expect(result.rejectionReason?.code).toBe('REGISTRATION_PHASE_INVALID');
   });
 
+  it('executes registration when plan is ready', async () => {
+    const definition = buildDefinition();
+    const gateway = createGateway(definition);
+
+    const result = await gateway.executeParticipantRegistration({
+      contest: definition.contest,
+      participant: participantA,
+    });
+
+    expect(result.status).toBe('executed');
+    expect(result.transaction?.to).toBe(registrar);
+    expect(result.requiredApprovals).toHaveLength(0);
+  });
+
+  it('returns noop execution when plan is blocked', async () => {
+    const definition = buildDefinition();
+    const gateway = createGateway(definition);
+
+    const result = await gateway.executeParticipantRegistration({
+      contest: definition.contest,
+      participant: participantB,
+    });
+
+    expect(result.status).toBe('noop');
+    expect(result.reason?.code).toBe('INSUFFICIENT_ALLOWANCE');
+  });
+
   it('blocks when capacity is full', async () => {
     const definition = buildDefinition((next) => {
       next.registrationCapacity = {

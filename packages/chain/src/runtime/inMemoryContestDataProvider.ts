@@ -27,11 +27,13 @@ class InMemoryContestDataProvider implements ContestChainDataProvider {
   ): Promise<ContestDefinition> {
     const definition = this.definitions.get(makeKey(contest));
     if (!definition) {
-      throw createContestChainError({
-        code: 'STATE_CONFLICT',
-        message: `Contest "${contest.contestId}" not configured for chain ${contest.chainId}`,
-        details: { contest },
-      });
+      return Promise.reject(
+        createContestChainError({
+          code: 'STATE_CONFLICT',
+          message: `Contest "${contest.contestId}" not configured for chain ${contest.chainId}`,
+          details: { contest },
+        }),
+      );
     }
 
     void _options;

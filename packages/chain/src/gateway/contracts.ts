@@ -3,10 +3,15 @@ import type { ContestChainError } from '@chain/errors/contestChainError';
 import type {
   ContestEventBatch,
   ContestIdentifier,
+  ContestCreationReceipt,
+  ContestDeploymentArtifact,
   EventCursor,
   LifecycleSnapshot,
+  OrganizerContractRegistrationResult,
   RedemptionResult,
   RegistrationPlan,
+  RegistrationExecutionResult,
+  RebalanceExecutionResult,
   RebalancePlan,
   RewardClaimResult,
   SettlementResult,
@@ -46,6 +51,10 @@ export interface PlanPortfolioRebalanceInput {
   readonly dryRun?: boolean;
 }
 
+export interface ExecuteParticipantRegistrationInput extends PlanParticipantRegistrationInput {}
+
+export interface ExecutePortfolioRebalanceInput extends PlanPortfolioRebalanceInput {}
+
 export interface ExecuteContestSettlementInput {
   readonly contest: ContestIdentifier;
   readonly caller: Address;
@@ -83,6 +92,12 @@ export interface ContestChainGateway {
   readonly planPortfolioRebalance: (
     input: PlanPortfolioRebalanceInput,
   ) => Promise<RebalancePlan>;
+  readonly executeParticipantRegistration: (
+    input: ExecuteParticipantRegistrationInput,
+  ) => Promise<RegistrationExecutionResult>;
+  readonly executePortfolioRebalance: (
+    input: ExecutePortfolioRebalanceInput,
+  ) => Promise<RebalanceExecutionResult>;
   readonly executeContestSettlement: (
     input: ExecuteContestSettlementInput,
   ) => Promise<SettlementResult>;
@@ -111,4 +126,30 @@ export interface GatewayRuntime {
   readonly signerLocator: SignerLocator;
   readonly errorLogger?: (error: ContestChainError) => void;
   readonly dataProvider: ContestChainDataProvider;
+}
+
+export interface RegisterOrganizerContractInput {
+  readonly organizer: Address;
+  readonly networkId: number;
+  readonly contractType: string;
+  readonly metadata?: Record<string, unknown>;
+}
+
+export interface ExecuteContestDeploymentInput {
+  readonly organizer: Address;
+  readonly networkId: number;
+  readonly payload: Record<string, unknown>;
+}
+
+export interface CreateContestCreationGatewayOptions {
+  readonly clock?: () => Date;
+}
+
+export interface ContestCreationGateway {
+  readonly registerOrganizerContract: (
+    input: RegisterOrganizerContractInput,
+  ) => Promise<OrganizerContractRegistrationResult>;
+  readonly executeContestDeployment: (
+    input: ExecuteContestDeploymentInput,
+  ) => Promise<ContestCreationReceipt>;
 }

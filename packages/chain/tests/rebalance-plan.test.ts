@@ -306,6 +306,55 @@ describe('planPortfolioRebalance', () => {
     expect(allowanceCheck?.status).toBe('fail');
   });
 
+  it('executes rebalance when plan is ready', async () => {
+    const gateway = createGatewayForDefinition(baseDefinition);
+
+    const result = await gateway.executePortfolioRebalance({
+      contest: baseDefinition.contest,
+      participant: participantReady,
+      intent: {
+        sellAsset,
+        buyAsset,
+        amount: '100000000000000000',
+      },
+    });
+
+    expect(result.status).toBe('executed');
+    expect(result.transaction?.to).toBe(router);
+  });
+
+  it('returns noop execution when plan is blocked', async () => {
+    const definition: ContestDefinition = {
+      ...baseDefinition,
+      participants: {
+        ...baseDefinition.participants,
+        [participantReady.toLowerCase()]: {
+          ...baseDefinition.participants[participantReady.toLowerCase()],
+          allowances: {
+            [sellAsset.toLowerCase()]: {
+              [router.toLowerCase()]: '0',
+            },
+          },
+        },
+      },
+    };
+
+    const gateway = createGatewayForDefinition(definition);
+
+    const result = await gateway.executePortfolioRebalance({
+      contest: definition.contest,
+      participant: participantReady,
+      intent: {
+        sellAsset,
+        buyAsset,
+        amount: '100000000000000000',
+      },
+    });
+
+    expect(result.status).toBe('noop');
+    expect(result.reason?.code).toBe('AUTHORIZATION_REQUIRED');
+  });
+
   it('blocks when phase is not live', async () => {
     const definition: ContestDefinition = {
       ...baseDefinition,
