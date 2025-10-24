@@ -12,12 +12,7 @@ import {
   type MetricsEvent as DbMetricsEvent,
   type MetricsHook as DbMetricsHook
 } from '@chaincontest/db';
-import {
-  getConfig,
-  loadConfig,
-  resetConfig,
-  type TasksConfig
-} from './config.js';
+import { loadConfig, resetConfig, type TasksConfig } from './config.js';
 import {
   bootstrapDatabase,
   shutdownDatabaseConnection,
@@ -125,7 +120,8 @@ export const createApp = (options: AppBootstrapOptions = {}): TasksApplication =
       getByReportId: getReconciliationReportByReportId
     },
     notifications: {
-      dispatch: async ({ report, targets }) => {
+      // Synchronous dispatch; return a resolved promise to satisfy typing.
+      dispatch: ({ report, targets }) => {
         notificationLogger.info(
           {
             reportId: report.reportId,
@@ -133,20 +129,21 @@ export const createApp = (options: AppBootstrapOptions = {}): TasksApplication =
           },
           'reconciliation notifications dispatched'
         );
+        return Promise.resolve();
       }
     }
   });
 
   let milestoneWorkerRegistered = false;
   let reconciliationWorkerRegistered = false;
-  let application: TasksApplication;
+  // Build ensure* helpers to accept the application explicitly to avoid capturing uninitialised bindings.
 
-  const ensureMilestoneWorker = async (): Promise<void> => {
+  const ensureMilestoneWorker = async (app: TasksApplication): Promise<void> => {
     if (milestoneWorkerRegistered) {
       return;
     }
 
-    await registerMilestoneWorker(application, {
+    await registerMilestoneWorker(app, {
       processor: milestoneProcessor,
       parsePayload: (raw) => parseMilestonePayload(raw).payload
     });
@@ -154,12 +151,12 @@ export const createApp = (options: AppBootstrapOptions = {}): TasksApplication =
     milestoneWorkerRegistered = true;
   };
 
-  const ensureReconciliationWorker = async (): Promise<void> => {
+  const ensureReconciliationWorker = async (app: TasksApplication): Promise<void> => {
     if (reconciliationWorkerRegistered) {
       return;
     }
 
-    await registerReconciliationWorker(application, {
+    await registerReconciliationWorker(app, {
       processor: reconciliationProcessor,
       parsePayload: (raw) => parseReconciliationPayload(raw)
     });
@@ -178,30 +175,30 @@ export const createApp = (options: AppBootstrapOptions = {}): TasksApplication =
 
     const authHeader = request.headers.authorization;
     if (!authHeader || !authHeader.toLowerCase().startsWith('bearer ')) {
-      reply.status(401).send({ error: 'unauthorised' });
+      void reply.status(401).send({ error: 'unauthorised' });
       return;
     }
 
     const presentedToken = authHeader.slice(7).trim();
     if (!presentedToken) {
-      reply.status(401).send({ error: 'unauthorised' });
+      void reply.status(401).send({ error: 'unauthorised' });
       return;
     }
 
     if (!adminBearerTokenBuffer) {
       request.log.error('admin bearer token not configured');
-      reply.status(500).send({ error: 'unauthorised' });
+      void reply.status(500).send({ error: 'unauthorised' });
       return;
     }
 
     const presentedTokenBuffer = Buffer.from(presentedToken, 'utf8');
     if (presentedTokenBuffer.length !== adminBearerTokenBuffer.length) {
-      reply.status(401).send({ error: 'unauthorised' });
+      void reply.status(401).send({ error: 'unauthorised' });
       return;
     }
 
     if (!timingSafeEqual(presentedTokenBuffer, adminBearerTokenBuffer)) {
-      reply.status(401).send({ error: 'unauthorised' });
+      void reply.status(401).send({ error: 'unauthorised' });
       return;
     }
   };
@@ -227,47 +224,41 @@ export const createApp = (options: AppBootstrapOptions = {}): TasksApplication =
   });
   let started = false;
 
-  const start = async (): Promise<void> => {
-    if (started) {
-      return;
-    }
-
-    await bootstrapDatabase({ config, logger: databaseLogger, metricsHook: databaseMetricsHook });
-    await bootstrapQueue({ config, logger });
-    await ensureMilestoneWorker();
-    await ensureReconciliationWorker();
-    await http.start();
-
-    started = true;
-    logger.info('indexer tasks application started');
-  };
-
-  const stop = async (): Promise<void> => {
-    if (!started) {
-      return;
-    }
-
-    await http.stop();
-    await shutdownQueue();
-    await shutdownDatabaseConnection(logger);
-
-    milestoneWorkerRegistered = false;
-    reconciliationWorkerRegistered = false;
-
-    started = false;
-    logger.info('indexer tasks application stopped');
-  };
-
-  const isRunning = (): boolean => started && isDatabaseReady() && isQueueRunning() && http.isStarted();
-
-  application = {
+  const application: TasksApplication = {
     config,
     logger,
     metrics,
     http,
-    start,
-    stop,
-    isRunning,
+    start: async (): Promise<void> => {
+      if (started) {
+        return;
+      }
+
+      await bootstrapDatabase({ config, logger: databaseLogger, metricsHook: databaseMetricsHook });
+      await bootstrapQueue({ config, logger });
+      await ensureMilestoneWorker(application);
+      await ensureReconciliationWorker(application);
+      await http.start();
+
+      started = true;
+      logger.info('indexer tasks application started');
+    },
+    stop: async (): Promise<void> => {
+      if (!started) {
+        return;
+      }
+
+      await http.stop();
+      await shutdownQueue();
+      await shutdownDatabaseConnection(logger);
+
+      milestoneWorkerRegistered = false;
+      reconciliationWorkerRegistered = false;
+
+      started = false;
+      logger.info('indexer tasks application stopped');
+    },
+    isRunning: (): boolean => started && isDatabaseReady() && isQueueRunning() && http.isStarted(),
     registerWorker,
     publishJob
   };
