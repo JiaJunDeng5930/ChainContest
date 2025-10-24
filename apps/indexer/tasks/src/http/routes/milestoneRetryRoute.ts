@@ -27,13 +27,15 @@ export const registerMilestoneRetryRoute = async (
   app.post(
     '/v1/tasks/milestones/actions/retry',
     {
-      preHandler: dependencies.authenticate
+      preHandler: async (request, reply) => {
+        await dependencies.authenticate(request, reply);
+      }
     },
     async (request, reply) => {
       try {
         const body = requestSchema.parse(request.body);
         await dependencies.retryMilestone(body);
-        reply.status(202).send({ status: 'accepted' });
+        await reply.status(202).send({ status: 'accepted' });
       } catch (error) {
         handleError(error, reply);
       }
@@ -44,26 +46,26 @@ export const registerMilestoneRetryRoute = async (
 const handleError = (error: unknown, reply: FastifyReply): void => {
   if (error instanceof ManualActionError) {
     if (error.code === 'NOT_FOUND') {
-      reply.status(404).send({ error: 'not_found', message: error.message });
+      void reply.status(404).send({ error: 'not_found', message: error.message });
       return;
     }
 
     if (error.code === 'CONFLICT') {
-      reply.status(409).send({ error: 'conflict', message: error.message });
+      void reply.status(409).send({ error: 'conflict', message: error.message });
       return;
     }
 
-    reply.status(400).send({ error: 'invalid_state', message: error.message });
+    void reply.status(400).send({ error: 'invalid_state', message: error.message });
     return;
   }
 
   if (error instanceof z.ZodError) {
-    reply.status(400).send({
+    void reply.status(400).send({
       error: 'validation_error',
       details: error.flatten()
     });
     return;
   }
 
-  reply.status(500).send({ error: 'internal_error', message: 'Unexpected error' });
+  void reply.status(500).send({ error: 'internal_error', message: 'Unexpected error' });
 };

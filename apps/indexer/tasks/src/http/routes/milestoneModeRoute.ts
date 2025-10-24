@@ -23,13 +23,15 @@ export const registerMilestoneModeRoute = async (
   app.post(
     '/v1/tasks/milestones/actions/mode',
     {
-      preHandler: dependencies.authenticate
+      preHandler: async (request, reply) => {
+        await dependencies.authenticate(request, reply);
+      }
     },
     async (request, reply) => {
       try {
         const body = requestSchema.parse(request.body);
         const result = await dependencies.setContestMode(body);
-        reply.status(200).send({ mode: result.mode });
+        await reply.status(200).send({ mode: result.mode });
       } catch (error) {
         handleError(error, reply);
       }
@@ -40,21 +42,21 @@ export const registerMilestoneModeRoute = async (
 const handleError = (error: unknown, reply: FastifyReply): void => {
   if (error instanceof ManualActionError) {
     if (error.code === 'NOT_FOUND') {
-      reply.status(404).send({ error: 'not_found', message: error.message });
+      void reply.status(404).send({ error: 'not_found', message: error.message });
       return;
     }
 
-    reply.status(400).send({ error: 'invalid_state', message: error.message });
+    void reply.status(400).send({ error: 'invalid_state', message: error.message });
     return;
   }
 
   if (error instanceof z.ZodError) {
-    reply.status(400).send({
+    void reply.status(400).send({
       error: 'validation_error',
       details: error.flatten()
     });
     return;
   }
 
-  reply.status(500).send({ error: 'internal_error', message: 'Unexpected error' });
+  void reply.status(500).send({ error: 'internal_error', message: 'Unexpected error' });
 };

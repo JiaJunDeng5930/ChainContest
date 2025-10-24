@@ -13,11 +13,13 @@ export const registerStatusRoutes = async (
   app.get(
     '/v1/tasks/status',
     {
-      preHandler: dependencies.authenticate
+      preHandler: async (request, reply) => {
+        await dependencies.authenticate(request, reply);
+      }
     },
     async (_request, reply) => {
       const snapshot = await dependencies.buildSnapshot();
-      reply.send(serialiseSnapshot(snapshot));
+      void reply.send(serialiseSnapshot(snapshot));
     }
   );
 };
