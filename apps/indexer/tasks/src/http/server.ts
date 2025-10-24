@@ -56,12 +56,12 @@ export const createHttpServer = (options: HttpServerOptions = {}): HttpServer =>
     }
   });
 
-  app.get('/healthz', async () => ({ status: 'ok', timestamp: new Date().toISOString() }));
+  app.get('/healthz', () => ({ status: 'ok', timestamp: new Date().toISOString() }));
 
   app.get('/metrics', async (request, reply) => {
     const body = await serializeTaskMetrics(metrics);
-    reply.header('Content-Type', 'text/plain; version=0.0.4');
-    reply.send(body);
+    void reply.header('Content-Type', 'text/plain; version=0.0.4');
+    void reply.send(body);
   });
 
   let started = false;
