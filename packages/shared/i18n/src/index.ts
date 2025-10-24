@@ -1,6 +1,6 @@
-type MessageDictionary = Record<string, string>;
+import { SUPPORTED_LOCALES, type SupportedLocale } from "./constants";
 
-export type SupportedLocale = "en" | "zh-CN";
+type MessageDictionary = Record<string, string>;
 
 const localeLoaders: Record<SupportedLocale, () => Promise<MessageDictionary>> = {
   en: async () =>
@@ -9,9 +9,9 @@ const localeLoaders: Record<SupportedLocale, () => Promise<MessageDictionary>> =
     (await import("../messages/zh-CN.json", { with: { type: "json" } })).default as MessageDictionary
 };
 
-export const SUPPORTED_LOCALES: SupportedLocale[] = ["en", "zh-CN"];
-
 export async function loadMessages(locale: SupportedLocale): Promise<MessageDictionary> {
   const loader = localeLoaders[locale] ?? localeLoaders.en;
   return loader();
 }
+
+export * from "./constants";
