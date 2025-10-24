@@ -7,6 +7,7 @@ import type { ReactNode } from "react";
 
 import { AppProviders } from "./providers";
 import LayoutShell from "../components/LayoutShell";
+import NetworkGate from "../features/network/NetworkGate";
 
 export const metadata: Metadata = {
   title: "ChainContest",
@@ -50,7 +51,9 @@ export default async function RootLayout({ children }: { children: ReactNode }) 
     <html lang={locale} className="h-full">
       <body className="min-h-screen bg-slate-950 text-slate-100 antialiased">
         <AppProviders locale={locale} messages={messages}>
-          <LayoutShell>{children}</LayoutShell>
+          <LayoutShell>
+            <NetworkGate>{children}</NetworkGate>
+          </LayoutShell>
         </AppProviders>
       </body>
     </html>

@@ -23,6 +23,8 @@
   "runtime.reload": "Reload configuration",
   "runtime.refreshedAt": "Last refreshed at {timestamp}",
   "runtime.chainLabel": "Chain",
+  "runtime.requiredChain": "Required network: {chain}",
+  "runtime.currentChain": "Current network: {chain}",
   "runtime.contractsLabel": "Contracts",
   "runtime.actions.viewInExplorer": "View in explorer",
   "common.actions.skipToContent": "Skip to content",

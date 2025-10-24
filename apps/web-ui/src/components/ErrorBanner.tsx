@@ -10,13 +10,14 @@ type ErrorBannerProps = {
   onRetry?: () => void;
   className?: string;
   footerSlot?: ReactNode;
+  forceRetryable?: boolean;
 };
 
 function composeClassName(base: string, extra?: string) {
   return extra ? `${base} ${extra}` : base;
 }
 
-export function ErrorBanner({ error, onRetry, className, footerSlot }: ErrorBannerProps) {
+export function ErrorBanner({ error, onRetry, className, footerSlot, forceRetryable }: ErrorBannerProps) {
   const presentError = useErrorPresenter();
   const t = useTranslations();
 
@@ -49,7 +50,7 @@ export function ErrorBanner({ error, onRetry, className, footerSlot }: ErrorBann
           ) : null}
           {footerSlot ? <div className="mt-4 text-rose-200">{footerSlot}</div> : null}
         </div>
-        {onRetry && presented.retryable ? (
+        {onRetry && (presented.retryable || forceRetryable) ? (
           <button
             type="button"
             onClick={onRetry}

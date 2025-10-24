@@ -23,6 +23,8 @@
   "runtime.reload": "重新加载配置",
   "runtime.refreshedAt": "最近刷新时间 {timestamp}",
   "runtime.chainLabel": "链",
+  "runtime.requiredChain": "所需网络：{chain}",
+  "runtime.currentChain": "当前网络：{chain}",
   "runtime.contractsLabel": "合约",
   "runtime.actions.viewInExplorer": "在区块浏览器查看",
   "common.actions.skipToContent": "跳至主要内容",
