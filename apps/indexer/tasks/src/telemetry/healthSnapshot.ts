@@ -67,7 +67,7 @@ export const createHealthSnapshotBuilder = (
 };
 
 const deriveMode = ({
-  queues,
+  queues: _queues,
   activeAlerts,
   queueRunning
 }: {
