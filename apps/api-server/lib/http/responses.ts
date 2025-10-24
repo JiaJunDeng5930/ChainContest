@@ -5,6 +5,8 @@ import type {
   SettlementResult,
   RewardClaimResult,
   RedemptionResult,
+  RegistrationExecutionResult,
+  RebalanceExecutionResult,
   TokenApprovalRequestShape,
   QualificationCheck,
   PolicyCheck
@@ -132,6 +134,30 @@ export const rebalancePlanResponse = (plan: RebalancePlan): Response => {
   });
 };
 
+export const registrationExecutionResponse = (
+  result: RegistrationExecutionResult
+): Response => {
+  return jsonResponse({
+    status: result.status,
+    transaction: normalizeExecutionCall(result.transaction),
+    requiredApprovals: normalizeApprovals(result.requiredApprovals) ?? [],
+    reason: result.reason ?? undefined,
+    derivedAt: normalizeDerivedAt(result.derivedAt)
+  });
+};
+
+export const rebalanceExecutionResponse = (
+  result: RebalanceExecutionResult
+): Response => {
+  return jsonResponse({
+    status: result.status,
+    transaction: normalizeExecutionCall(result.transaction),
+    rollbackAdvice: result.rollbackAdvice,
+    reason: result.reason ?? undefined,
+    derivedAt: normalizeDerivedAt(result.derivedAt)
+  });
+};
+
 export const settlementResponse = (result: SettlementResult): Response => {
   return jsonResponse({
     status: result.status,
@@ -174,4 +200,3 @@ export const errorResponse = (error: unknown): Response => {
 };
 
 export const createJsonResponse = jsonResponse;
-
