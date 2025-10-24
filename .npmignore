@@ -1,0 +1,14 @@
+# Prevent publishing workspace-specific files
+node_modules/
+dist/
+build/
+coverage/
+.env*
+*.log
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+specs/
+docs/
+tests/
