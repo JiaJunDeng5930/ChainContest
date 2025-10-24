@@ -25,6 +25,7 @@
   "runtime.chainLabel": "Chain",
   "runtime.contractsLabel": "Contracts",
   "runtime.actions.viewInExplorer": "View in explorer",
+  "common.actions.skipToContent": "Skip to content",
   "chains.1.name": "Ethereum Mainnet",
   "chains.1.shortName": "Ethereum",
   "chains.11155111.name": "Sepolia Testnet",

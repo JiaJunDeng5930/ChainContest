@@ -25,6 +25,7 @@
   "runtime.chainLabel": "链",
   "runtime.contractsLabel": "合约",
   "runtime.actions.viewInExplorer": "在区块浏览器查看",
+  "common.actions.skipToContent": "跳至主要内容",
   "chains.1.name": "以太坊主网",
   "chains.1.shortName": "以太坊",
   "chains.11155111.name": "Sepolia 测试网",
