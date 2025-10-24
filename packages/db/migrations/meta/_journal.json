@@ -43,6 +43,13 @@
       "when": 1761141064514,
       "tag": "20251022_add_reconciliation_report_ledger",
       "breakpoints": false
+    },
+    {
+      "idx": 6,
+      "version": "20251024",
+      "when": 1761264000000,
+      "tag": "20251024_add_contest_creation_entities",
+      "breakpoints": false
     }
   ]
 }
