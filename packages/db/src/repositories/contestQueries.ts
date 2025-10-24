@@ -2,7 +2,17 @@ import { and, asc, desc, eq, gte, ilike, inArray, isNull, lte, or, sql } from 'd
 import type { SQL } from 'drizzle-orm';
 import type { DrizzleDatabase } from '../adapters/connection.js';
 import { DbError, DbErrorCode } from '../instrumentation/metrics.js';
-import { contests, leaderboardVersions, participants, rewardClaims, userIdentities, walletBindings } from '../schema/index.js';
+import {
+  contests,
+  leaderboardVersions,
+  participants,
+  rewardClaims,
+  userIdentities,
+  walletBindings,
+  contestCreationRequests,
+  contestDeploymentArtifacts
+} from '../schema/index.js';
+import { toContestCreationAggregate, type ContestCreationRequestAggregate } from './contestCreationRequests.js';
 
 const DEFAULT_PAGE_SIZE = 25;
 const MAX_PAGE_SIZE = 100;
@@ -129,9 +139,174 @@ export interface UserContestQueryResult {
   nextCursor: string | null;
 }
 
+export interface CreatorContestQueryFilters {
+  networkIds?: number[];
+}
+
+export interface CreatorContestQueryParams {
+  userId: string;
+  filters?: CreatorContestQueryFilters;
+  pagination?: PaginationOptions;
+}
+
+export interface CreatorContestRecord extends ContestCreationRequestAggregate {
+  contest: ContestRecord | null;
+}
+
+export interface QueryCreatorContestsResponse {
+  items: CreatorContestRecord[];
+  nextCursor: string | null;
+}
+
 interface CursorPayload {
   sortKey: string;
   tieBreaker: string;
+}
+
+interface CreatorCursorPayload {
+  createdAt: string;
+  requestId: string;
+}
+
+const encodeCreatorCursor = (payload: CreatorCursorPayload): string =>
+  Buffer.from(`${payload.createdAt}::${payload.requestId}`, 'utf8').toString('base64url');
+
+const decodeCreatorCursor = (cursor: string): CreatorCursorPayload | null => {
+  try {
+    const decoded = Buffer.from(cursor, 'base64url').toString('utf8');
+    const [createdAt, requestId] = decoded.split('::');
+    if (!createdAt || !requestId) {
+      return null;
+    }
+    return { createdAt, requestId };
+  } catch {
+    return null;
+  }
+};
+
+const applyCreatorCursorCondition = (cursor: CreatorCursorPayload): SQL => {
+  const createdAt = new Date(cursor.createdAt);
+  if (Number.isNaN(createdAt.getTime())) {
+    throw new DbError(DbErrorCode.INPUT_INVALID, 'Invalid pagination cursor for creator contests', {
+      detail: {
+        reason: 'creator_cursor_invalid',
+        context: { createdAt: cursor.createdAt }
+      }
+    });
+  }
+
+  return or(
+    ltDate(contestCreationRequests.createdAt, createdAt),
+    and(
+      eq(contestCreationRequests.createdAt, createdAt),
+      ltUuid(contestCreationRequests.id, cursor.requestId)
+    )
+  );
+};
+
+const mapContestRecord = (row: (typeof contests)['$inferSelect'] | null): ContestRecord | null => {
+  if (!row) {
+    return null;
+  }
+
+  return {
+    contestId: row.id,
+    chainId: row.chainId,
+    contractAddress: row.contractAddress.toLowerCase(),
+    internalKey: row.internalKey,
+    status: row.status,
+    timeWindowStart: row.timeWindowStart,
+    timeWindowEnd: row.timeWindowEnd,
+    originTag: row.originTag,
+    sealedAt: row.sealedAt,
+    metadata: (row.metadata ?? {}) as Record<string, unknown>,
+    createdAt: row.createdAt,
+    updatedAt: row.updatedAt
+  };
+};
+
+export async function queryCreatorContests(
+  db: DrizzleDatabase,
+  params: CreatorContestQueryParams
+): Promise<QueryCreatorContestsResponse> {
+  const normalizedUser = params.userId.trim();
+  if (!normalizedUser) {
+    return { items: [], nextCursor: null };
+  }
+
+  const rawPageSize = params.pagination?.pageSize ?? DEFAULT_PAGE_SIZE;
+  const pageSize = Math.max(1, Math.min(rawPageSize, MAX_PAGE_SIZE));
+
+  const cursorPayload = params.pagination?.cursor
+    ? decodeCreatorCursor(params.pagination.cursor)
+    : null;
+
+  if (params.pagination?.cursor && !cursorPayload) {
+    throw new DbError(DbErrorCode.INPUT_INVALID, 'Invalid pagination cursor for creator contests', {
+      detail: {
+        reason: 'creator_cursor_invalid',
+        context: { cursor: params.pagination.cursor }
+      }
+    });
+  }
+
+  const predicates: SQL[] = [eq(contestCreationRequests.userId, normalizedUser)];
+
+  const networkIds = params.filters?.networkIds;
+  if (networkIds && networkIds.length > 0) {
+    ensureSupportedChains(networkIds);
+    predicates.push(inArray(contestCreationRequests.networkId, networkIds));
+  }
+
+  if (cursorPayload) {
+    predicates.push(applyCreatorCursorCondition(cursorPayload));
+  }
+
+  let query = db
+    .select({
+      request: contestCreationRequests,
+      artifact: contestDeploymentArtifacts,
+      contest: contests
+    })
+    .from(contestCreationRequests)
+    .leftJoin(
+      contestDeploymentArtifacts,
+      eq(contestDeploymentArtifacts.requestId, contestCreationRequests.id)
+    )
+    .leftJoin(contests, eq(contests.id, contestDeploymentArtifacts.contestId))
+    .orderBy(desc(contestCreationRequests.createdAt), desc(contestCreationRequests.id))
+    .limit(pageSize + 1);
+
+  if (predicates.length === 1) {
+    query = query.where(predicates[0]!);
+  } else {
+    query = query.where(and(...predicates));
+  }
+
+  const rows = await query;
+
+  const hasNext = rows.length > pageSize;
+  const window = hasNext ? rows.slice(0, pageSize) : rows;
+
+  const items: CreatorContestRecord[] = window.map((row) => {
+    const aggregate = toContestCreationAggregate(row.request, row.artifact ?? null);
+    return {
+      ...aggregate,
+      contest: mapContestRecord(row.contest)
+    };
+  });
+
+  const nextCursor = hasNext
+    ? encodeCreatorCursor({
+        createdAt: rows[pageSize]!.request.createdAt.toISOString(),
+        requestId: rows[pageSize]!.request.id
+      })
+    : null;
+
+  return {
+    items,
+    nextCursor
+  };
 }
 
 const BASE_ORDER = [desc(contests.timeWindowEnd), desc(contests.id)] as const;

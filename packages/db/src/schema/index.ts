@@ -19,6 +19,16 @@ import {
   ingestionEvents
 } from './ingestion.js';
 import {
+  organizerContractRelations,
+  organizerContracts
+} from './organizer.js';
+import {
+  contestCreationRequestRelations,
+  contestCreationRequests,
+  contestDeploymentArtifactRelations,
+  contestDeploymentArtifacts
+} from './contest-creation.js';
+import {
   milestoneExecutionRecords,
   milestoneExecutionRelations,
   milestoneExecutionStatusEnum
@@ -60,6 +70,18 @@ export {
 } from './ingestion.js';
 
 export {
+  organizerContracts,
+  organizerContractRelations
+} from './organizer.js';
+
+export {
+  contestCreationRequests,
+  contestCreationRequestRelations,
+  contestDeploymentArtifacts,
+  contestDeploymentArtifactRelations
+} from './contest-creation.js';
+
+export {
   milestoneExecutionRecords,
   milestoneExecutionRelations,
   milestoneExecutionStatusEnum
@@ -86,6 +108,13 @@ export type { IngestionCursor, NewIngestionCursor, IngestionEvent, NewIngestionE
 export type { MilestoneExecutionRecord, NewMilestoneExecutionRecord, MilestoneExecutionStatus } from './milestoneExecution.js';
 export type { ReconciliationReportLedger, NewReconciliationReportLedger, ReconciliationReportStatus } from './reconciliationReport.js';
 export type { UserIdentity, WalletBinding, NewUserIdentity, NewWalletBinding } from './user-bindings.js';
+export type { OrganizerContract, NewOrganizerContract } from './organizer.js';
+export type {
+  ContestCreationRequest,
+  NewContestCreationRequest,
+  ContestDeploymentArtifact,
+  NewContestDeploymentArtifact
+} from './contest-creation.js';
 
 export const dbSchema = {
   userIdentities,
@@ -98,7 +127,10 @@ export const dbSchema = {
   ingestionCursors,
   ingestionEvents,
   milestoneExecutionRecords,
-  reconciliationReportLedgers
+  reconciliationReportLedgers,
+  organizerContracts,
+  contestCreationRequests,
+  contestDeploymentArtifacts
 };
 
 export type DbSchema = typeof dbSchema;

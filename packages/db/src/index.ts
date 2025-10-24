@@ -44,7 +44,11 @@ import {
   type ParticipantRecord,
   type RewardClaimRecord,
   type UserContestQueryParams,
-  type UserContestQueryResult
+  type UserContestQueryResult,
+  queryCreatorContests as queryCreatorContestRecords,
+  type CreatorContestQueryParams,
+  type CreatorContestRecord as RepoCreatorContestRecord,
+  type QueryCreatorContestsResponse as RepoQueryCreatorContestsResponse
 } from './repositories/contestQueries.js';
 import {
   readIngestionStatus as readIngestionCursor,
@@ -73,6 +77,28 @@ import {
   type ReconciliationReportStatusTransitionParams,
   type ReconciliationReportUpsertParams
 } from './repositories/reconciliationReportRepository.js';
+import {
+  registerOrganizerContractRecord,
+  listOrganizerContractsRecords,
+  type RegisterOrganizerContractParams,
+  type RegisterOrganizerContractResult,
+  type ListOrganizerContractsParams,
+  type OrganizerRegistryRecord
+} from './repositories/organizerRegistry.js';
+import {
+  createContestCreationRequestRecord,
+  getContestCreationRequestRecord,
+  listContestCreationRequestsRecords,
+  type CreateContestCreationRequestParams,
+  type ListContestCreationRequestsParams,
+  type ListContestCreationRequestsResponse as RepoListContestCreationRequestsResponse,
+  type ContestCreationRequestAggregate
+} from './repositories/contestCreationRequests.js';
+import {
+  recordContestDeploymentArtifactRecord,
+  normalizeDeploymentArtifact,
+  type RecordContestDeploymentArtifactParams
+} from './repositories/contestDeploymentArtifacts.js';
 import type { MilestoneExecutionRecord, MilestoneExecutionStatus } from './schema/milestoneExecution.js';
 import type { ReconciliationReportLedger, ReconciliationReportStatus } from './schema/reconciliationReport.js';
 import { dbSchema } from './schema/index.js';
@@ -116,6 +142,85 @@ export interface LookupUserWalletResponse {
 export interface MutateUserWalletRequest extends MutateUserWalletParams {}
 
 export interface MutateUserWalletResponse extends MutateUserWalletResult {}
+
+export interface OrganizerContractRecord {
+  id: string;
+  userId: string;
+  networkId: number;
+  contractType: string;
+  address: string;
+  metadata: Record<string, unknown>;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+export interface RegisterOrganizerContractRequest extends RegisterOrganizerContractParams {}
+
+export interface RegisterOrganizerContractResponse {
+  contract: OrganizerContractRecord;
+  created: boolean;
+}
+
+export interface ListOrganizerContractsRequest extends ListOrganizerContractsParams {}
+
+export type ListOrganizerContractsResponse = OrganizerContractRecord[];
+
+export interface ContestDeploymentArtifactRecord {
+  artifactId: string;
+  requestId: string;
+  contestId: string | null;
+  networkId: number;
+  registrarAddress: string | null;
+  treasuryAddress: string | null;
+  settlementAddress: string | null;
+  rewardsAddress: string | null;
+  metadata: Record<string, unknown>;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+export interface ContestCreationRequestSummary {
+  requestId: string;
+  userId: string;
+  networkId: number;
+  payload: Record<string, unknown>;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+export interface ContestCreationRequestRecord {
+  request: ContestCreationRequestSummary;
+  artifact: ContestDeploymentArtifactRecord | null;
+  status: 'accepted' | 'deployed';
+}
+
+export interface CreateContestCreationRequestRequest extends CreateContestCreationRequestParams {}
+
+export type CreateContestCreationRequestResponse = ContestCreationRequestRecord;
+
+export type GetContestCreationRequestResponse = ContestCreationRequestRecord | null;
+
+export interface ListContestCreationRequestsRequest extends ListContestCreationRequestsParams {}
+
+export interface ListContestCreationRequestsResponse {
+  items: ContestCreationRequestRecord[];
+  nextCursor: string | null;
+}
+
+export interface RecordContestDeploymentArtifactRequest extends RecordContestDeploymentArtifactParams {}
+
+export type RecordContestDeploymentArtifactResponse = ContestDeploymentArtifactRecord;
+
+export interface QueryCreatorContestsRequest extends CreatorContestQueryParams {}
+
+export interface CreatorContestRecord extends ContestCreationRequestRecord {
+  contest: ContestRecord | null;
+}
+
+export interface QueryCreatorContestsResponse {
+  items: CreatorContestRecord[];
+  nextCursor: string | null;
+}
 
 export interface QueryContestsRequest extends ContestQueryParams {}
 
@@ -268,6 +373,26 @@ export const queryUserContests = async (
   return withMetrics('queryUserContests', operation);
 };
 
+export const queryCreatorContests = async (
+  request: QueryCreatorContestsRequest
+): Promise<QueryCreatorContestsResponse> => {
+  const database = ensurePool();
+
+  const operation = async (): Promise<QueryCreatorContestsResponse> => {
+    const result: RepoQueryCreatorContestsResponse = await queryCreatorContestRecords(
+      database.db,
+      request
+    );
+
+    return {
+      items: result.items.map(mapCreatorContestRecord),
+      nextCursor: result.nextCursor
+    };
+  };
+
+  return withMetrics('queryCreatorContests', operation);
+};
+
 export const writeContestDomain = async (
   request: WriteContestDomainRequest
 ): Promise<WriteContestDomainResponse> => {
@@ -364,6 +489,98 @@ export const updateReconciliationReportStatus = async (
   return withMetrics('reconciliationReport.transition', operation);
 };
 
+export const registerOrganizerContract = async (
+  request: RegisterOrganizerContractRequest
+): Promise<RegisterOrganizerContractResponse> => {
+  const database = ensurePool();
+
+  const operation = async (): Promise<RegisterOrganizerContractResponse> => {
+    const result: RegisterOrganizerContractResult = await registerOrganizerContractRecord(
+      database.db,
+      request
+    );
+
+    return {
+      contract: mapOrganizerContractRecord(result.contract),
+      created: result.created
+    };
+  };
+
+  return withMetrics('organizer.registerContract', operation);
+};
+
+export const listOrganizerContracts = async (
+  request: ListOrganizerContractsRequest
+): Promise<ListOrganizerContractsResponse> => {
+  const database = ensurePool();
+
+  const operation = async (): Promise<ListOrganizerContractsResponse> => {
+    const records = await listOrganizerContractsRecords(database.db, request);
+    return records.map(mapOrganizerContractRecord);
+  };
+
+  return withMetrics('organizer.listContracts', operation);
+};
+
+export const createContestCreationRequest = async (
+  request: CreateContestCreationRequestRequest
+): Promise<CreateContestCreationRequestResponse> => {
+  const database = ensurePool();
+
+  const operation = async (): Promise<CreateContestCreationRequestResponse> => {
+    const aggregate = await createContestCreationRequestRecord(database.db, request);
+    return mapContestCreationAggregate(aggregate);
+  };
+
+  return withMetrics('contestCreation.create', operation);
+};
+
+export const getContestCreationRequest = async (
+  requestId: string
+): Promise<GetContestCreationRequestResponse> => {
+  const database = ensurePool();
+
+  const operation = async (): Promise<GetContestCreationRequestResponse> => {
+    const aggregate = await getContestCreationRequestRecord(database.db, requestId);
+    return aggregate ? mapContestCreationAggregate(aggregate) : null;
+  };
+
+  return withMetrics('contestCreation.get', operation);
+};
+
+export const listContestCreationRequests = async (
+  request: ListContestCreationRequestsRequest
+): Promise<ListContestCreationRequestsResponse> => {
+  const database = ensurePool();
+
+  const operation = async (): Promise<ListContestCreationRequestsResponse> => {
+    const result: RepoListContestCreationRequestsResponse = await listContestCreationRequestsRecords(
+      database.db,
+      request
+    );
+
+    return {
+      items: result.items.map(mapContestCreationAggregate),
+      nextCursor: result.nextCursor
+    };
+  };
+
+  return withMetrics('contestCreation.list', operation);
+};
+
+export const recordContestDeploymentArtifact = async (
+  request: RecordContestDeploymentArtifactRequest
+): Promise<RecordContestDeploymentArtifactResponse> => {
+  const database = ensurePool();
+
+  const operation = async (): Promise<RecordContestDeploymentArtifactResponse> => {
+    const artifact = await recordContestDeploymentArtifactRecord(database.db, request);
+    return mapContestDeploymentArtifactRecord(normalizeDeploymentArtifact(artifact))!;
+  };
+
+  return withMetrics('contestCreation.recordArtifact', operation);
+};
+
 export const getReconciliationReportByReportId = async (
   reportId: string
 ): Promise<ReconciliationReportLedger | null> => {
@@ -391,6 +608,7 @@ export const db = {
   mutateUserWallet,
   queryContests,
   queryUserContests,
+  queryCreatorContests,
   writeContestDomain,
   readIngestionStatus,
   writeIngestionEvent,
@@ -399,6 +617,12 @@ export const db = {
   getMilestoneExecutionByIdempotencyKey,
   getMilestoneExecutionByEvent,
   upsertReconciliationReport,
+  registerOrganizerContract,
+  listOrganizerContracts,
+  createContestCreationRequest,
+  getContestCreationRequest,
+  listContestCreationRequests,
+  recordContestDeploymentArtifact,
   updateReconciliationReportStatus,
   getReconciliationReportByReportId,
   shutdown,
@@ -444,4 +668,76 @@ const mapLookupRecord = (record: LookupUserWalletRecord): LookupUserWalletBindin
     createdBy: record.createdBy ?? null,
     updatedBy: record.updatedBy ?? null
   }
+});
+
+const mapOrganizerContractRecord = (
+  record: OrganizerRegistryRecord
+): OrganizerContractRecord => ({
+  id: record.id,
+  userId: record.userId,
+  networkId: record.networkId,
+  contractType: record.contractType,
+  address: record.address.toLowerCase(),
+  metadata: (record.metadata ?? {}) as Record<string, unknown>,
+  createdAt: record.createdAt,
+  updatedAt: record.updatedAt
+});
+
+const mapContestDeploymentArtifactRecord = (
+  artifact: ContestCreationRequestAggregate['artifact']
+): ContestDeploymentArtifactRecord | null => {
+  if (!artifact) {
+    return null;
+  }
+
+  return {
+    artifactId: artifact.id,
+    requestId: artifact.requestId,
+    contestId: artifact.contestId ?? null,
+    networkId: artifact.networkId,
+    registrarAddress: artifact.registrarAddress ?? null,
+    treasuryAddress: artifact.treasuryAddress ?? null,
+    settlementAddress: artifact.settlementAddress ?? null,
+    rewardsAddress: artifact.rewardsAddress ?? null,
+    metadata: (artifact.metadata ?? {}) as Record<string, unknown>,
+    createdAt: artifact.createdAt,
+    updatedAt: artifact.updatedAt
+  };
+};
+
+const mapContestCreationAggregate = (
+  aggregate: ContestCreationRequestAggregate
+): ContestCreationRequestRecord => ({
+  request: {
+    requestId: aggregate.request.id,
+    userId: aggregate.request.userId,
+    networkId: aggregate.request.networkId,
+    payload: (aggregate.request.payload ?? {}) as Record<string, unknown>,
+    createdAt: aggregate.request.createdAt,
+    updatedAt: aggregate.request.updatedAt
+  },
+  artifact: mapContestDeploymentArtifactRecord(aggregate.artifact),
+  status: aggregate.status
+});
+
+const mapCreatorContestRecord = (
+  aggregate: RepoCreatorContestRecord
+): CreatorContestRecord => ({
+  ...mapContestCreationAggregate(aggregate),
+  contest: aggregate.contest ? mapContestRecord(aggregate.contest) : null
+});
+
+const mapContestRecord = (record: ContestRecord): ContestRecord => ({
+  contestId: record.contestId,
+  chainId: record.chainId,
+  contractAddress: record.contractAddress.toLowerCase(),
+  internalKey: record.internalKey,
+  status: record.status,
+  timeWindowStart: record.timeWindowStart,
+  timeWindowEnd: record.timeWindowEnd,
+  originTag: record.originTag,
+  sealedAt: record.sealedAt,
+  metadata: record.metadata ?? {},
+  createdAt: record.createdAt,
+  updatedAt: record.updatedAt
 });
