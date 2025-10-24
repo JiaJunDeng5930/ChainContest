@@ -29,6 +29,13 @@ interface InternalDb {
   writeContestDomain: (...args: unknown[]) => Promise<unknown>;
   readIngestionStatus: (...args: unknown[]) => Promise<unknown>;
   writeIngestionEvent: (...args: unknown[]) => Promise<unknown>;
+  registerOrganizerContract: (...args: unknown[]) => Promise<unknown>;
+  listOrganizerContracts: (...args: unknown[]) => Promise<unknown>;
+  createContestCreationRequest: (...args: unknown[]) => Promise<unknown>;
+  getContestCreationRequest: (...args: unknown[]) => Promise<unknown>;
+  listContestCreationRequests: (...args: unknown[]) => Promise<unknown>;
+  recordContestDeploymentArtifact: (...args: unknown[]) => Promise<unknown>;
+  queryCreatorContests: (...args: unknown[]) => Promise<unknown>;
 }
 
 export type DatabaseClient = Pick<
@@ -41,6 +48,13 @@ export type DatabaseClient = Pick<
   | 'writeContestDomain'
   | 'readIngestionStatus'
   | 'writeIngestionEvent'
+  | 'registerOrganizerContract'
+  | 'listOrganizerContracts'
+  | 'createContestCreationRequest'
+  | 'getContestCreationRequest'
+  | 'listContestCreationRequests'
+  | 'recordContestDeploymentArtifact'
+  | 'queryCreatorContests'
 >;
 
 const internalDb = db as unknown as InternalDb;
@@ -128,6 +142,27 @@ export const database: DatabaseClient = {
   },
   writeIngestionEvent(request) {
     return ensureDatabase().writeIngestionEvent(request);
+  },
+  registerOrganizerContract(request) {
+    return ensureDatabase().registerOrganizerContract(request);
+  },
+  listOrganizerContracts(request) {
+    return ensureDatabase().listOrganizerContracts(request);
+  },
+  createContestCreationRequest(request) {
+    return ensureDatabase().createContestCreationRequest(request);
+  },
+  getContestCreationRequest(request) {
+    return ensureDatabase().getContestCreationRequest(request);
+  },
+  listContestCreationRequests(request) {
+    return ensureDatabase().listContestCreationRequests(request);
+  },
+  recordContestDeploymentArtifact(request) {
+    return ensureDatabase().recordContestDeploymentArtifact(request);
+  },
+  queryCreatorContests(request) {
+    return ensureDatabase().queryCreatorContests(request);
   }
 };
 
