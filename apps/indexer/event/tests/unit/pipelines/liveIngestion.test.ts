@@ -270,7 +270,6 @@ describe('runLiveIngestion', () => {
         stream,
         fromBlock: undefined,
         cursor: { blockNumber: BigInt('120002'), logIndex: 4 },
-        rpcUrl: undefined,
       }),
     );
 
