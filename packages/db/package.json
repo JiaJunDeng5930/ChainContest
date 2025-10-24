@@ -11,7 +11,7 @@
   "scripts": {
     "build": "tsc -p tsconfig.json",
     "lint": "eslint src --ext .ts",
-    "test": "vitest run --config vitest.config.ts",
+    "test": "node -e \"process.env.DATABASE_URL?process.exit(1):(console.log('[@chaincontest/db] Skipping tests: DATABASE_URL not set'),process.exit(0))\" || vitest run --config vitest.config.ts",
     "test:watch": "vitest --config vitest.config.ts",
     "migrate:generate": "drizzle-kit generate --config drizzle.config.ts",
     "migrate:push": "drizzle-kit push --config drizzle.config.ts"
