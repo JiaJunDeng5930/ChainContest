@@ -10,11 +10,12 @@ import {
   injectedWallet,
   walletConnectWallet
 } from "@rainbow-me/rainbowkit";
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { QueryClientProvider } from "@tanstack/react-query";
 import { useMemo, useState, type ReactNode } from "react";
 import { WagmiConfig, createConfig, http } from "wagmi";
 import { mainnet, sepolia } from "wagmi/chains";
 import { NextIntlClientProvider } from "next-intl";
+import { createQueryClient } from "../lib/api/client";
 
 type ProvidersProps = {
   children: ReactNode;
@@ -59,20 +60,7 @@ const wagmiConfig = createConfig({
 });
 
 export function AppProviders({ children, locale, messages }: ProvidersProps) {
-  const [queryClient] = useState(
-    () =>
-      new QueryClient({
-        defaultOptions: {
-          queries: {
-            refetchOnWindowFocus: false,
-            retry: 1
-          },
-          mutations: {
-            retry: 0
-          }
-        }
-      })
-  );
+  const [queryClient] = useState(() => createQueryClient());
 
   const rainbowLocale = useMemo(() => locale.replace("_", "-"), [locale]);
 
