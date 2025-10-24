@@ -1,5 +1,4 @@
 import { and, desc, eq } from 'drizzle-orm';
-import type { SQL } from 'drizzle-orm';
 import { randomUUID } from 'node:crypto';
 import type { DrizzleDatabase, DrizzleTransaction } from '../adapters/connection.js';
 import { DbError, DbErrorCode } from '../instrumentation/metrics.js';
