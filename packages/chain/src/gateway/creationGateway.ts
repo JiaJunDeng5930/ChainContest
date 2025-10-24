@@ -20,7 +20,8 @@ const hex = (buffer: Buffer, length = 40): string => buffer.toString('hex').slic
 
 const deriveAddress = (seed: string, label: string): Address => {
   const digest = createHash('sha256').update(`${seed}:${label}`).digest();
-  return `0x${hex(digest, 40)}` as Address;
+  const addr = `0x${hex(digest, 40)}`;
+  return addr;
 };
 
 const deriveRequestId = (seed: string): string => {
@@ -36,14 +37,14 @@ const nowIso = (clock?: () => Date): string => {
 class ContestCreationGatewayImpl implements ContestCreationGateway {
   constructor(private readonly options: CreateContestCreationGatewayOptions = {}) {}
 
-  public async registerOrganizerContract(
+  public registerOrganizerContract(
     input: RegisterOrganizerContractInput
   ): Promise<OrganizerContractRegistrationResult> {
     const organizer = lowercaseAddress(input.organizer);
     const seed = JSON.stringify({ organizer, networkId: input.networkId, type: input.contractType });
     const address = deriveAddress(seed, 'organizer-contract');
 
-    return createOrganizerContractRegistrationResult({
+    return Promise.resolve(createOrganizerContractRegistrationResult({
       status: 'registered',
       organizer,
       networkId: input.networkId,
@@ -53,10 +54,10 @@ class ContestCreationGatewayImpl implements ContestCreationGateway {
         checksum: createHash('sha256').update(seed).digest('hex'),
         inputMetadata: input.metadata ?? {}
       }
-    });
+    }));
   }
 
-  public async executeContestDeployment(
+  public executeContestDeployment(
     input: ExecuteContestDeploymentInput
   ): Promise<ContestCreationReceipt> {
     const organizer = lowercaseAddress(input.organizer);
@@ -75,7 +76,7 @@ class ContestCreationGatewayImpl implements ContestCreationGateway {
       }
     });
 
-    return createContestCreationReceipt({
+    return Promise.resolve(createContestCreationReceipt({
       status: 'accepted',
       requestId: deriveRequestId(seed),
       organizer,
@@ -85,7 +86,7 @@ class ContestCreationGatewayImpl implements ContestCreationGateway {
       metadata: {
         payloadSummary: Array.isArray(payload) ? payload.length : Object.keys(payload).length
       }
-    });
+    }));
   }
 }
 

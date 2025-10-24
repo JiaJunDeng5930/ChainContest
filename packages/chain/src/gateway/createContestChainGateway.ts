@@ -2,12 +2,8 @@ import {
   createGatewayValidationAdapter,
   isGatewayValidationAdapter,
   type GatewayValidationAdapter,
-  type ValidationContext,
 } from '@chain/policies/validationContext';
-import {
-  createContestChainGatewayInstance,
-  type ContestChainGatewayInstance,
-} from './contestChainGateway';
+import { createContestChainGatewayInstance } from './contestChainGateway';
 import type {
   ContestChainGateway,
   CreateContestChainGatewayOptions,
@@ -19,7 +15,7 @@ const resolveValidationAdapter = (
 ): GatewayValidationAdapter =>
   isGatewayValidationAdapter(validators)
     ? validators
-    : createGatewayValidationAdapter(validators as ValidationContext);
+    : createGatewayValidationAdapter(validators);
 
 const createRuntime = (
   options: CreateContestChainGatewayOptions,
@@ -34,7 +30,7 @@ const createRuntime = (
 export const createContestChainGateway = (
   options: CreateContestChainGatewayOptions,
 ): ContestChainGateway =>
-  createContestChainGatewayInstance(createRuntime(options)) as ContestChainGatewayInstance;
+  createContestChainGatewayInstance(createRuntime(options));
 
 export type {
   ContestChainGateway,

@@ -4,7 +4,6 @@ import type {
   ContestEventBatch,
   ContestIdentifier,
   ContestCreationReceipt,
-  ContestDeploymentArtifact,
   EventCursor,
   LifecycleSnapshot,
   OrganizerContractRegistrationResult,

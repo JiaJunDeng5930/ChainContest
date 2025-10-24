@@ -15,7 +15,7 @@ export interface TradeRoutePlan {
 }
 
 const toHex = (value: string): Hex =>
-  (value.startsWith('0x') ? value : (`0x${value}` as Hex)) as Hex;
+  value.startsWith('0x') ? value : `0x${value}`;
 
 const computeExpiry = (timestampIso: string, seconds: number): string => {
   const base = new Date(timestampIso);
