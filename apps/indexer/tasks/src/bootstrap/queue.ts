@@ -97,7 +97,7 @@ export const bootstrapQueue = async (options: QueueInitOptions = {}): Promise<vo
   const logger = options.logger ?? getLogger();
 
   const retryLimit = Math.max(0, config.thresholds.rpcFailure - 1);
-  const { fetchIntervalMs, pollIntervalSeconds, retryDelaySeconds } = resolveQueueTimings(config);
+  const { pollIntervalSeconds, retryDelaySeconds } = resolveQueueTimings(config);
 
   const boss = new PgBoss({
     connectionString: config.queue.url,
@@ -164,7 +164,7 @@ export const registerWorker = async <TPayload>(
   const boss = ensureBoss();
   const config = ensureConfig();
   const logger = ensureLogger();
-  const { fetchIntervalMs, pollIntervalSeconds } = resolveQueueTimings(config);
+  const { pollIntervalSeconds } = resolveQueueTimings(config);
 
   const serialExecutor = options.keyResolver ? new SerialExecutor() : null;
 
