@@ -26,15 +26,24 @@ export interface ReportStatusRouteDependencies {
   updateStatus: (request: UpdateReportStatusRequest) => Promise<ReconciliationAdminActionResult>;
 }
 
-export const registerReportStatusRoute = async (
+export const registerReportStatusRoute = (
   app: FastifyInstance,
   dependencies: ReportStatusRouteDependencies
-): Promise<void> => {
+): void => {
   app.post(
     '/v1/tasks/reports/actions/status',
     {
-      preHandler: async (request, reply) => {
-        await dependencies.authenticate(request, reply);
+      preHandler: (request, reply, done) => {
+        try {
+          const maybe = dependencies.authenticate(request, reply);
+          if (maybe && typeof (maybe as Promise<void>).then === 'function') {
+            (maybe as Promise<void>).then(() => done()).catch(done);
+          } else {
+            done();
+          }
+        } catch (err) {
+          done(err as Error);
+        }
       }
     },
     async (request, reply) => {

@@ -6,15 +6,24 @@ export interface StatusRouteDependencies {
   buildSnapshot: () => Promise<TaskServiceHealthSnapshot>;
 }
 
-export const registerStatusRoutes = async (
+export const registerStatusRoutes = (
   app: FastifyInstance,
   dependencies: StatusRouteDependencies
-): Promise<void> => {
+): void => {
   app.get(
     '/v1/tasks/status',
     {
-      preHandler: async (request, reply) => {
-        await dependencies.authenticate(request, reply);
+      preHandler: (request, reply, done) => {
+        try {
+          const maybe = dependencies.authenticate(request, reply);
+          if (maybe && typeof (maybe as Promise<void>).then === 'function') {
+            (maybe as Promise<void>).then(() => done()).catch(done);
+          } else {
+            done();
+          }
+        } catch (err) {
+          done(err as Error);
+        }
       }
     },
     async (_request, reply) => {

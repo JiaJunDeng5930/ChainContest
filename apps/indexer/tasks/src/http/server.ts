@@ -37,7 +37,7 @@ export const createHttpServer = (options: HttpServerOptions = {}): HttpServer =>
 
   app.addHook('onRequest', async (request, reply) => {
     (request as typeof request & { startTime?: bigint }).startTime = process.hrtime.bigint();
-    reply.header('X-Request-Id', request.id);
+    void reply.header('X-Request-Id', request.id);
     request.log.debug({ url: request.url, method: request.method }, 'incoming request');
   });
 

@@ -20,15 +20,24 @@ export interface MilestoneRetryRouteDependencies {
   retryMilestone: (request: RetryMilestoneRequest) => Promise<{ queued: boolean }>;
 }
 
-export const registerMilestoneRetryRoute = async (
+export const registerMilestoneRetryRoute = (
   app: FastifyInstance,
   dependencies: MilestoneRetryRouteDependencies
-): Promise<void> => {
+): void => {
   app.post(
     '/v1/tasks/milestones/actions/retry',
     {
-      preHandler: async (request, reply) => {
-        await dependencies.authenticate(request, reply);
+      preHandler: (request, reply, done) => {
+        try {
+          const maybe = dependencies.authenticate(request, reply);
+          if (maybe && typeof (maybe as Promise<void>).then === 'function') {
+            (maybe as Promise<void>).then(() => done()).catch(done);
+          } else {
+            done();
+          }
+        } catch (err) {
+          done(err as Error);
+        }
       }
     },
     async (request, reply) => {
