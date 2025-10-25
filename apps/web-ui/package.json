@@ -12,6 +12,7 @@
     "test:e2e": "playwright test"
   },
   "dependencies": {
+    "@hookform/resolvers": "^3.9.1",
     "@chaincontest/shared-i18n": "workspace:*",
     "@rainbow-me/rainbowkit": "^2.2.9",
     "@tanstack/react-query": "^5.51.21",
@@ -22,7 +23,9 @@
     "ethers": "^6.15.0",
     "siwe": "^2.3.2",
     "viem": "^2.18.4",
-    "wagmi": "^2.11.9"
+    "wagmi": "^2.11.9",
+    "react-hook-form": "^7.53.1",
+    "zod": "^3.23.8"
   },
   "devDependencies": {
     "@playwright/test": "^1.56.0",

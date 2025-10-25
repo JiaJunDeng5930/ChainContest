@@ -49,8 +49,9 @@ export const DEFAULT_CONTEST_PAGE_SIZE = 25;
 export const QUERY_KEYS = {
   runtimeConfig: ["runtime-config"] as const,
   session: ["session", "current"] as const,
-  contests: (params: Record<string, unknown>) => ["contests", params] as const,
-  contestDetail: (contestId: string) => ["contest-detail", contestId] as const
+  contests: <T extends object>(params: T) => ["contests", params] as const,
+  contestDetail: (contestId: string) => ["contest-detail", contestId] as const,
+  creatorContests: <T extends object>(params: T) => ["creator-contests", params] as const
 };
 
 export const ERROR_MESSAGE_KEYS = {

@@ -78,11 +78,11 @@
 
 **Independent Test**: 运行 `pnpm --filter apps/web-ui test:e2e -- contest-create.spec.ts` 验证创建流程与结果展示。
 
-- [ ] T023 [US3] 实现比赛创建 API 封装 (`apps/web-ui/src/features/contests/api/createContest.ts`)
-- [ ] T024 [US3] 构建创建比赛表单（React Hook Form + Zod）(`apps/web-ui/src/features/contests/components/CreateContestForm.tsx`)
-- [ ] T025 [P] [US3] 添加创建入口页面与路由 (`apps/web-ui/src/app/(authenticated)/contests/create/page.tsx`)
-- [ ] T026 [US3] 实现“我创建的比赛”列表组件与分页 (`apps/web-ui/src/features/contests/components/MyCreatedContests.tsx`)
-- [ ] T027 [US3] 编写 Playwright 用例覆盖创建流程 (`apps/web-ui/tests/e2e/contest-create.spec.ts`)
+- [X] T023 [US3] 实现比赛创建 API 封装 (`apps/web-ui/src/features/contests/api/createContest.ts`)
+- [X] T024 [US3] 构建创建比赛表单（React Hook Form + Zod）(`apps/web-ui/src/features/contests/components/CreateContestForm.tsx`)
+- [X] T025 [P] [US3] 添加创建入口页面与路由 (`apps/web-ui/src/app/(authenticated)/contests/create/page.tsx`)
+- [X] T026 [US3] 实现“我创建的比赛”列表组件与分页 (`apps/web-ui/src/features/contests/components/MyCreatedContests.tsx`)
+- [X] T027 [US3] 编写 Playwright 用例覆盖创建流程 (`apps/web-ui/tests/e2e/contest-create.spec.ts`)
 
 ---
 
