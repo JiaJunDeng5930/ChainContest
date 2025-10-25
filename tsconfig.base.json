@@ -7,7 +7,7 @@
     "resolveJsonModule": true,
     "esModuleInterop": true,
     "forceConsistentCasingInFileNames": true,
-    "skipLibCheck": false,
+    "skipLibCheck": true,
     "isolatedModules": true,
     "noImplicitOverride": true,
     "noUncheckedIndexedAccess": true

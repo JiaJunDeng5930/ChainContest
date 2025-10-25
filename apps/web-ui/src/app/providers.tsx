@@ -3,18 +3,14 @@
 import "@rainbow-me/rainbowkit/styles.css";
 
 import type { SupportedLocale } from "@chaincontest/shared-i18n";
-import {
-  RainbowKitProvider,
-  coinbaseWallet,
-  connectorsForWallets,
-  injectedWallet,
-  walletConnectWallet
-} from "@rainbow-me/rainbowkit";
+import { RainbowKitProvider, getDefaultConfig, type Locale } from "@rainbow-me/rainbowkit";
 import { QueryClientProvider } from "@tanstack/react-query";
-import { useMemo, useState, type ReactNode } from "react";
-import { WagmiConfig, createConfig, http } from "wagmi";
-import { mainnet, sepolia } from "wagmi/chains";
 import { NextIntlClientProvider } from "next-intl";
+import { useMemo, useState, type ReactNode } from "react";
+import { WagmiProvider } from "wagmi";
+import { http } from "wagmi";
+import { mainnet, sepolia } from "wagmi/chains";
+
 import { createQueryClient } from "../lib/api/client";
 
 type ProvidersProps = {
@@ -26,52 +22,48 @@ type ProvidersProps = {
 const APP_NAME = "ChainContest";
 const SUPPORTED_CHAINS = [mainnet, sepolia] as const;
 
-const wagmiTransports = SUPPORTED_CHAINS.reduce<Record<number, ReturnType<typeof http>>>((acc, chain) => {
-  acc[chain.id] = http();
-  return acc;
-}, {});
+const transports = SUPPORTED_CHAINS.reduce<
+  Record<
+    (typeof SUPPORTED_CHAINS)[number]["id"],
+    ReturnType<typeof http>
+  >
+>(
+  (acc, chain) => {
+    acc[chain.id] = http();
+    return acc;
+  },
+  {} as Record<(typeof SUPPORTED_CHAINS)[number]["id"], ReturnType<typeof http>>
+);
 
-const walletConnectProjectId = process.env.NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID ?? "";
+const walletConnectProjectId =
+  process.env.NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID ?? "00000000000000000000000000000000";
 
-const recommendedWallets = [
-  injectedWallet({ chains: SUPPORTED_CHAINS }),
-  coinbaseWallet({ chains: SUPPORTED_CHAINS, appName: APP_NAME })
-];
-
-if (walletConnectProjectId) {
-  recommendedWallets.push(
-    walletConnectWallet({
-      chains: SUPPORTED_CHAINS,
-      projectId: walletConnectProjectId
-    })
-  );
-}
-
-const wagmiConfig = createConfig({
-  autoConnect: true,
-  connectors: connectorsForWallets([
-    {
-      groupName: "Recommended",
-      wallets: recommendedWallets
-    }
-  ]),
-  transports: wagmiTransports,
+const wagmiConfig = getDefaultConfig({
+  appName: APP_NAME,
+  chains: SUPPORTED_CHAINS,
+  projectId: walletConnectProjectId,
+  transports,
   ssr: true
 });
+
+const RAINBOWKIT_LOCALE_MAP: Record<SupportedLocale, Locale> = {
+  en: "en",
+  "zh-CN": "zh-CN"
+};
 
 export function AppProviders({ children, locale, messages }: ProvidersProps) {
   const [queryClient] = useState(() => createQueryClient());
 
-  const rainbowLocale = useMemo(() => locale.replace("_", "-"), [locale]);
+  const rainbowLocale = useMemo<Locale>(() => RAINBOWKIT_LOCALE_MAP[locale] ?? "en", [locale]);
 
   return (
     <NextIntlClientProvider locale={locale} messages={messages}>
       <QueryClientProvider client={queryClient}>
-        <WagmiConfig config={wagmiConfig}>
-          <RainbowKitProvider chains={SUPPORTED_CHAINS} locale={rainbowLocale}>
+        <WagmiProvider config={wagmiConfig}>
+          <RainbowKitProvider locale={rainbowLocale}>
             {children}
           </RainbowKitProvider>
-        </WagmiConfig>
+        </WagmiProvider>
       </QueryClientProvider>
     </NextIntlClientProvider>
   );

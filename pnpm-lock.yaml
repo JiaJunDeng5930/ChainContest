@@ -267,12 +267,18 @@ importers:
 
   apps/web-ui:
     dependencies:
+      '@chaincontest/shared-i18n':
+        specifier: workspace:*
+        version: link:../../packages/shared/i18n
       '@rainbow-me/rainbowkit':
         specifier: ^2.2.9
         version: 2.2.9(@tanstack/react-query@5.90.5(react@18.3.1))(@types/react@18.3.26)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)(typescript@5.9.3)(viem@2.38.3(bufferutil@4.0.9)(typescript@5.9.3)(utf-8-validate@5.0.10)(zod@3.25.76))(wagmi@2.18.2(@tanstack/query-core@5.90.5)(@tanstack/react-query@5.90.5(react@18.3.1))(@types/react@18.3.26)(bufferutil@4.0.9)(immer@10.0.2)(react@18.3.1)(typescript@5.9.3)(utf-8-validate@5.0.10)(viem@2.38.3(bufferutil@4.0.9)(typescript@5.9.3)(utf-8-validate@5.0.10)(zod@3.25.76))(zod@3.25.76))
       '@tanstack/react-query':
         specifier: ^5.51.21
         version: 5.90.5(react@18.3.1)
+      ethers:
+        specifier: ^6.15.0
+        version: 6.15.0(bufferutil@4.0.9)(utf-8-validate@5.0.10)
       next:
         specifier: ^14.2.5
         version: 14.2.33(@playwright/test@1.56.0)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)

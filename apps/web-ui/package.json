@@ -11,12 +11,14 @@
     "lint": "next lint"
   },
   "dependencies": {
+    "@chaincontest/shared-i18n": "workspace:*",
     "@rainbow-me/rainbowkit": "^2.2.9",
     "@tanstack/react-query": "^5.51.21",
     "next": "^14.2.5",
     "next-intl": "^3.13.0",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
+    "ethers": "^6.15.0",
     "siwe": "^2.3.2",
     "viem": "^2.18.4",
     "wagmi": "^2.11.9"

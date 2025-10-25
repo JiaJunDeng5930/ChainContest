@@ -1,6 +1,6 @@
 "use client";
 
-import { CHAIN_METADATA } from "@chaincontest/shared-i18n";
+import { CHAIN_METADATA, SUPPORTED_CHAIN_IDS, type SupportedChainId } from "@chaincontest/shared-i18n";
 import { useTranslations } from "next-intl";
 import { createContext, useContext, useMemo, type ReactNode } from "react";
 import { useAccount, useChainId } from "wagmi";
@@ -33,6 +33,14 @@ export function useNetworkGateState() {
 type NetworkGateProps = {
   children: ReactNode;
 };
+
+function toSupportedChainId(chainId: number | null): SupportedChainId | null {
+  if (chainId == null) {
+    return null;
+  }
+
+  return SUPPORTED_CHAIN_IDS.includes(chainId as SupportedChainId) ? (chainId as SupportedChainId) : null;
+}
 
 export function NetworkGate({ children }: NetworkGateProps) {
   const t = useTranslations();
@@ -74,7 +82,7 @@ export function NetworkGate({ children }: NetworkGateProps) {
   const warnings: Array<{
     key: string;
     error: unknown;
-    onRetry?: () => Promise<unknown> | unknown;
+    onRetry?: () => Promise<void> | void;
     footerSlot?: ReactNode;
     forceRetryable?: boolean;
   }> = [];
@@ -105,8 +113,10 @@ export function NetworkGate({ children }: NetworkGateProps) {
   }
 
   if (isWalletConnected && !isSupportedNetwork) {
-    const requiredChainName = requiredChainId ? CHAIN_METADATA[requiredChainId]?.nameKey : null;
-    const currentChainName = currentChainId ? CHAIN_METADATA[currentChainId]?.nameKey : null;
+    const requiredChainMetadata = toSupportedChainId(requiredChainId);
+    const currentChainMetadata = toSupportedChainId(currentChainId);
+    const requiredChainName = requiredChainMetadata ? CHAIN_METADATA[requiredChainMetadata].nameKey : null;
+    const currentChainName = currentChainMetadata ? CHAIN_METADATA[currentChainMetadata].nameKey : null;
 
     warnings.push({
       key: "network",
@@ -145,7 +155,13 @@ export function NetworkGate({ children }: NetworkGateProps) {
             <ErrorBanner
               key={key}
               error={error}
-              onRetry={onRetry ? () => Promise.resolve(onRetry()) : undefined}
+              onRetry={
+                onRetry
+                  ? async () => {
+                      await onRetry();
+                    }
+                  : undefined
+              }
               footerSlot={footerSlot}
               forceRetryable={forceRetryable}
             />
