@@ -67,7 +67,7 @@
 - [X] T018 [US2] 创建列表页面入口与查询参数映射 (`apps/web-ui/src/app/(authenticated)/contests/page.tsx`)
 - [X] T019 [P] [US2] 构建列表 UI 与空/加载态 (`apps/web-ui/src/features/contests/components/ContestList.tsx`)
 - [ ] T020 [US2] 实现比赛详情页面呈现奖池、容量、排行榜、区块信息 (`apps/web-ui/src/app/(authenticated)/contests/[contestId]/page.tsx`)
-- [ ] T021 [US2] 实现分页与刷新控件 (`apps/web-ui/src/features/contests/components/ContestPagination.tsx`)
+- [X] T021 [US2] 实现分页与刷新控件 (`apps/web-ui/src/features/contests/components/ContestPagination.tsx`)
 - [ ] T022 [US2] 编写 Playwright 用例覆盖列表→详情 (`apps/web-ui/tests/e2e/contests-list.spec.ts`)
 
 ---

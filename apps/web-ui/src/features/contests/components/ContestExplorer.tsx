@@ -21,6 +21,7 @@ import {
   type ContestSnapshot
 } from "../api/contests";
 import ContestList from "./ContestList";
+import ContestPagination from "./ContestPagination";
 
 type ContestExplorerProps = {
   initialQuery: ContestListQuery;
@@ -68,11 +69,14 @@ export function ContestExplorer({ initialQuery }: ContestExplorerProps) {
   const pathname = usePathname();
   const [isRouting, startTransition] = useTransition();
 
+  const initialCursor = initialQuery.cursor ?? null;
+
   const [filters, setFilters] = useState<FilterState>({
     chainId: initialQuery.chainId ?? null,
     status: initialQuery.status ?? null
   });
-  const [cursor, setCursor] = useState<string | null>(initialQuery.cursor ?? null);
+  const [cursor, setCursor] = useState<string | null>(initialCursor);
+  const [cursorHistory, setCursorHistory] = useState<Array<string | null>>(initialCursor ? [null] : []);
 
   const queryVariables = useMemo(() => toQueryParams(filters, cursor), [filters, cursor]);
 
@@ -104,6 +108,7 @@ export function ContestExplorer({ initialQuery }: ContestExplorerProps) {
           status: previous.status
         };
         setCursor(null);
+        setCursorHistory([]);
         navigateWithState(nextFilters, null);
         return nextFilters;
       });
@@ -120,6 +125,7 @@ export function ContestExplorer({ initialQuery }: ContestExplorerProps) {
           status: value && isContestPhase(value) ? value : null
         };
         setCursor(null);
+        setCursorHistory([]);
         navigateWithState(nextFilters, null);
         return nextFilters;
       });
@@ -134,12 +140,41 @@ export function ContestExplorer({ initialQuery }: ContestExplorerProps) {
     };
     setFilters(nextFilters);
     setCursor(null);
+    setCursorHistory([]);
     navigateWithState(nextFilters, null);
   }, [navigateWithState]);
 
   const handleRefresh = useCallback(async () => {
     await contestsQuery.refetch();
   }, [contestsQuery]);
+
+  const nextCursor = contestsQuery.data?.nextCursor ?? null;
+
+  const handleNextPage = useCallback(() => {
+    if (!nextCursor) {
+      return;
+    }
+
+    setCursorHistory((previous) => [...previous, cursor]);
+    setCursor(nextCursor);
+    navigateWithState(filters, nextCursor);
+  }, [cursor, filters, navigateWithState, nextCursor]);
+
+  const handlePreviousPage = useCallback(() => {
+    if (!cursorHistory.length) {
+      if (cursor !== null) {
+        setCursor(null);
+        navigateWithState(filters, null);
+      }
+      return;
+    }
+
+    const updatedHistory = [...cursorHistory];
+    const previousCursorValue = updatedHistory.pop() ?? null;
+    setCursorHistory(updatedHistory);
+    setCursor(previousCursorValue);
+    navigateWithState(filters, previousCursorValue);
+  }, [cursor, cursorHistory, filters, navigateWithState]);
 
   const currentChainId = filters.chainId;
   const currentStatus = filters.status;
@@ -166,6 +201,10 @@ export function ContestExplorer({ initialQuery }: ContestExplorerProps) {
   const isFetching = contestsQuery.isFetching && !contestsQuery.isLoading;
   const contestItems = contestsQuery.data?.items;
   const contests: ContestSnapshot[] = contestItems ? [...contestItems] : [];
+  const hasNextPage = Boolean(nextCursor);
+  const hasPreviousPage = cursorHistory.length > 0;
+  const currentPage = cursorHistory.length + 1;
+  const isPaginationBusy = isRouting || contestsQuery.isFetching;
 
   return (
     <section className="space-y-6">
@@ -235,6 +274,16 @@ export function ContestExplorer({ initialQuery }: ContestExplorerProps) {
       ) : null}
 
       <ContestList items={contests} isLoading={isLoading} isFetching={isFetching} />
+
+      <ContestPagination
+        hasPreviousPage={hasPreviousPage}
+        hasNextPage={hasNextPage}
+        onPrevious={handlePreviousPage}
+        onNext={handleNextPage}
+        isBusy={isPaginationBusy}
+        isInitialLoading={isLoading}
+        currentPage={currentPage}
+      />
     </section>
   );
 }

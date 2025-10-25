@@ -51,6 +51,8 @@
   "contests.list.fullLabel": "名额已满",
   "contests.pagination.next": "下一页",
   "contests.pagination.previous": "上一页",
+  "contests.pagination.pageIndicator": "第 {page} 页",
+  "contests.pagination.ariaLabel": "比赛分页",
   "contests.refresh": "刷新列表",
   "contests.status.registration": "报名中",
   "contests.status.active": "进行中",

@@ -51,6 +51,8 @@
   "contests.list.fullLabel": "Full",
   "contests.pagination.next": "Next page",
   "contests.pagination.previous": "Previous page",
+  "contests.pagination.pageIndicator": "Page {page}",
+  "contests.pagination.ariaLabel": "Contest pagination",
   "contests.refresh": "Refresh contests",
   "contests.status.registration": "Registration",
   "contests.status.active": "Active",
