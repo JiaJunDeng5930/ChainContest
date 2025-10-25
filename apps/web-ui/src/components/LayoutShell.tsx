@@ -1,29 +1,15 @@
 "use client";
 
-import Link from "next/link";
-import { usePathname } from "next/navigation";
 import { useTranslations } from "next-intl";
 import type { ReactNode } from "react";
 
-type NavigationItem = {
-  href: string;
-  labelKey: string;
-};
-
-const PRIMARY_NAVIGATION: NavigationItem[] = [
-  { href: "/", labelKey: "nav.home" },
-  { href: "/contests", labelKey: "nav.contests" },
-  { href: "/contests/create", labelKey: "nav.myContests" },
-  { href: "/profile/participation", labelKey: "nav.participation" },
-  { href: "/runtime", labelKey: "nav.runtime" }
-];
+import Header from "./Header";
 
 type LayoutShellProps = {
   children: ReactNode;
 };
 
 export function LayoutShell({ children }: LayoutShellProps) {
-  const pathname = usePathname();
   const t = useTranslations();
 
   return (
@@ -35,35 +21,7 @@ export function LayoutShell({ children }: LayoutShellProps) {
         {t("common.actions.skipToContent")}
       </a>
 
-      <header className="border-b border-slate-800 bg-slate-950/70 backdrop-blur">
-        <div className="mx-auto flex max-w-6xl items-center justify-between px-6 py-4">
-          <Link href="/" className="text-lg font-semibold tracking-tight text-slate-50">
-            {t("app.title")}
-          </Link>
-          <nav aria-label={t("nav.contests")}>
-            <ul className="flex items-center gap-4 text-sm font-medium">
-              {PRIMARY_NAVIGATION.map((item) => {
-                const isActive = pathname === item.href || pathname.startsWith(`${item.href}/`);
-                return (
-                  <li key={item.href}>
-                    <Link
-                      href={item.href}
-                      className={`rounded px-3 py-2 transition ${
-                        isActive
-                          ? "bg-slate-800 text-slate-50"
-                          : "text-slate-300 hover:bg-slate-900 hover:text-slate-50"
-                      }`}
-                      aria-current={isActive ? "page" : undefined}
-                    >
-                      {t(item.labelKey)}
-                    </Link>
-                  </li>
-                );
-              })}
-            </ul>
-          </nav>
-        </div>
-      </header>
+      <Header />
 
       <main id="main-content" className="mx-auto max-w-6xl px-6 py-8">
         {children}

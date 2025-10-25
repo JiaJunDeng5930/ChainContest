@@ -12,6 +12,7 @@
   "auth.connecting": "Awaiting wallet confirmation…",
   "auth.connected": "Wallet connected",
   "auth.disconnect": "Disconnect",
+  "auth.siwe.statement": "Sign in to ChainContest",
   "auth.session.active": "Session active",
   "auth.session.expiring": "Session expiring soon",
   "auth.session.expired": "Session expired",

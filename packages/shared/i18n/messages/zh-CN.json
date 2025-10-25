@@ -12,6 +12,7 @@
   "auth.connecting": "请在钱包中确认…",
   "auth.connected": "钱包已连接",
   "auth.disconnect": "断开连接",
+  "auth.siwe.statement": "登录 ChainContest",
   "auth.session.active": "会话正常",
   "auth.session.expiring": "会话即将过期",
   "auth.session.expired": "会话已失效",

@@ -285,6 +285,9 @@ importers:
       react-dom:
         specifier: ^18.3.1
         version: 18.3.1(react@18.3.1)
+      siwe:
+        specifier: ^2.3.2
+        version: 2.3.2(ethers@6.15.0(bufferutil@4.0.9)(utf-8-validate@5.0.10))
       viem:
         specifier: ^2.18.4
         version: 2.38.3(bufferutil@4.0.9)(typescript@5.9.3)(utf-8-validate@5.0.10)(zod@3.25.76)
@@ -8366,13 +8369,13 @@ snapshots:
   '@motionone/easing@10.18.0':
     dependencies:
       '@motionone/utils': 10.18.0
-      tslib: 2.7.0
+      tslib: 2.8.1
 
   '@motionone/generators@10.18.0':
     dependencies:
       '@motionone/types': 10.17.1
       '@motionone/utils': 10.18.0
-      tslib: 2.7.0
+      tslib: 2.8.1
 
   '@motionone/svelte@10.16.4':
     dependencies:
@@ -10895,7 +10898,7 @@ snapshots:
 
   async-mutex@0.2.6:
     dependencies:
-      tslib: 2.7.0
+      tslib: 2.8.1
 
   async@1.5.2: {}
 
