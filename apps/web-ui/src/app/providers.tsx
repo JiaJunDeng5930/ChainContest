@@ -55,9 +55,29 @@ export function AppProviders({ children, locale, messages }: ProvidersProps) {
   const [queryClient] = useState(() => createQueryClient());
 
   const rainbowLocale = useMemo<Locale>(() => RAINBOWKIT_LOCALE_MAP[locale] ?? "en", [locale]);
+  const defaultTimeZone = "UTC";
+  const nestedMessages = useMemo(() => {
+    const accumulator: Record<string, unknown> = {};
+    for (const [key, value] of Object.entries(messages)) {
+      const segments = key.split(".");
+      let current: Record<string, unknown> = accumulator;
+      segments.forEach((segment, index) => {
+        const isLeaf = index === segments.length - 1;
+        if (isLeaf) {
+          current[segment] = value;
+          return;
+        }
+        if (!current[segment] || typeof current[segment] !== "object") {
+          current[segment] = {};
+        }
+        current = current[segment] as Record<string, unknown>;
+      });
+    }
+    return accumulator;
+  }, [messages]);
 
   return (
-    <NextIntlClientProvider locale={locale} messages={messages}>
+    <NextIntlClientProvider locale={locale} messages={nestedMessages} timeZone={defaultTimeZone}>
       <QueryClientProvider client={queryClient}>
         <WagmiProvider config={wagmiConfig}>
           <RainbowKitProvider locale={rainbowLocale}>

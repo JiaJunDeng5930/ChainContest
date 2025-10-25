@@ -1,4 +1,5 @@
 import { defineConfig, devices } from "@playwright/test";
+import path from "node:path";
 
 const WEB_UI_PORT = 3000;
 const WEB_UI_HOST = "127.0.0.1";
@@ -27,16 +28,19 @@ export default defineConfig({
     }
   ],
   webServer: {
-    command: `pnpm --filter @chaincontest/web-ui dev -- --hostname ${WEB_UI_HOST} --port ${WEB_UI_PORT}`,
+    command: `pnpm --filter @chaincontest/web-ui dev --hostname ${WEB_UI_HOST} --port ${WEB_UI_PORT}`,
     url: BASE_URL,
+    timeout: 120_000,
     reuseExistingServer: !process.env.CI,
     stdout: "pipe",
     stderr: "pipe",
     env: {
       ...process.env,
+      NEXT_INTL_CONFIG:
+        process.env.NEXT_INTL_CONFIG ??
+        path.resolve(process.cwd(), "apps/web-ui/next-intl.config.ts"),
       NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID:
         process.env.NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID ?? "00000000000000000000000000000000"
     }
   }
 });
-

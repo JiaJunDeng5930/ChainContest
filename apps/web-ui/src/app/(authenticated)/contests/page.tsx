@@ -1,8 +1,7 @@
 import { CONTEST_PHASES, type ContestPhase } from "@chaincontest/shared-i18n";
-import { getTranslations } from "next-intl/server";
-
 import ContestExplorer from "../../../features/contests/components/ContestExplorer";
 import type { ContestListQuery } from "../../../features/contests/api/contests";
+import ContestsPageHeader from "../../../features/contests/components/ContestsPageHeader";
 
 type ContestsPageSearchParams = Record<string, string | string[] | undefined>;
 
@@ -59,20 +58,16 @@ export function mapSearchParamsToContestQuery(
   };
 }
 
-export default async function ContestsPage({
+export default function ContestsPage({
   searchParams = {}
 }: {
   searchParams?: ContestsPageSearchParams;
 }) {
-  const t = await getTranslations();
   const initialQuery = mapSearchParamsToContestQuery(searchParams);
 
   return (
     <div className="space-y-8">
-      <header className="space-y-2">
-        <h1 className="text-3xl font-semibold tracking-tight text-slate-50">{t("nav.contests")}</h1>
-        <p className="text-sm text-slate-300">{t("contests.refresh")}</p>
-      </header>
+      <ContestsPageHeader />
       <ContestExplorer initialQuery={initialQuery} />
     </div>
   );

@@ -1,6 +1,5 @@
-import { getTranslations } from "next-intl/server";
-
 import ContestDetail from "../../../../features/contests/components/ContestDetail";
+import ContestDetailPageHeader from "../../../../features/contests/components/ContestDetailPageHeader";
 
 type ContestDetailPageProps = {
   params: {
@@ -8,18 +7,12 @@ type ContestDetailPageProps = {
   };
 };
 
-export default async function ContestDetailPage({ params }: ContestDetailPageProps) {
-  const t = await getTranslations();
+export default function ContestDetailPage({ params }: ContestDetailPageProps) {
   const { contestId } = params;
 
   return (
     <div className="space-y-6">
-      <header className="space-y-2">
-        <h1 className="text-3xl font-semibold tracking-tight text-slate-50">
-          {t("contests.detail.overview")}
-        </h1>
-        <p className="text-sm text-slate-300">{t("contests.refresh")}</p>
-      </header>
+      <ContestDetailPageHeader />
       <ContestDetail contestId={contestId} />
     </div>
   );
