@@ -6,6 +6,7 @@ import { useLocale, useTranslations } from "next-intl";
 import { useCallback, useMemo, useState } from "react";
 
 import ErrorBanner from "../../../components/ErrorBanner";
+import { trackInteraction } from "../../../lib/telemetry";
 import { useNetworkGateState } from "../../network/NetworkGate";
 import type { ContestSnapshot } from "../../contests/api/contests";
 import {
@@ -202,6 +203,18 @@ function SettlementSection({
         caller: participantAddress ?? ""
       } satisfies SettlementInput),
     onSuccess: async (payload: SettlementResult) => {
+      trackInteraction({
+        action: "settlement-execute",
+        stage: "success",
+        contestId,
+        chainId: contest.chainId,
+        walletAddress: participantAddress ?? null,
+        status: payload.status,
+        anchor: payload.frozenAt ?? null,
+        metadata: {
+          hasCall: Boolean(payload.settlementCall)
+        }
+      });
       setResult({
         status: payload.status,
         settlementCall: formatCall(payload.settlementCall),
@@ -219,14 +232,29 @@ function SettlementSection({
       });
     },
     onError: (error) => {
+      trackInteraction({
+        action: "settlement-execute",
+        stage: "error",
+        contestId,
+        chainId: contest.chainId,
+        walletAddress: participantAddress ?? null,
+        error
+      });
       setLastError(error);
     }
   });
 
   const handleExecute = useCallback(async () => {
     setLastError(null);
+    trackInteraction({
+      action: "settlement-execute",
+      stage: "start",
+      contestId,
+      chainId: contest.chainId,
+      walletAddress: participantAddress ?? null
+    });
     await mutation.mutateAsync();
-  }, [mutation]);
+  }, [contest.chainId, contestId, mutation, participantAddress]);
 
   return (
     <div className="space-y-4 rounded border border-slate-800/60 bg-slate-900/40 p-5">
@@ -357,6 +385,19 @@ function PrincipalSection({
   const planMutation = useMutation({
     mutationFn: async () => fetchPrincipalRedemptionPlan(contestId, toInput()),
     onSuccess: (result) => {
+      trackInteraction({
+        action: "principal-plan",
+        stage: "success",
+        contestId,
+        chainId: contest.chainId,
+        walletAddress: participantAddress ?? null,
+        status: result.status,
+        anchor: result.derivedAt ?? null,
+        metadata: {
+          hasPayout: Boolean(result.payout),
+          hasCall: Boolean(result.claimCall)
+        }
+      });
       setPlanDisplay({
         status: result.status,
         payout: result.payout ?? null,
@@ -372,6 +413,14 @@ function PrincipalSection({
       setLastError(null);
     },
     onError: (error) => {
+      trackInteraction({
+        action: "principal-plan",
+        stage: "error",
+        contestId,
+        chainId: contest.chainId,
+        walletAddress: participantAddress ?? null,
+        error
+      });
       setLastError(error);
     }
   });
@@ -379,6 +428,19 @@ function PrincipalSection({
   const executeMutation = useMutation({
     mutationFn: async () => executePrincipalRedemption(contestId, toInput()),
     onSuccess: async (result) => {
+      trackInteraction({
+        action: "principal-execute",
+        stage: "success",
+        contestId,
+        chainId: contest.chainId,
+        walletAddress: participantAddress ?? null,
+        status: result.status,
+        anchor: result.derivedAt ?? null,
+        metadata: {
+          hasPayout: Boolean(result.payout),
+          hasCall: Boolean(result.claimCall)
+        }
+      });
       setExecutionDisplay({
         status: result.status,
         payout: result.payout ?? null,
@@ -396,19 +458,41 @@ function PrincipalSection({
       });
     },
     onError: (error) => {
+      trackInteraction({
+        action: "principal-execute",
+        stage: "error",
+        contestId,
+        chainId: contest.chainId,
+        walletAddress: participantAddress ?? null,
+        error
+      });
       setLastError(error);
     }
   });
 
   const handlePlan = useCallback(async () => {
     setLastError(null);
+    trackInteraction({
+      action: "principal-plan",
+      stage: "start",
+      contestId,
+      chainId: contest.chainId,
+      walletAddress: participantAddress ?? null
+    });
     await planMutation.mutateAsync();
-  }, [planMutation]);
+  }, [contest.chainId, contestId, participantAddress, planMutation]);
 
   const handleExecute = useCallback(async () => {
     setLastError(null);
+    trackInteraction({
+      action: "principal-execute",
+      stage: "start",
+      contestId,
+      chainId: contest.chainId,
+      walletAddress: participantAddress ?? null
+    });
     await executeMutation.mutateAsync();
-  }, [executeMutation]);
+  }, [contest.chainId, contestId, executeMutation, participantAddress]);
 
   const canExecute = useMemo(() => {
     if (!planDisplay) {
@@ -649,6 +733,19 @@ function RebalanceSection({
   const planMutation = useMutation({
     mutationFn: async () => fetchRebalancePlan(contestId, toInput()),
     onSuccess: (result) => {
+      trackInteraction({
+        action: "rebalance-plan",
+        stage: "success",
+        contestId,
+        chainId: contest.chainId,
+        walletAddress: participantAddress ?? null,
+        status: result.status,
+        anchor: result.derivedAt ?? null,
+        metadata: {
+          checks: Array.isArray(result.checks) ? result.checks.length : 0,
+          hasTransaction: Boolean(result.transaction)
+        }
+      });
       setPlanDisplay({
         status: result.status,
         checks: formatChecks(result.checks),
@@ -665,6 +762,14 @@ function RebalanceSection({
       setLastError(null);
     },
     onError: (error) => {
+      trackInteraction({
+        action: "rebalance-plan",
+        stage: "error",
+        contestId,
+        chainId: contest.chainId,
+        walletAddress: participantAddress ?? null,
+        error
+      });
       setLastError(error);
     }
   });
@@ -672,6 +777,19 @@ function RebalanceSection({
   const executeMutation = useMutation({
     mutationFn: async () => executeRebalance(contestId, toInput()),
     onSuccess: async (result) => {
+      trackInteraction({
+        action: "rebalance-execute",
+        stage: "success",
+        contestId,
+        chainId: contest.chainId,
+        walletAddress: participantAddress ?? null,
+        status: result.status,
+        anchor: result.derivedAt ?? null,
+        metadata: {
+          hasTransaction: Boolean(result.transaction),
+          hasRollbackAdvice: Boolean(result.rollbackAdvice)
+        }
+      });
       setExecutionDisplay({
         status: result.status,
         transaction: formatCall(result.transaction),
@@ -689,19 +807,49 @@ function RebalanceSection({
       });
     },
     onError: (error) => {
+      trackInteraction({
+        action: "rebalance-execute",
+        stage: "error",
+        contestId,
+        chainId: contest.chainId,
+        walletAddress: participantAddress ?? null,
+        error
+      });
       setLastError(error);
     }
   });
 
   const handlePlan = useCallback(async () => {
     setLastError(null);
+    trackInteraction({
+      action: "rebalance-plan",
+      stage: "start",
+      contestId,
+      chainId: contest.chainId,
+      walletAddress: participantAddress ?? null,
+      metadata: {
+        sellAsset: intent.sellAsset,
+        buyAsset: intent.buyAsset
+      }
+    });
     await planMutation.mutateAsync();
-  }, [planMutation]);
+  }, [contest.chainId, contestId, intent.buyAsset, intent.sellAsset, participantAddress, planMutation]);
 
   const handleExecute = useCallback(async () => {
     setLastError(null);
+    trackInteraction({
+      action: "rebalance-execute",
+      stage: "start",
+      contestId,
+      chainId: contest.chainId,
+      walletAddress: participantAddress ?? null,
+      metadata: {
+        sellAsset: intent.sellAsset,
+        buyAsset: intent.buyAsset
+      }
+    });
     await executeMutation.mutateAsync();
-  }, [executeMutation]);
+  }, [contest.chainId, contestId, executeMutation, intent.buyAsset, intent.sellAsset, participantAddress]);
 
   const canExecute = useMemo(() => {
     if (!planDisplay) {

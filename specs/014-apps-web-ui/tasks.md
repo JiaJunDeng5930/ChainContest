@@ -100,7 +100,7 @@
 - [X] T033 [US4] 将报名、领奖、赛后面板集成进比赛详情，依据阶段与网络做前置否决 (`apps/web-ui/src/app/(authenticated)/contests/[contestId]/page.tsx`)
 - [X] T034 [P] [US4] 实现“我参加的比赛”页面展示报名与领奖历史 (`apps/web-ui/src/app/(authenticated)/profile/participation/page.tsx`)
 - [X] T035 [US4] 实现最近一次链上交互摘要 Hook 与 UI (`apps/web-ui/src/features/participation/hooks/useLastInteractionSummary.ts`，`src/features/participation/components/InteractionSummary.tsx`)
-- [ ] T036 [US4] 编写 Playwright 用例覆盖报名、领奖、赛后操作与摘要展示 (`apps/web-ui/tests/e2e/contest-participation.spec.ts`)
+- [X] T036 [US4] 编写 Playwright 用例覆盖报名、领奖、赛后操作与摘要展示 (`apps/web-ui/tests/e2e/contest-participation.spec.ts`)
 
 ---
 
@@ -108,10 +108,10 @@
 
 **Purpose**: 文档、监控、性能与可访问性收尾，满足宪法与成功标准。
 
-- [ ] T037 更新 `specs/014-apps-web-ui/quickstart.md` 补充运行步骤、环境变量与测试指引
-- [ ] T038 实现前端关键事件日志/监控封装 (`apps/web-ui/src/lib/telemetry.ts`) 并在链上交互中调用
-- [ ] T039 记录性能与可访问性检查结果（Lighthouse/Playwright 指标）于 `docs/reports/web-ui-readiness.md`
-- [ ] T040 记录并校验登录、报名、领奖流程耗时（脚本输出对比 SC-001～SC-003）`apps/web-ui/tests/perf/user-flows.perf.ts`
+- [X] T037 更新 `specs/014-apps-web-ui/quickstart.md` 补充运行步骤、环境变量与测试指引
+- [X] T038 实现前端关键事件日志/监控封装 (`apps/web-ui/src/lib/telemetry.ts`) 并在链上交互中调用
+- [X] T039 记录性能与可访问性检查结果（Lighthouse/Playwright 指标）于 `docs/reports/web-ui-readiness.md`
+- [X] T040 记录并校验登录、报名、领奖流程耗时（脚本输出对比 SC-001～SC-003）`apps/web-ui/tests/perf/user-flows.perf.ts`
 
 ---
 

@@ -6,6 +6,7 @@ import { useLocale, useTranslations } from "next-intl";
 import { useCallback, useMemo, useState } from "react";
 
 import ErrorBanner from "../../../components/ErrorBanner";
+import { trackInteraction } from "../../../lib/telemetry";
 import { useNetworkGateState } from "../../network/NetworkGate";
 import type { ContestSnapshot } from "../../contests/api/contests";
 import { executeRegistration, fetchRegistrationPlan } from "../api/registration";
@@ -226,6 +227,19 @@ export default function RegistrationPanel({ contestId, contest }: RegistrationPa
       });
     },
     onSuccess: (result) => {
+      trackInteraction({
+        action: "registration-plan",
+        stage: "success",
+        contestId,
+        chainId: contest.chainId,
+        walletAddress: participantAddress ?? null,
+        status: result.status,
+        anchor: result.derivedAt ?? null,
+        metadata: {
+          checks: Array.isArray(result.checks) ? result.checks.length : 0,
+          approvals: Array.isArray(result.requiredApprovals) ? result.requiredApprovals.length : 0
+        }
+      });
       setPlanDisplay({
         status: result.status,
         checks: formatChecks(result.checks),
@@ -243,6 +257,14 @@ export default function RegistrationPanel({ contestId, contest }: RegistrationPa
       setLastError(null);
     },
     onError: (error) => {
+      trackInteraction({
+        action: "registration-plan",
+        stage: "error",
+        contestId,
+        chainId: contest.chainId,
+        walletAddress: participantAddress ?? null,
+        error
+      });
       setLastError(error);
     }
   });
@@ -257,6 +279,18 @@ export default function RegistrationPanel({ contestId, contest }: RegistrationPa
       });
     },
     onSuccess: async (result) => {
+      trackInteraction({
+        action: "registration-execute",
+        stage: "success",
+        contestId,
+        chainId: contest.chainId,
+        walletAddress: participantAddress ?? null,
+        status: result.status,
+        anchor: result.derivedAt ?? null,
+        metadata: {
+          approvals: Array.isArray(result.requiredApprovals) ? result.requiredApprovals.length : 0
+        }
+      });
       setExecutionDisplay({
         status: result.status,
         transaction: formatCall(result.transaction),
@@ -277,19 +311,41 @@ export default function RegistrationPanel({ contestId, contest }: RegistrationPa
       });
     },
     onError: (error) => {
+      trackInteraction({
+        action: "registration-execute",
+        stage: "error",
+        contestId,
+        chainId: contest.chainId,
+        walletAddress: participantAddress ?? null,
+        error
+      });
       setLastError(error);
     }
   });
 
   const handlePlan = useCallback(async () => {
     setLastError(null);
+    trackInteraction({
+      action: "registration-plan",
+      stage: "start",
+      contestId,
+      chainId: contest.chainId,
+      walletAddress: participantAddress ?? null
+    });
     await planMutation.mutateAsync();
-  }, [planMutation]);
+  }, [planMutation, contest.chainId, contestId, participantAddress]);
 
   const handleExecute = useCallback(async () => {
     setLastError(null);
+    trackInteraction({
+      action: "registration-execute",
+      stage: "start",
+      contestId,
+      chainId: contest.chainId,
+      walletAddress: participantAddress ?? null
+    });
     await executeMutation.mutateAsync();
-  }, [executeMutation]);
+  }, [executeMutation, contest.chainId, contestId, participantAddress]);
 
   const canExecute = useMemo(() => {
     if (!planDisplay) {

@@ -6,6 +6,7 @@ import { useLocale, useTranslations } from "next-intl";
 import { useCallback, useMemo, useState } from "react";
 
 import ErrorBanner from "../../../components/ErrorBanner";
+import { trackInteraction } from "../../../lib/telemetry";
 import { useNetworkGateState } from "../../network/NetworkGate";
 import type { ContestSnapshot } from "../../contests/api/contests";
 import {
@@ -138,6 +139,19 @@ const formatCall = (call: RewardClaimResult["claimCall"] | null | undefined): Di
   const planMutation = useMutation({
     mutationFn: async () => fetchRewardClaimPlan(contestId, toInput()),
     onSuccess: (result) => {
+      trackInteraction({
+        action: "reward-plan",
+        stage: "success",
+        contestId,
+        chainId: contest.chainId,
+        walletAddress: participantAddress ?? null,
+        status: result.status,
+        anchor: result.derivedAt ?? null,
+        metadata: {
+          hasPayout: Boolean(result.payout),
+          hasCall: Boolean(result.claimCall)
+        }
+      });
       setPlanDisplay({
         status: result.status,
         payout: result.payout ?? null,
@@ -153,6 +167,14 @@ const formatCall = (call: RewardClaimResult["claimCall"] | null | undefined): Di
       setLastError(null);
     },
     onError: (error) => {
+      trackInteraction({
+        action: "reward-plan",
+        stage: "error",
+        contestId,
+        chainId: contest.chainId,
+        walletAddress: participantAddress ?? null,
+        error
+      });
       setLastError(error);
     }
   });
@@ -160,6 +182,19 @@ const formatCall = (call: RewardClaimResult["claimCall"] | null | undefined): Di
   const executeMutation = useMutation({
     mutationFn: async () => executeRewardClaim(contestId, toInput()),
     onSuccess: async (result) => {
+      trackInteraction({
+        action: "reward-execute",
+        stage: "success",
+        contestId,
+        chainId: contest.chainId,
+        walletAddress: participantAddress ?? null,
+        status: result.status,
+        anchor: result.derivedAt ?? null,
+        metadata: {
+          hasPayout: Boolean(result.payout),
+          hasCall: Boolean(result.claimCall)
+        }
+      });
       setExecutionDisplay({
         status: result.status,
         payout: result.payout ?? null,
@@ -177,19 +212,41 @@ const formatCall = (call: RewardClaimResult["claimCall"] | null | undefined): Di
       });
     },
     onError: (error) => {
+      trackInteraction({
+        action: "reward-execute",
+        stage: "error",
+        contestId,
+        chainId: contest.chainId,
+        walletAddress: participantAddress ?? null,
+        error
+      });
       setLastError(error);
     }
   });
 
   const handlePlan = useCallback(async () => {
     setLastError(null);
+    trackInteraction({
+      action: "reward-plan",
+      stage: "start",
+      contestId,
+      chainId: contest.chainId,
+      walletAddress: participantAddress ?? null
+    });
     await planMutation.mutateAsync();
-  }, [planMutation]);
+  }, [planMutation, contest.chainId, contestId, participantAddress]);
 
   const handleExecute = useCallback(async () => {
     setLastError(null);
+    trackInteraction({
+      action: "reward-execute",
+      stage: "start",
+      contestId,
+      chainId: contest.chainId,
+      walletAddress: participantAddress ?? null
+    });
     await executeMutation.mutateAsync();
-  }, [executeMutation]);
+  }, [contest.chainId, contestId, executeMutation, participantAddress]);
 
   const canExecute = useMemo(() => {
     if (!planDisplay) {
