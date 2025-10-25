@@ -108,3 +108,31 @@ export type RebalanceExecutionResult = {
   reason?: ActionReason | null;
   derivedAt: BlockAnchor;
 };
+
+export type ParticipationEvent = {
+  contestId: string;
+  walletAddress: string;
+  amount: string;
+  occurredAt: string;
+};
+
+export type RewardClaimEvent = {
+  contestId: string;
+  walletAddress: string;
+  amount: string;
+  claimedAt: string;
+};
+
+export type UserContestRecord = {
+  contest: ContestSnapshot;
+  participations: ParticipationEvent[];
+  rewardClaims: RewardClaimEvent[];
+  lastActivity: string | null;
+};
+
+export type UserContestListResponse = {
+  kind: string;
+  items: UserContestRecord[];
+  nextCursor: string | null;
+};
+import type { ContestSnapshot } from "../../contests/api/contests";

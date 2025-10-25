@@ -98,8 +98,8 @@
 - [X] T031 [US4] 构建领奖流程面板及失败信息呈现 (`apps/web-ui/src/features/participation/components/RewardClaimPanel.tsx`)
 - [X] T032 [US4] 构建赛后操作面板呈现结算/赎回/再平衡计划 (`apps/web-ui/src/features/participation/components/PostgamePanel.tsx`)
 - [X] T033 [US4] 将报名、领奖、赛后面板集成进比赛详情，依据阶段与网络做前置否决 (`apps/web-ui/src/app/(authenticated)/contests/[contestId]/page.tsx`)
-- [ ] T034 [P] [US4] 实现“我参加的比赛”页面展示报名与领奖历史 (`apps/web-ui/src/app/(authenticated)/profile/participation/page.tsx`)
-- [ ] T035 [US4] 实现最近一次链上交互摘要 Hook 与 UI (`apps/web-ui/src/features/participation/hooks/useLastInteractionSummary.ts`，`src/features/participation/components/InteractionSummary.tsx`)
+- [X] T034 [P] [US4] 实现“我参加的比赛”页面展示报名与领奖历史 (`apps/web-ui/src/app/(authenticated)/profile/participation/page.tsx`)
+- [X] T035 [US4] 实现最近一次链上交互摘要 Hook 与 UI (`apps/web-ui/src/features/participation/hooks/useLastInteractionSummary.ts`，`src/features/participation/components/InteractionSummary.tsx`)
 - [ ] T036 [US4] 编写 Playwright 用例覆盖报名、领奖、赛后操作与摘要展示 (`apps/web-ui/tests/e2e/contest-participation.spec.ts`)
 
 ---

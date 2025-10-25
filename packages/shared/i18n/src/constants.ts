@@ -51,7 +51,9 @@ export const QUERY_KEYS = {
   session: ["session", "current"] as const,
   contests: <T extends object>(params: T) => ["contests", params] as const,
   contestDetail: (contestId: string) => ["contest-detail", contestId] as const,
-  creatorContests: <T extends object>(params: T) => ["creator-contests", params] as const
+  creatorContests: <T extends object>(params: T) => ["creator-contests", params] as const,
+  participationHistory: <T extends object>(params: T) => ["participation-history", params] as const,
+  participationSummary: <T extends object>(params: T) => ["participation-summary", params] as const
 };
 
 export const ERROR_MESSAGE_KEYS = {
