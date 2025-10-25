@@ -15,6 +15,9 @@ import {
   useContestDateTimeFormatter,
   useContestNumberFormatter
 } from "../utils/format";
+import RegistrationPanel from "../../participation/components/RegistrationPanel";
+import RewardClaimPanel from "../../participation/components/RewardClaimPanel";
+import PostgamePanel from "../../participation/components/PostgamePanel";
 
 type ContestDetailProps = {
   contestId: string;
@@ -188,6 +191,18 @@ export function ContestDetail({ contestId }: ContestDetailProps) {
           ) : null}
         </header>
       </section>
+
+      {contest.phase === "registration" ? (
+        <RegistrationPanel contestId={contest.contestId} contest={contest} />
+      ) : null}
+
+      {contest.phase === "settled" || contest.phase === "closed" ? (
+        <RewardClaimPanel contestId={contest.contestId} contest={contest} />
+      ) : null}
+
+      {contest.phase === "active" || contest.phase === "settled" || contest.phase === "closed" ? (
+        <PostgamePanel contestId={contest.contestId} contest={contest} />
+      ) : null}
 
       <section className="space-y-4 rounded-xl border border-slate-800/60 bg-slate-900/40 p-6">
         <header className="flex items-center justify-between">
