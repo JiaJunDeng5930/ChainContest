@@ -68,6 +68,8 @@
   "contests.detail.leaderboard": "Leaderboard",
   "contests.detail.inflowLabel": "Inflow {amount}",
   "contests.detail.capacityFull": "Registration capacity reached",
+  "contests.detail.valuationAnchor": "Valuation anchor {price} {currency} observed at {timestamp}",
+  "contests.detail.blockHashLabel": "Block hash",
   "contests.detail.blockAnchor": "Anchored on block #{blockNumber}",
   "contests.detail.blockRefresh": "Refresh snapshot",
   "contests.detail.lastDerived": "Snapshot derived at {timestamp}",

@@ -68,6 +68,8 @@
   "contests.detail.leaderboard": "排行榜",
   "contests.detail.inflowLabel": "累计流入 {amount}",
   "contests.detail.capacityFull": "报名容量已满",
+  "contests.detail.valuationAnchor": "估值锚点 {price} {currency} 记录于 {timestamp}",
+  "contests.detail.blockHashLabel": "区块哈希",
   "contests.detail.blockAnchor": "区块锚点 #{blockNumber}",
   "contests.detail.blockRefresh": "刷新快照",
   "contests.detail.lastDerived": "快照生成于 {timestamp}",

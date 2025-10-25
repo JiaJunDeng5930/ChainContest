@@ -1,16 +1,18 @@
 "use client";
 
-import {
-  CHAIN_METADATA,
-  CONTEST_PHASE_LABEL_KEYS,
-  type ContestPhase
-} from "@chaincontest/shared-i18n";
 import Link from "next/link";
 import { useLocale, useTranslations } from "next-intl";
-import { useMemo } from "react";
-import { formatEther } from "viem";
 
 import type { ContestSnapshot } from "../api/contests";
+import {
+  formatContestTimestamp,
+  formatPrizeAmount,
+  getChainLabel,
+  getPhaseLabel,
+  truncateIdentifier,
+  useContestDateTimeFormatter,
+  useContestNumberFormatter
+} from "../utils/format";
 
 type ContestListProps = {
   items: ContestSnapshot[];
@@ -19,83 +21,6 @@ type ContestListProps = {
 };
 
 const SKELETON_ITEMS = 3;
-
-function truncateAddress(address: string): string {
-  if (address.length <= 10) {
-    return address;
-  }
-  return `${address.slice(0, 6)}…${address.slice(-4)}`;
-}
-
-function resolveChainLabel(chainId: number, t: ReturnType<typeof useTranslations>): string {
-  const metadata = CHAIN_METADATA[chainId as keyof typeof CHAIN_METADATA];
-  if (!metadata) {
-    return `Chain ${chainId}`;
-  }
-  return t(metadata.shortNameKey);
-}
-
-function resolvePhaseLabel(phase: ContestPhase, t: ReturnType<typeof useTranslations>): string {
-  const key = CONTEST_PHASE_LABEL_KEYS[phase];
-  return t(key);
-}
-
-function useNumberFormatter(locale: string) {
-  return useMemo(
-    () =>
-      new Intl.NumberFormat(locale, {
-        maximumFractionDigits: 4,
-        notation: "standard"
-      }),
-    [locale]
-  );
-}
-
-function useDateTimeFormatter(locale: string) {
-  return useMemo(
-    () =>
-      new Intl.DateTimeFormat(locale, {
-        year: "numeric",
-        month: "short",
-        day: "2-digit",
-        hour: "2-digit",
-        minute: "2-digit"
-      }),
-    [locale]
-  );
-}
-
-function formatPrizePool({
-  value,
-  chainId,
-  numberFormatter
-}: {
-  value: string;
-  chainId: number;
-  numberFormatter: Intl.NumberFormat;
-}): string {
-  const metadata = CHAIN_METADATA[chainId as keyof typeof CHAIN_METADATA];
-  const symbol = metadata?.nativeCurrencySymbol ?? "ETH";
-
-  try {
-    const etherValue = formatEther(BigInt(value));
-    const numeric = Number.parseFloat(etherValue);
-    if (!Number.isFinite(numeric)) {
-      return `${etherValue} ${symbol}`;
-    }
-    return `${numberFormatter.format(numeric)} ${symbol}`;
-  } catch (error) {
-    return `${value} ${symbol}`;
-  }
-}
-
-function formatTimestamp(timestamp: string, formatter: Intl.DateTimeFormat): string {
-  try {
-    return formatter.format(new Date(timestamp));
-  } catch (error) {
-    return timestamp;
-  }
-}
 
 function ContestListSkeleton() {
   return (
@@ -131,12 +56,12 @@ function ContestListSkeleton() {
 function ContestCard({ contest }: { contest: ContestSnapshot }) {
   const t = useTranslations();
   const locale = useLocale();
-  const numberFormatter = useNumberFormatter(locale);
-  const dateFormatter = useDateTimeFormatter(locale);
+  const numberFormatter = useContestNumberFormatter(locale);
+  const dateFormatter = useContestDateTimeFormatter(locale);
 
-  const chainLabel = resolveChainLabel(contest.chainId, t);
-  const phaseLabel = resolvePhaseLabel(contest.phase, t);
-  const prizeLabel = formatPrizePool({
+  const chainLabel = getChainLabel(contest.chainId, t);
+  const phaseLabel = getPhaseLabel(contest.phase, t);
+  const prizeLabel = formatPrizeAmount({
     value: contest.prizePool.currentBalance,
     chainId: contest.chainId,
     numberFormatter
@@ -144,9 +69,9 @@ function ContestCard({ contest }: { contest: ContestSnapshot }) {
   const capacityLabel = `${contest.registrationCapacity.registered} / ${contest.registrationCapacity.maximum}`;
   const isFull = contest.registrationCapacity.isFull;
 
-  const registrationOpensAt = formatTimestamp(contest.timeline.registrationOpensAt, dateFormatter);
-  const registrationClosesAt = formatTimestamp(contest.timeline.registrationClosesAt, dateFormatter);
-  const derivedAt = formatTimestamp(contest.derivedAt.timestamp, dateFormatter);
+  const registrationOpensAt = formatContestTimestamp(contest.timeline.registrationOpensAt, dateFormatter);
+  const registrationClosesAt = formatContestTimestamp(contest.timeline.registrationClosesAt, dateFormatter);
+  const derivedAt = formatContestTimestamp(contest.derivedAt.timestamp, dateFormatter);
 
   const leaderboardEntries = contest.leaderboard?.entries?.slice(0, 3) ?? [];
 
@@ -156,7 +81,7 @@ function ContestCard({ contest }: { contest: ContestSnapshot }) {
         <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
           <div className="space-y-2">
             <h2 className="text-xl font-semibold tracking-tight text-slate-50">
-              {truncateAddress(contest.contestId)}
+              {truncateIdentifier(contest.contestId)}
             </h2>
             <div className="flex flex-wrap items-center gap-2 text-xs font-semibold uppercase tracking-wide text-slate-300">
               <span className="rounded bg-slate-800 px-2 py-1">{chainLabel}</span>
@@ -192,7 +117,7 @@ function ContestCard({ contest }: { contest: ContestSnapshot }) {
             {contest.prizePool.accumulatedInflow ? (
               <dd className="text-xs text-slate-400">
                 {t("contests.detail.inflowLabel", {
-                  amount: formatPrizePool({
+                  amount: formatPrizeAmount({
                     value: contest.prizePool.accumulatedInflow,
                     chainId: contest.chainId,
                     numberFormatter
@@ -218,7 +143,7 @@ function ContestCard({ contest }: { contest: ContestSnapshot }) {
               {leaderboardEntries.map((entry) => (
                 <li key={`${contest.contestId}-${entry.rank}`} className="flex items-center justify-between rounded bg-slate-900/80 px-3 py-2">
                   <span className="font-semibold text-slate-300">
-                    #{entry.rank} · {truncateAddress(entry.walletAddress)}
+                    #{entry.rank} · {truncateIdentifier(entry.walletAddress)}
                   </span>
                   {entry.score ? <span className="text-xs text-slate-400">{entry.score}</span> : null}
                 </li>
