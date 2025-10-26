@@ -10,9 +10,9 @@
    pnpm dev-bootstrap start
    ```
 3. 命令执行流程：
-   - **预检**：检查 Docker Engine、Compose 版本，验证 CPU/内存阈值及端口占用情况。
-   - **生成 Compose**：在 `.dev-bootstrap/docker-compose.generated.yaml` 写入临时配置。
-   - **启动服务**：执行 `docker compose up --detach --remove-orphans`，并输出服务就绪状态。
+  - **预检**：检查 Docker Engine、Compose 版本，验证 CPU/内存阈值及端口占用情况。
+  - **生成 Compose**：在 `.dev-bootstrap/docker-compose.generated.yaml` 写入临时配置。
+  - **启动服务**：执行 `docker compose up --detach --remove-orphans`，并输出服务就绪状态（默认包含 Hardhat 节点、PostgreSQL、Redis、API、Web UI）。
    - **汇总报告**：终端显示成功/失败结果，若配置启用 `logging.ndjsonPath`，会在对应路径生成 NDJSON 事件流。
 
 ## 2. Profiles 控制

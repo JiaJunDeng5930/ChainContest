@@ -44,10 +44,12 @@ pnpm dev-bootstrap validate [--format json]
 pnpm dev-bootstrap start [--profile <name>] [--no-profile <name>] [--format both]
 ```
 
-- 默认启用 `core` profile（PostgreSQL、Redis、API Server、Web UI）；`indexer` profile 包含事件索引和任务执行服务，可按需通过 `--profile indexer` 启用；
+- 默认启用 `core` profile（Hardhat 本地链、PostgreSQL、Redis、API Server、Web UI）；`indexer` profile 包含事件索引和任务执行服务，可按需通过 `--profile indexer` 启用；
 - `--profile` 可多次出现以启用额外 profile，`--no-profile` 可多次出现用于禁用默认 profile；
 - 运行结束后，摘要会显示启用的 profile、生成的 Compose 文件位置以及每个服务的状态；
 - 若配置了 `logging.ndjsonPath`，还会在对应路径生成 NDJSON 事件流。
+
+> 默认 Hardhat 节点对宿主机暴露 `http://localhost:48545`，可用于部署合约与本地调试。
 
 ## 5. 停止与重置
 

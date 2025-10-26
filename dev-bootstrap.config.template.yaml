@@ -4,6 +4,19 @@ version: "0.1.0"
 projectName: "chaincontest-dev"
 
 services:
+  - name: "hardhat-node"
+    dockerfile: "contracts/Dockerfile"
+    context: "."
+    ports:
+      - host: 48545
+        container: 8545
+    profiles:
+      - "core"
+    healthcheck:
+      test: ["CMD", "curl", "--fail", "http://localhost:8545"]
+      interval: "10s"
+      timeout: "5s"
+      retries: 5
   - name: "postgres"
     image: "postgres:16-alpine"
     command: ["postgres", "-c", "max_connections=200"]
@@ -43,8 +56,9 @@ services:
     dependsOn:
       - "postgres"
       - "redis"
+      - "hardhat-node"
     ports:
-      - host: 4000
+      - host: 44000
         container: 4000
     environment:
       PORT: "4000"
@@ -58,7 +72,7 @@ services:
     dependsOn:
       - "api-server"
     ports:
-      - host: 3000
+      - host: 43000
         container: 3000
     environment:
       PORT: "3000"
@@ -73,6 +87,7 @@ services:
     dependsOn:
       - "postgres"
       - "redis"
+      - "hardhat-node"
     ports:
       - host: 4005
         container: 4005
@@ -85,6 +100,7 @@ services:
     dependsOn:
       - "postgres"
       - "redis"
+      - "hardhat-node"
     ports:
       - host: 4010
         container: 4010
@@ -96,6 +112,7 @@ profiles:
     description: "Core web stack: database, cache, API, and web UI."
     defaultEnabled: true
     services:
+      - "hardhat-node"
       - "postgres"
       - "redis"
       - "api-server"
@@ -129,10 +146,12 @@ prerequisites:
       description: "PostgreSQL database"
     - port: 6379
       description: "Redis cache"
-    - port: 3000
+    - port: 43000
       description: "Web UI"
-    - port: 4000
+    - port: 44000
       description: "API server"
+    - port: 48545
+      description: "Hardhat development node"
 
 logging:
   format: "table"
