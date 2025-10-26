@@ -1,7 +1,7 @@
 FROM node:20-bullseye AS builder
 
 WORKDIR /app
-ENV NODE_ENV=production
+ENV NODE_ENV=development
 ENV PNPM_HOME=/usr/local/pnpm
 ENV PATH="${PNPM_HOME}:${PATH}"
 
@@ -30,4 +30,4 @@ RUN corepack enable
 COPY --from=builder /app ./
 
 EXPOSE 8545
-CMD ["pnpm", "--filter", "@chaincontest/contracts", "node", "--", "--hostname", "0.0.0.0", "--port", "8545"]
+CMD ["pnpm", "--filter", "@chaincontest/contracts", "exec", "hardhat", "node", "--hostname", "0.0.0.0", "--port", "8545"]

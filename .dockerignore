@@ -10,5 +10,3 @@ coverage/
 Dockerfile*
 .dockerignore
 .dev-bootstrap/
-pnpm-lock.yaml
-pnpm-workspace.yaml

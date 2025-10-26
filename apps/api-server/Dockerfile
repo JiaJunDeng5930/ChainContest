@@ -1,7 +1,8 @@
-FROM node:20-bullseye AS builder
+FROM node:20-bullseye
 
 WORKDIR /app
-ENV NODE_ENV=production
+ENV NODE_ENV=development
+ENV NEXT_TELEMETRY_DISABLED=1
 ENV PNPM_HOME=/usr/local/pnpm
 ENV PATH="${PNPM_HOME}:${PATH}"
 
@@ -15,19 +16,6 @@ COPY specs ./specs
 COPY tsconfig.base.json ./
 
 RUN pnpm install --frozen-lockfile
-RUN pnpm --filter @chaincontest/api-server build
-
-FROM node:20-bullseye AS runner
-
-WORKDIR /app
-ENV NODE_ENV=production
-ENV NEXT_TELEMETRY_DISABLED=1
-ENV PNPM_HOME=/usr/local/pnpm
-ENV PATH="${PNPM_HOME}:${PATH}"
-
-RUN corepack enable
-
-COPY --from=builder /app ./
 
 EXPOSE 4000
-CMD ["pnpm", "--filter", "@chaincontest/api-server", "start", "--", "-H", "0.0.0.0", "-p", "4000"]
+CMD ["pnpm", "--filter", "@chaincontest/api-server", "exec", "next", "dev", "-H", "0.0.0.0", "-p", "4000"]

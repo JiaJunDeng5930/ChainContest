@@ -6,14 +6,14 @@ projectName: "chaincontest-dev"
 services:
   - name: "hardhat-node"
     dockerfile: "contracts/Dockerfile"
-    context: "."
+    context: ".."
     ports:
       - host: 48545
         container: 8545
     profiles:
       - "core"
     healthcheck:
-      test: ["CMD", "curl", "--fail", "http://localhost:8545"]
+      test: "CMD-SHELL curl --fail http://localhost:8545 || exit 1"
       interval: "10s"
       timeout: "5s"
       retries: 5
@@ -45,14 +45,14 @@ services:
     profiles:
       - "core"
     healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
+      test: "CMD-SHELL redis-cli ping || exit 1"
       interval: "10s"
       timeout: "5s"
       retries: 5
 
   - name: "api-server"
     dockerfile: "apps/api-server/Dockerfile"
-    context: "."
+    context: ".."
     dependsOn:
       - "postgres"
       - "redis"
@@ -68,7 +68,7 @@ services:
 
   - name: "web-ui"
     dockerfile: "apps/web-ui/Dockerfile"
-    context: "."
+    context: ".."
     dependsOn:
       - "api-server"
     ports:
@@ -83,7 +83,7 @@ services:
 
   - name: "indexer-event"
     dockerfile: "apps/indexer/event/Dockerfile"
-    context: "."
+    context: ".."
     dependsOn:
       - "postgres"
       - "redis"
@@ -96,7 +96,7 @@ services:
 
   - name: "indexer-tasks"
     dockerfile: "apps/indexer/tasks/Dockerfile"
-    context: "."
+    context: ".."
     dependsOn:
       - "postgres"
       - "redis"
@@ -134,7 +134,7 @@ volumes:
     description: "Ephemeral cache for indexer worker outputs."
 
 envFiles:
-  - "dev-bootstrap.env"
+  - "../dev-bootstrap.env"
 
 prerequisites:
   dockerVersion: "24.0.0"
