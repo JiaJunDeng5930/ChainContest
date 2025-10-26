@@ -77,7 +77,7 @@
 - [X] T017 [US2] Implement start orchestration flow invoking Docker Compose and tracking service states in `tools/dev-bootstrap/src/orchestration/start.ts`
 - [X] T018 [US2] Wire CLI start command with profile flags in `tools/dev-bootstrap/src/commands/start.ts`
 - [X] T019 [P] [US2] Extend runtime reporter for readiness/NDJSON output in `tools/dev-bootstrap/src/reporters/runtime.ts`
-- [ ] T020 [US2] Add integration smoke test using mocked Compose adapter in `tools/dev-bootstrap/tests/integration/start-command.test.ts`
+- [X] T020 [US2] Add integration smoke test using mocked Compose adapter in `tools/dev-bootstrap/tests/integration/start-command.test.ts`
 - [ ] T021 [US2] Document startup procedures and readiness expectations in `docs/dev-bootstrap/start.md`
 
 **Checkpoint**: Developers can start environments with one command and review readiness summaries.
