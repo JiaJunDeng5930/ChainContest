@@ -4,3 +4,4 @@ dist/
 build/
 coverage/
 *.min.js
+tools/dev-bootstrap/dist/

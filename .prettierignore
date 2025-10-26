@@ -3,6 +3,7 @@ node_modules/
 dist/
 build/
 coverage/
+tools/dev-bootstrap/dist/
 package-lock.json
 yarn.lock
 pnpm-lock.yaml

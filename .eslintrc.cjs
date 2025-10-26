@@ -27,6 +27,7 @@ module.exports = {
           path.join(__dirname, "apps/indexer/event/tsconfig.eslint.json"),
           path.join(__dirname, "apps/indexer/tasks/tsconfig.json"),
           path.join(__dirname, "packages/shared/i18n/tsconfig.json"),
+          path.join(__dirname, "tools/dev-bootstrap/tsconfig.json"),
         ],
         tsconfigRootDir: __dirname,
         ecmaVersion: "latest",
@@ -79,6 +80,13 @@ module.exports = {
 
     {
       files: ["contracts/**/*.ts"],
+      env: {
+        node: true,
+      },
+    },
+
+    {
+      files: ["tools/dev-bootstrap/**/*.ts"],
       env: {
         node: true,
       },

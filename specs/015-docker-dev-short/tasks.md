@@ -26,7 +26,7 @@
 - [X] T001 Add `tools/dev-bootstrap` package entry and workspace registration in `pnpm-workspace.yaml` and `tools/dev-bootstrap/package.json`
 - [X] T002 Create TypeScript project scaffolding (`tools/dev-bootstrap/tsconfig.json`, `src/index.ts`) and configure build scripts in `package.json`
 - [X] T003 [P] Scaffold CLI executable stub `tools/dev-bootstrap/bin/dev-bootstrap.ts` that forwards to compiled output
-- [ ] T004 [P] Extend repository lint/format configuration to include `tools/dev-bootstrap` (e.g., `.eslintrc.cjs`, `.prettierignore` updates)
+- [X] T004 [P] Extend repository lint/format configuration to include `tools/dev-bootstrap` (e.g., `.eslintrc.cjs`, `.prettierignore` updates)
 
 ---
 
