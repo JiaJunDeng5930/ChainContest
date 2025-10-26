@@ -24,7 +24,9 @@ infra/postgres/data/
 .env*
 *.log
 coverage/
+**/.next/
 .vscode/
 .idea/
 .DS_Store
 Thumbs.db
+apps/**/test-results/
