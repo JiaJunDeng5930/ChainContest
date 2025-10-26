@@ -78,6 +78,23 @@ export const runResetCommand = async (
       selectiveVolumes: options.selectiveVolumes,
     });
 
+    const requestedSelective = resetResult.mode === "selective"
+      ? options.selectiveVolumes && options.selectiveVolumes.length > 0
+        ? options.selectiveVolumes
+        : loadResult.config.resetPolicy?.selectiveVolumes ?? []
+      : [];
+
+    if (resetResult.mode === "selective" && resetResult.removedVolumes.length === 0) {
+      reporter.addWarning("未移除任何卷，请确认选择的卷名称是否存在并未被保留。");
+    }
+
+    reporter.setMetrics({
+      serviceCount: resetResult.services.length,
+      removedVolumeCount: resetResult.removedVolumes.length,
+      requestedVolumeCount: requestedSelective.length,
+      mode: resetResult.mode,
+    });
+
     const completedAt = new Date();
     const summary: SummaryOutcome = {
       command: "reset",
@@ -90,6 +107,7 @@ export const runResetCommand = async (
 
     reporter.record(summary);
     reporter.flush();
+    reporter.clearAnnotations();
 
     return {
       exitCode: ExitCode.Success,
@@ -117,6 +135,7 @@ export const runResetCommand = async (
 
     reporter.record(summary);
     reporter.flush();
+    reporter.clearAnnotations();
 
     return {
       exitCode,

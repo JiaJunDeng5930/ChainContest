@@ -66,6 +66,11 @@ export const runStopCommand = async (
     });
 
     const completedAt = new Date();
+    reporter.setMetrics({
+      serviceCount: stopResult.services.length,
+      volumesRemoved: Boolean(options.removeVolumes),
+    });
+
     const summary: SummaryOutcome = {
       command: "stop",
       status: "success",
@@ -77,6 +82,7 @@ export const runStopCommand = async (
 
     reporter.record(summary);
     reporter.flush();
+    reporter.clearAnnotations();
 
     return {
       exitCode: ExitCode.Success,
@@ -102,6 +108,7 @@ export const runStopCommand = async (
 
     reporter.record(summary);
     reporter.flush();
+    reporter.clearAnnotations();
 
     return {
       exitCode,

@@ -22,6 +22,8 @@ export interface SummaryReporterOptions {
   writer?: (chunk: string) => void;
 }
 
+export type SummaryMetrics = Record<string, unknown>;
+
 const formatDuration = (startedAt: Date, completedAt: Date): string => {
   const duration = completedAt.getTime() - startedAt.getTime();
   if (duration <= 0) {
@@ -42,7 +44,11 @@ const formatDuration = (startedAt: Date, completedAt: Date): string => {
   return `${minutes}m ${remaining.toFixed(1)}s`;
 };
 
-const serializeOutcome = (outcome: SummaryOutcome): Record<string, unknown> => ({
+const serializeOutcome = (
+  outcome: SummaryOutcome,
+  warnings: string[],
+  metrics: SummaryMetrics,
+): Record<string, unknown> => ({
   command: outcome.command,
   status: outcome.status,
   startedAt: outcome.startedAt.toISOString(),
@@ -54,6 +60,8 @@ const serializeOutcome = (outcome: SummaryOutcome): Record<string, unknown> => (
     details: service.details,
   })),
   messages: [...outcome.messages],
+  ...(warnings.length > 0 ? { warnings: [...warnings] } : {}),
+  ...(Object.keys(metrics).length > 0 ? { metrics } : {}),
 });
 
 const renderServiceTable = (services: ServiceSummary[]): string => {
@@ -95,6 +103,10 @@ export class SummaryReporter {
 
   private recordedOutcome: SummaryOutcome | null = null;
 
+  private warnings: string[] = [];
+
+  private metrics: SummaryMetrics = {};
+
   constructor(options: SummaryReporterOptions = {}) {
     this.writer = options.writer ?? ((chunk) => process.stdout.write(chunk));
     this.format = options.outputFormat ?? "table";
@@ -106,6 +118,23 @@ export class SummaryReporter {
       services: outcome.services.map((service) => ({ ...service })),
       messages: [...outcome.messages],
     };
+  }
+
+  public addWarning(message: string): void {
+    this.warnings.push(message);
+  }
+
+  public setWarnings(messages: string[]): void {
+    this.warnings = [...messages];
+  }
+
+  public setMetrics(metrics: SummaryMetrics): void {
+    this.metrics = { ...metrics };
+  }
+
+  public clearAnnotations(): void {
+    this.warnings = [];
+    this.metrics = {};
   }
 
   public setFormat(format: "table" | "json" | "both"): void {
@@ -122,7 +151,11 @@ export class SummaryReporter {
 
     if (this.format === "json" || this.format === "both") {
       this.writer(
-        `${JSON.stringify(serializeOutcome(outcome), null, 2)}\n`,
+        `${JSON.stringify(
+          serializeOutcome(outcome, this.warnings, this.metrics),
+          null,
+          2,
+        )}\n`,
       );
     }
 
@@ -138,11 +171,33 @@ export class SummaryReporter {
         ? ["Messages:", ...outcome.messages.map((message) => `  - ${message}`)]
         : ["Messages: (none)"];
 
+      const warningLines = this.warnings.length
+        ? ["Warnings:", ...this.warnings.map((warning) => `  - ${warning}`)]
+        : [];
+
+      const metricEntries = Object.entries(this.metrics);
+      const metricLines = metricEntries.length
+        ? [
+            "Metrics:",
+            ...metricEntries.map(
+              ([key, value]) => `  - ${key}: ${String(value)}`,
+            ),
+          ]
+        : [];
+
       const serviceSection = ["Services:", renderServiceTable(outcome.services)];
 
-      this.writer(
-        `${[...headerLines, "", ...messageLines, "", ...serviceSection].join("\n")}\n`,
-      );
+      const sections = [
+        ...headerLines,
+        "",
+        ...messageLines,
+        ...(warningLines.length ? ["", ...warningLines] : []),
+        ...(metricLines.length ? ["", ...metricLines] : []),
+        "",
+        ...serviceSection,
+      ];
+
+      this.writer(`${sections.join("\n")}\n`);
     }
   }
 
