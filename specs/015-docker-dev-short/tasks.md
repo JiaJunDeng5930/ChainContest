@@ -57,7 +57,7 @@
 - [X] T010 [P] [US1] Implement validate command handler in `tools/dev-bootstrap/src/commands/validate.ts`
 - [X] T011 [P] [US1] Wire CLI to expose `validate` command in `tools/dev-bootstrap/src/cli.ts`
 - [X] T012 [P] [US1] Implement validation message renderer with field-level guidance in `tools/dev-bootstrap/src/reporters/validation.ts`
-- [ ] T013 [US1] Document configuration fields and workflows in `docs/dev-bootstrap/configuration.md`
+- [X] T013 [US1] Document configuration fields and workflows in `docs/dev-bootstrap/configuration.md`
 - [ ] T014 [P] [US1] Add unit tests for schema validation edge cases in `tools/dev-bootstrap/tests/unit/config-schema.test.ts`
 
 **Checkpoint**: Validation workflow operational; developers can configure and verify without running services.
