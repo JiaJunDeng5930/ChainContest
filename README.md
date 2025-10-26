@@ -37,6 +37,7 @@ pnpm --filter @chaincontest/dev-console dev
   - `pnpm lint`：分别执行合约与前端的 ESLint。
   - `pnpm test`：调用工作区内全部测试（Hardhat + Vitest）。
   - `pnpm build`：构建合约 TypeChain 类型与前端产物。
+  - `pnpm dev-bootstrap <command>`：调用开发环境引导 CLI，支持 `validate`、`start`、`stop`、`reset` 等子命令。
 - **关键配置文件**
   - 合约：`contracts/hardhat.config.ts`（网络、编译器、Gas 报告）。
   - 前端：`apps/dev-console/vite.config.ts`、`apps/dev-console/scripts/ensurePortAvailable.ts`。
@@ -51,6 +52,19 @@ pnpm --filter @chaincontest/dev-console dev
 - `apps/dev-console/`：Vite + htmx 前端（脚本、测试、配置）→ `/docs/development`.
 - `docs/contracts/*.md`：自动生成的合约 API/NatSpec。
 - `docs/development/local-testing.md`：本地节点与前端联调说明。
+- `docs/dev-bootstrap/*.md`：开发环境配置、启动、停止与重置指南。
+
+## Dev Bootstrap CLI
+
+工具 `pnpm dev-bootstrap` 提供本地服务的全生命周期管理：
+
+- `pnpm dev-bootstrap validate`：校验配置文件（支持 `--format json` 输出机器可读结果）。
+- `pnpm dev-bootstrap start [--profile <name>]`：运行预检、生成 Compose 配置并启动需要的服务。
+- `pnpm dev-bootstrap stop [--remove-volumes]`：停止运行中的服务，按需一并删除卷。
+- `pnpm dev-bootstrap reset [--mode preserve|selective|full] [--volume <name>]`：停止服务并按策略清理卷数据。
+- `pnpm dev-bootstrap --help` / `--version`：查看命令帮助与 CLI 版本。
+
+详细步骤与示例请参考 `docs/dev-bootstrap/quickstart.md`、`docs/dev-bootstrap/teardown.md`。
 
 ## 配置与环境变量一览表
 
