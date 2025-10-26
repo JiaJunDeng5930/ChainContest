@@ -92,7 +92,7 @@
 
 ### Implementation for User Story 3
 
-- [ ] T022 [P] [US3] Implement stop orchestration leveraging Docker Compose down in `tools/dev-bootstrap/src/orchestration/stop.ts`
+- [X] T022 [P] [US3] Implement stop orchestration leveraging Docker Compose down in `tools/dev-bootstrap/src/orchestration/stop.ts`
 - [ ] T023 [P] [US3] Implement reset flow handling selective volume removal in `tools/dev-bootstrap/src/orchestration/reset.ts`
 - [ ] T024 [US3] Wire CLI stop/reset commands and shared flags in `tools/dev-bootstrap/src/commands/stop.ts` and `tools/dev-bootstrap/src/commands/reset.ts`
 - [ ] T025 [P] [US3] Augment summary reporter with teardown metrics and warnings in `tools/dev-bootstrap/src/reporters/summary.ts`
