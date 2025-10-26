@@ -73,7 +73,7 @@
 ### Implementation for User Story 2
 
 - [X] T015 [P] [US2] Implement pre-flight checks module for Docker versions/resources in `tools/dev-bootstrap/src/orchestration/preflight.ts`
-- [ ] T016 [P] [US2] Implement Compose project generator that materializes ephemeral YAML in `tools/dev-bootstrap/src/compose/generator.ts`
+- [X] T016 [P] [US2] Implement Compose project generator that materializes ephemeral YAML in `tools/dev-bootstrap/src/compose/generator.ts`
 - [ ] T017 [US2] Implement start orchestration flow invoking Docker Compose and tracking service states in `tools/dev-bootstrap/src/orchestration/start.ts`
 - [ ] T018 [US2] Wire CLI start command with profile flags in `tools/dev-bootstrap/src/commands/start.ts`
 - [ ] T019 [P] [US2] Extend runtime reporter for readiness/NDJSON output in `tools/dev-bootstrap/src/reporters/runtime.ts`
