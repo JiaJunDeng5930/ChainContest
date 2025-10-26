@@ -89,6 +89,10 @@ const buildServiceDefinition = (
     });
   }
 
+  if (service.volumes.length > 0) {
+    definition.volumes = service.volumes;
+  }
+
   return definition;
 };
 

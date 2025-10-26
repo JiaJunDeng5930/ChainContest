@@ -9,6 +9,7 @@
 | `dev-bootstrap.config.template.yaml` | 模板文件，包含所有字段示例和默认值 | ✓ 已提交，可作为参考 |
 | `dev-bootstrap.config.yaml` | 主配置，提交至仓库，描述团队统一环境 | ✓ |
 | `dev-bootstrap.config.local.yaml` | 本地覆盖项，例如端口或日志偏好 | ✗（`.gitignore` 已排除） |
+| `dev-bootstrap.env.example` | 样例环境变量，复制为 `dev-bootstrap.env` 使用 | ✓ |
 
 创建配置的推荐步骤：
 
@@ -22,7 +23,12 @@
    cp dev-bootstrap.config.template.yaml dev-bootstrap.config.local.yaml
    ```
    然后仅保留需要覆盖的字段。
-4. 运行校验：
+4. 如果需要 `.env` 注入项，复制样例：
+   ```bash
+   cp dev-bootstrap.env.example dev-bootstrap.env
+   ```
+   按需调整变量后，CLI 会在启动时自动注入。
+5. 运行校验：
    ```bash
    pnpm dev-bootstrap validate
    ```
@@ -55,10 +61,12 @@
 | `dependsOn` | `string[]` | 启动依赖服务名 | 需引用现有服务 |
 | `profiles` | `string[]` | 服务绑定的 profile | profile 必须在 `profiles` 中定义 |
 | `healthcheck` | `HealthcheckDefinition` | 健康检查命令 | 可选，遵循 Compose 语法 |
+| `volumes` | `string[]` | Compose 挂载信息 | 使用标准 `source:target[:mode]` 简写 |
 
-### 端口与依赖
+### 端口、依赖与挂载
 - `ports[*].host` 与 `protocol` 组合必须唯一，工具会在校验阶段报告冲突。
 - `dependsOn` 用于 Compose 的依赖排序，不会自动创建循环；请避免环依赖。
+- `volumes` 采用 Compose 字符串写法，建议仅在需要持久化数据或挂载配置文件时使用；来源卷必须出现在顶层 `volumes` 中。
 
 ## ProfileToggle
 

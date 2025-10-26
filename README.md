@@ -64,7 +64,12 @@ pnpm --filter @chaincontest/dev-console dev
 - `pnpm dev-bootstrap reset [--mode preserve|selective|full] [--volume <name>]`：停止服务并按策略清理卷数据。
 - `pnpm dev-bootstrap --help` / `--version`：查看命令帮助与 CLI 版本。
 
-详细步骤与示例请参考 `docs/dev-bootstrap/quickstart.md`、`docs/dev-bootstrap/teardown.md`。
+快速体验：
+1. `cp dev-bootstrap.config.template.yaml dev-bootstrap.config.yaml`
+2. `cp dev-bootstrap.env.example dev-bootstrap.env`
+3. `pnpm dev-bootstrap validate && pnpm dev-bootstrap start`
+
+详细配置、服务说明与排查指南请参考 `docs/dev-bootstrap/quickstart.md`、`docs/dev-bootstrap/start.md`、`docs/dev-bootstrap/teardown.md`。
 
 ## 配置与环境变量一览表
 

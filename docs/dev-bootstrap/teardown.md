@@ -7,7 +7,7 @@
   pnpm dev-bootstrap stop
   ```
 - 行为：执行 `docker compose down --remove-orphans`，默认保留数据卷。
-- 可选项：后续 CLI 将提供 `--remove-volumes` 开关，可在需要时同时删除 Compose 创建的卷。
+- 可选项：增加 `--remove-volumes` 可一并删除 Compose 创建的卷。
 - 输出解读：
   - 表格列出全部服务并标记为 `stopped`。
   - `Metrics` 区域展示 `serviceCount` 以及是否删除卷。
@@ -20,7 +20,7 @@
   pnpm dev-bootstrap reset
 
   # 指定模式
-  pnpm dev-bootstrap reset --mode selective --volume pg-data
+  pnpm dev-bootstrap reset --mode selective --volume chaincontest-postgres
   ```
 - 模式说明：
   | 模式 | 描述 |

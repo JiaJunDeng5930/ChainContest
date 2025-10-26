@@ -4,7 +4,7 @@
 
 ## 1. 快速启动
 
-1. 确保已准备好经过校验的 `dev-bootstrap.config.yaml`。
+1. 确保已准备好经过校验的 `dev-bootstrap.config.yaml`，并在仓库根目录创建了 `dev-bootstrap.env`（可由 `dev-bootstrap.env.example` 复制后修改）。
 2. 在仓库根目录执行：
    ```bash
    pnpm dev-bootstrap start
@@ -17,7 +17,7 @@
 
 ## 2. Profiles 控制
 
-- 默认启用 `profiles[].defaultEnabled = true` 的分组。
+- 默认启用 `core` 分组（PostgreSQL、Redis、API Server、Web UI）；`indexer` 分组默认关闭，需要时再开启。
 - 临时启用额外 profile：
   ```bash
   pnpm dev-bootstrap start --profile indexer
@@ -26,7 +26,6 @@
   ```bash
   pnpm dev-bootstrap start --no-profile core
   ```
-  （CLI 会在后续任务中提供 `--no-profile` 选项，当前仅需在配置层调整 `defaultEnabled`。）
 
 ## 3. 输出解读
 
@@ -39,8 +38,9 @@
 | 场景 | 处理建议 |
 | ---- | -------- |
 | 预检失败：Docker 版本不足 | 升级 Docker Desktop 或安装最新 Docker Engine/Compose v2 |
+| 预检失败：CPU / 内存阈值不满足 | 根据提示调低 `prerequisites` 或调整本机资源配额 |
 | 预检失败：端口占用 | 根据提示关闭冲突进程，或更新配置中的 `services[].ports[]` |
-| 某服务 `failed` | 使用 `docker compose logs <service>` 查看容器日志，修正镜像/命令配置 |
+| 某服务 `failed` | 使用 `docker compose -f .dev-bootstrap/docker-compose.generated.yaml logs <service>` 查看容器日志，修正镜像/命令或环境变量 |
 | NDJSON 文件未生成 | 检查配置 `logging.ndjsonPath` 是否填写，以及命令是否有写入权限 |
 
 ## 5. 停止与清理

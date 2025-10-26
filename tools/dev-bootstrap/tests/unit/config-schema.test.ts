@@ -146,4 +146,15 @@ describe("devEnvironmentConfigSchema", () => {
     expect(parsed.resetPolicy?.mode).toBe("selective");
     expect(parsed.resetPolicy?.selectiveVolumes).toContain("pg-data");
   });
+
+  it("accepts service volume mounts", () => {
+    const config = cloneConfig();
+    config.services[0].volumes = ["pg-data:/var/lib/postgresql/data"];
+
+    const parsed = devEnvironmentConfigSchema.parse(config);
+
+    expect(parsed.services[0].volumes).toContain(
+      "pg-data:/var/lib/postgresql/data",
+    );
+  });
 });

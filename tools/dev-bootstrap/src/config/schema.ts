@@ -46,6 +46,7 @@ const serviceDefinitionSchema = z
     dependsOn: z.array(trimmedString).optional().default([]),
     profiles: z.array(trimmedString).optional().default([]),
     healthcheck: healthcheckDefinitionSchema.optional(),
+    volumes: z.array(trimmedString).optional().default([]),
   })
   .strict()
   .superRefine((service, ctx) => {

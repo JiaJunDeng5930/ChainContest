@@ -22,7 +22,12 @@ pnpm --filter tools/dev-bootstrap build
    cp dev-bootstrap.config.template.yaml dev-bootstrap.config.local.yaml
    ```
    保留需要覆盖的字段，例如端口或 profile 默认值。
-3. 配置文件存放在仓库根目录，`dev-bootstrap.config.local.yaml` 已在 `.gitignore` 中忽略。
+3. 准备环境变量：复制样例并按需调整。
+   ```bash
+   cp dev-bootstrap.env.example dev-bootstrap.env
+   ```
+   `dev-bootstrap.env` 已被 `.gitignore` 忽略，不会提交到版本库。
+4. 配置文件和 `.env` 均存放在仓库根目录，`dev-bootstrap.config.local.yaml` 已在 `.gitignore` 中忽略。
 
 ## 3. 校验配置
 
@@ -39,9 +44,8 @@ pnpm dev-bootstrap validate [--format json]
 pnpm dev-bootstrap start [--profile <name>] [--no-profile <name>] [--format both]
 ```
 
-- 默认启用配置中 `defaultEnabled=true` 的 profile；
-- `--profile` 可多次出现以启用额外 profile；
-- `--no-profile` 可多次出现用于禁用默认 profile；
+- 默认启用 `core` profile（PostgreSQL、Redis、API Server、Web UI）；`indexer` profile 包含事件索引和任务执行服务，可按需通过 `--profile indexer` 启用；
+- `--profile` 可多次出现以启用额外 profile，`--no-profile` 可多次出现用于禁用默认 profile；
 - 运行结束后，摘要会显示启用的 profile、生成的 Compose 文件位置以及每个服务的状态；
 - 若配置了 `logging.ndjsonPath`，还会在对应路径生成 NDJSON 事件流。
 
