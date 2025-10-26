@@ -107,7 +107,7 @@
 
 **Purpose**: Finalize documentation, logging options, and onboarding materials affecting all user stories.
 
-- [ ] T028 Implement CLI help/version metadata in `tools/dev-bootstrap/src/cli.ts`
+- [X] T028 Implement CLI help/version metadata in `tools/dev-bootstrap/src/cli.ts`
 - [ ] T029 [P] Add NDJSON streaming logger and retention toggle handling in `tools/dev-bootstrap/src/reporters/log-stream.ts`
 - [ ] T030 Refresh quickstart and README references for new CLI commands in `docs/dev-bootstrap/quickstart.md` and root `README.md`
 - [ ] T031 Validate full happy-path using `quickstart.md` steps and capture supporting artifacts in `.dev-bootstrap/`
