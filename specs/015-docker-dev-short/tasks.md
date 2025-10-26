@@ -37,7 +37,7 @@
 **⚠️ CRITICAL**: No user story work can begin until this phase is complete
 
 - [X] T005 Implement configuration schema with Zod in `tools/dev-bootstrap/src/config/schema.ts`
-- [ ] T006 [P] Build configuration loader/merger (base + local overrides) in `tools/dev-bootstrap/src/config/loader.ts`
+- [X] T006 [P] Build configuration loader/merger (base + local overrides) in `tools/dev-bootstrap/src/config/loader.ts`
 - [ ] T007 [P] Create shared error and exit-code utilities in `tools/dev-bootstrap/src/orchestration/errors.ts`
 - [ ] T008 [P] Implement summary reporter scaffold in `tools/dev-bootstrap/src/reporters/summary.ts`
 
