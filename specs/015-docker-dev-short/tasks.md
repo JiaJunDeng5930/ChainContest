@@ -96,7 +96,7 @@
 - [X] T023 [P] [US3] Implement reset flow handling selective volume removal in `tools/dev-bootstrap/src/orchestration/reset.ts`
 - [X] T024 [US3] Wire CLI stop/reset commands and shared flags in `tools/dev-bootstrap/src/commands/stop.ts` and `tools/dev-bootstrap/src/commands/reset.ts`
 - [X] T025 [P] [US3] Augment summary reporter with teardown metrics and warnings in `tools/dev-bootstrap/src/reporters/summary.ts`
-- [ ] T026 [US3] Add integration test covering stop/reset flows in `tools/dev-bootstrap/tests/integration/reset-command.test.ts`
+- [X] T026 [US3] Add integration test covering stop/reset flows in `tools/dev-bootstrap/tests/integration/reset-command.test.ts`
 - [ ] T027 [US3] Document teardown/reset workflows in `docs/dev-bootstrap/teardown.md`
 
 **Checkpoint**: Full lifecycle (start → stop/reset) supported via CLI with clear reporting.
