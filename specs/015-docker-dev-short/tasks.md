@@ -53,7 +53,7 @@
 
 ### Implementation for User Story 1
 
-- [ ] T009 [US1] Author default configuration template `dev-bootstrap.config.template.yaml` and VCS-ignored override sample `dev-bootstrap.config.local.yaml`
+- [X] T009 [US1] Author default configuration template `dev-bootstrap.config.template.yaml` and VCS-ignored override sample `dev-bootstrap.config.local.yaml`
 - [ ] T010 [P] [US1] Implement validate command handler in `tools/dev-bootstrap/src/commands/validate.ts`
 - [ ] T011 [P] [US1] Wire CLI to expose `validate` command in `tools/dev-bootstrap/src/cli.ts`
 - [ ] T012 [P] [US1] Implement validation message renderer with field-level guidance in `tools/dev-bootstrap/src/reporters/validation.ts`

@@ -30,3 +30,5 @@ coverage/
 .DS_Store
 Thumbs.db
 apps/**/test-results/
+dev-bootstrap.config.local.yaml
+.dev-bootstrap/
