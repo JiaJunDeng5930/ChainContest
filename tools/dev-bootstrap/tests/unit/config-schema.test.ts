@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { ZodError } from "zod";
 
 import {
   devEnvironmentConfigSchema,
@@ -120,9 +121,17 @@ describe("devEnvironmentConfigSchema", () => {
       selectiveVolumes: ["missing-volume"],
     };
 
-    expect(() => devEnvironmentConfigSchema.parse(config)).toThrow(
-      /selective volume "missing-volume" is not declared/
-    );
+    expect(() => devEnvironmentConfigSchema.parse(config)).toThrow();
+
+    try {
+      devEnvironmentConfigSchema.parse(config);
+    } catch (error) {
+      const issues = error instanceof ZodError ? error.issues : [];
+      const messages = issues.map((issue) => issue.message);
+      expect(messages).toContain(
+        'selective volume "missing-volume" is not declared in volumes',
+      );
+    }
   });
 
   it("accepts selective reset when volumes are declared", () => {

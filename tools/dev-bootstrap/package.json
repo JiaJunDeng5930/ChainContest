@@ -24,6 +24,7 @@
   },
   "devDependencies": {
     "@types/node": "^20.12.7",
+    "@types/semver": "^7.5.8",
     "@typescript-eslint/eslint-plugin": "^7.16.1",
     "@typescript-eslint/parser": "^7.16.1",
     "@vitest/coverage-istanbul": "^1.5.2",

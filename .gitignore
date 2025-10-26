@@ -13,6 +13,7 @@ frontend/.cache/
 # TypeScript build outputs
 packages/**/dist/
 apps/**/dist/
+tools/**/dist/
 
 # Infra/Postgres runtime artifacts
 infra/postgres/logs/

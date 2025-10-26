@@ -15,7 +15,7 @@ export type RuntimeEventType =
 export interface RuntimeEvent {
   timestamp: string;
   type: RuntimeEventType;
-  payload: Record<string, unknown>;
+  payload: unknown;
 }
 
 export interface RuntimeReporterOptions {
@@ -138,7 +138,7 @@ export class RuntimeReporter {
   public async close(): Promise<void> {
     if (this.writeStream) {
       await new Promise<void>((resolve, reject) => {
-        this.writeStream!.end((error) => {
+        this.writeStream!.end((error?: Error | null) => {
           if (error) {
             reject(error);
           } else {

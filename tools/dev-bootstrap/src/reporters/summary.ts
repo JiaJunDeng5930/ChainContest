@@ -78,13 +78,16 @@ const renderServiceTable = (services: ServiceSummary[]): string => {
   const widths = header.map((h, index) =>
     Math.max(
       h.length,
-      ...rows.map((row) => row[index].length),
+      ...rows.map((row) => (row[index]?.length ?? 0)),
     ),
   );
 
   const renderRow = (columns: string[]): string =>
     columns
-      .map((column, index) => column.padEnd(widths[index]))
+      .map((column, index) => {
+        const width = widths[index] ?? 0;
+        return column.padEnd(width);
+      })
       .join("  ");
 
   const lines = [

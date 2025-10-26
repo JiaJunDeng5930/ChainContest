@@ -64,7 +64,7 @@ const parseArguments = (argv: string[]): ParsedArguments => {
 
   let index = 0;
   while (index < tokens.length) {
-    const token = tokens[index];
+    const token = tokens[index]!;
 
     if (token === "-h" || token === "--help") {
       parsed.showHelp = true;

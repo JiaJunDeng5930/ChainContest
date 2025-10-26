@@ -35,14 +35,15 @@ resetPolicy:
 
 describe("stop/reset commands", () => {
   const mockedExeca = vi.mocked(execa);
-  let originalCwd: string;
   let tempDir: string;
+  let configPath: string;
+  let composeDir: string;
 
   beforeEach(async () => {
-    originalCwd = process.cwd();
     tempDir = await mkdtemp(path.join(os.tmpdir(), "dev-bootstrap-reset-"));
-    await writeFile(path.join(tempDir, "dev-bootstrap.config.yaml"), yamlConfig, "utf8");
-    process.chdir(tempDir);
+    configPath = path.join(tempDir, "dev-bootstrap.config.yaml");
+    composeDir = path.join(tempDir, ".dev-bootstrap");
+    await writeFile(configPath, yamlConfig, "utf8");
 
     mockedExeca.mockReset();
     mockedExeca.mockImplementation(async (command, args) => {
@@ -65,14 +66,17 @@ describe("stop/reset commands", () => {
   });
 
   afterEach(async () => {
-    process.chdir(originalCwd);
     await rm(tempDir, { recursive: true, force: true });
   });
 
   it("stops environment without removing volumes", async () => {
     const reporter = new SummaryReporter({ writer: () => {} });
 
-    const result = await runStopCommand({ reporter });
+    const result = await runStopCommand({
+      reporter,
+      configPath,
+      composeDir,
+    });
 
     expect(result.exitCode).toBe(ExitCode.Success);
     expect(result.summary.status).toBe("success");
@@ -88,6 +92,8 @@ describe("stop/reset commands", () => {
 
     const result = await runResetCommand({
       reporter,
+      configPath,
+      composeDir,
       mode: "selective",
       selectiveVolumes: ["pg-data"],
     });

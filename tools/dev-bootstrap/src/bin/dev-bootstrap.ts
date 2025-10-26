@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 
 const start = async () => {
-  await import('../dist/cli.js');
+  await import('../cli.js');
 };
 
 void start();

@@ -98,7 +98,7 @@ export class LogStreamReporter {
     }
 
     await new Promise<void>((resolve, reject) => {
-      stream.end((error) => {
+      stream.end((error?: Error | null) => {
         if (error) {
           reject(error);
         } else {
