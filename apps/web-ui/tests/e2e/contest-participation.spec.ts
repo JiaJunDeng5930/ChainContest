@@ -238,6 +238,29 @@ test.describe("Contest participation journey", () => {
       });
     });
 
+    await page.route("https://api.web3modal.org/appkit/**", async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({
+          projectId: "test-suite",
+          features: [],
+          ui: {
+            wallets: [
+              {
+                id: "metamask",
+                name: "MetaMask",
+                homepage: "https://metamask.io/",
+                links: {},
+                injected: { namespace: "eip155" }
+              }
+            ]
+          },
+          metadata: {}
+        })
+      });
+    });
+
     await page.route(`**/api/contests/${CONTEST_ID}`, async (route) => {
       detailVersion += 1;
       updateHistoryContestPhase();
