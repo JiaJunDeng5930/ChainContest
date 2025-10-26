@@ -2,7 +2,6 @@ import { ZodError } from "zod";
 
 import {
   ExitCode,
-  extractIssuesFromZodError,
   isDevBootstrapError,
   resolveExitCode,
 } from "../orchestration/errors";
@@ -17,6 +16,10 @@ import {
   SummaryReporter,
   SummaryReporterOptions,
 } from "../reporters/summary";
+import {
+  buildValidationMessagesFromZod,
+  renderValidationMessages,
+} from "../reporters/validation";
 
 export interface ValidateCommandOptions extends LoadConfigOptions {
   reporter?: SummaryReporter;
@@ -32,6 +35,11 @@ export interface ValidateCommandResult {
 
 const collectFailureMessages = (error: unknown): string[] => {
   if (isDevBootstrapError(error)) {
+    const cause = error.cause;
+    if (cause instanceof ZodError) {
+      return renderValidationMessages(buildValidationMessagesFromZod(cause));
+    }
+
     const issues = Array.isArray(error.metadata.issues)
       ? error.metadata.issues.map((issue) => String(issue))
       : [];
@@ -40,7 +48,7 @@ const collectFailureMessages = (error: unknown): string[] => {
   }
 
   if (error instanceof ZodError) {
-    return extractIssuesFromZodError(error);
+    return renderValidationMessages(buildValidationMessagesFromZod(error));
   }
 
   if (error instanceof Error) {
