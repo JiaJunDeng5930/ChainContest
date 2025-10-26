@@ -8,11 +8,11 @@
 **Organization**: Tasks are grouped by user story to enable independent implementation and testing of each story.
 
 ## Constitutional Gates *(mandatory)*
-- [ ] 安全优先栈：列出确保安全>正确性>可用性>成本的任务与降级/回滚步骤
-- [ ] 链上真相：标记生成/消费链上事件的任务，并定义校验与重算流程
-- [ ] 去信任执行：拆分任务以确保确定性、幂等与显式模块边界
-- [ ] 最小功能与权限：限制范围在当前旅程所需最小功能与权限配置
-- [ ] 可解释与性能：安排旅程级测试、审计资料生成与热路径优化/分批执行
+- [X] 安全优先栈：列出确保安全>正确性>可用性>成本的任务与降级/回滚步骤
+- [X] 链上真相：标记生成/消费链上事件的任务，并定义校验与重算流程
+- [X] 去信任执行：拆分任务以确保确定性、幂等与显式模块边界
+- [X] 最小功能与权限：限制范围在当前旅程所需最小功能与权限配置
+- [X] 可解释与性能：安排旅程级测试、审计资料生成与热路径优化/分批执行
 
 ## Format: `[ID] [P?] [Story] Description`
 - **[P]**: Can run in parallel (different files, no dependencies)
