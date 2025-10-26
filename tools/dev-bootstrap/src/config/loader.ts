@@ -1,7 +1,14 @@
 import { promises as fs } from "node:fs";
 import path from "node:path";
 import { parseDocument } from "yaml";
+import { ZodError } from "zod";
 
+import {
+  ConfigFileNotFoundError,
+  ConfigParseError,
+  ConfigValidationError,
+  extractIssuesFromZodError,
+} from "../orchestration/errors";
 import {
   DevEnvironmentConfig,
   devEnvironmentConfigSchema,
@@ -45,8 +52,9 @@ const readYamlFile = async (
     const document = parseDocument(content);
     if (document.errors.length > 0) {
       const [error] = document.errors;
-      throw new Error(
-        `无法解析配置文件 ${absolutePath}: ${error.message}`,
+      throw new ConfigParseError(
+        `无法解析配置文件：${absolutePath}`,
+        { cause: error, metadata: { path: absolutePath } },
       );
     }
 
@@ -56,13 +64,23 @@ const readYamlFile = async (
       return { exists: false };
     }
 
-    throw error;
+    if (error instanceof ConfigParseError) {
+      throw error;
+    }
+
+    throw new ConfigParseError(
+      `读取配置文件失败：${absolutePath}`,
+      { cause: error, metadata: { path: absolutePath } },
+    );
   }
 };
 
 const ensurePlainObject = (value: unknown, label: string): PlainObject => {
   if (!isPlainObject(value)) {
-    throw new Error(`配置文件 ${label} 不是有效的对象结构`);
+    throw new ConfigParseError(
+      `配置文件 ${label} 必须是对象结构`,
+      { metadata: { path: label } },
+    );
   }
 
   return value;
@@ -109,7 +127,7 @@ export const loadDevEnvironmentConfig = async (
 
   const baseResult = await readYamlFile(configPath);
   if (!baseResult.exists) {
-    throw new Error(`未找到配置文件 ${configPath}`);
+    throw new ConfigFileNotFoundError(configPath);
   }
 
   sources.push({
@@ -137,7 +155,23 @@ export const loadDevEnvironmentConfig = async (
     });
   }
 
-  const config = devEnvironmentConfigSchema.parse(rawConfig);
+  let config: DevEnvironmentConfig;
+  try {
+    config = devEnvironmentConfigSchema.parse(rawConfig);
+  } catch (error) {
+    if (error instanceof ConfigValidationError) {
+      throw error;
+    }
+
+    if (error instanceof ZodError) {
+      throw new ConfigValidationError(
+        extractIssuesFromZodError(error),
+        { cause: error },
+      );
+    }
+
+    throw error;
+  }
 
   return {
     config,
