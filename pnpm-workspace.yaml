@@ -8,3 +8,4 @@ packages:
   - "packages/db"
   - "packages/chain"
   - "packages/shared/*"
+  - "tools/dev-bootstrap"
