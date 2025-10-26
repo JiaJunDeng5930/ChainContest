@@ -97,7 +97,7 @@
 - [X] T024 [US3] Wire CLI stop/reset commands and shared flags in `tools/dev-bootstrap/src/commands/stop.ts` and `tools/dev-bootstrap/src/commands/reset.ts`
 - [X] T025 [P] [US3] Augment summary reporter with teardown metrics and warnings in `tools/dev-bootstrap/src/reporters/summary.ts`
 - [X] T026 [US3] Add integration test covering stop/reset flows in `tools/dev-bootstrap/tests/integration/reset-command.test.ts`
-- [ ] T027 [US3] Document teardown/reset workflows in `docs/dev-bootstrap/teardown.md`
+- [X] T027 [US3] Document teardown/reset workflows in `docs/dev-bootstrap/teardown.md`
 
 **Checkpoint**: Full lifecycle (start → stop/reset) supported via CLI with clear reporting.
 
