@@ -104,11 +104,17 @@ const normaliseRuntimeConfig = (raw: unknown): RuntimeConfigRecord => {
   }
 };
 
+const ANY_STATUS_FILTER = ['registered', 'active', 'sealed', 'settled'] as const;
+
 const fetchRuntimeConfigFromDatabase = async (): Promise<RuntimeConfigRecord | null> => {
   await initDatabase();
 
   const response = await database.queryContests({
-    selector: {},
+    selector: {
+      filter: {
+        statuses: [...ANY_STATUS_FILTER]
+      }
+    },
     includes: undefined,
     pagination: {
       pageSize: 1,

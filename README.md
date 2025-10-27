@@ -71,6 +71,8 @@ pnpm --filter @chaincontest/dev-console dev
 1. `cp dev-bootstrap.config.template.yaml dev-bootstrap.config.yaml`
 2. `cp dev-bootstrap.env.example dev-bootstrap.env`
 3. `pnpm dev-bootstrap validate && pnpm dev-bootstrap start --profile core --profile indexer`
+4. `pnpm --filter @chaincontest/db build`（生成 Drizzle 所需的 schema JS）
+5. `pnpm --filter @chaincontest/db migrate:push`（依据 `dev-bootstrap.env` 中的 `DATABASE_URL` 初始化本地数据库）
 
 详细配置、服务说明与排查指南请参考 `docs/dev-bootstrap/quickstart.md`、`docs/dev-bootstrap/start.md`、`docs/dev-bootstrap/teardown.md`。
 
