@@ -10,6 +10,7 @@ RUN corepack enable
 COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
 COPY apps ./apps
 COPY packages ./packages
+COPY configs ./configs
 COPY tools ./tools
 COPY specs ./specs
 COPY tsconfig.base.json ./

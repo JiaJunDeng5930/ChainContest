@@ -1,5 +1,6 @@
 import fs from 'node:fs';
 import path from 'node:path';
+import { createRequire } from 'node:module';
 import { config as loadEnv } from 'dotenv';
 import type { ValidationContextOptions } from '@chaincontest/shared-schemas';
 import { z } from 'zod';
@@ -212,9 +213,9 @@ const parseRpcConfig = (raw: string): ChainRpcConfig[] => {
 const loadValidationConfig = (envConfig: z.infer<typeof envSchema>): ValidationConfig => {
   const registryPath = envConfig.INDEXER_EVENT_VALIDATION_REGISTRY_PATH?.trim();
   const overridesPath = envConfig.INDEXER_EVENT_VALIDATION_OVERRIDES_PATH?.trim();
-  const registry = registryPath ? readJsonFile(registryPath, 'validation registry') : [];
+  const registry = registryPath ? loadValidationResource(registryPath, 'validation registry') : [];
   const overrides = overridesPath
-    ? readJsonFile(overridesPath, 'validation overrides')
+    ? loadValidationResource(overridesPath, 'validation overrides')
     : undefined;
 
   const validationOptions: ValidationConfig = {
@@ -233,18 +234,31 @@ const loadValidationConfig = (envConfig: z.infer<typeof envSchema>): ValidationC
   return validationOptions;
 };
 
-const readJsonFile = (inputPath: string, description: string): unknown => {
+const requireFromFile = createRequire(import.meta.url);
+
+const loadValidationResource = (inputPath: string, description: string): unknown => {
   const filePath = resolveAbsolutePath(inputPath);
 
   if (!fs.existsSync(filePath)) {
     throw new ConfigError(`Unable to locate ${description} at ${filePath}`);
   }
 
+  const extension = path.extname(filePath).toLowerCase();
+
+  if (extension === '.json') {
+    try {
+      const raw = fs.readFileSync(filePath, 'utf8');
+      return JSON.parse(raw);
+    } catch (error) {
+      throw new ConfigError(`Failed to parse ${description} at ${filePath}: ${(error as Error).message}`);
+    }
+  }
+
   try {
-    const raw = fs.readFileSync(filePath, 'utf8');
-    return JSON.parse(raw);
+    const loaded = requireFromFile(filePath);
+    return loaded && typeof loaded === 'object' && 'default' in loaded ? loaded.default : loaded;
   } catch (error) {
-    throw new ConfigError(`Failed to parse ${description} at ${filePath}: ${(error as Error).message}`);
+    throw new ConfigError(`Failed to load ${description} at ${filePath}: ${(error as Error).message}`);
   }
 };
 

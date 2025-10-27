@@ -1,5 +1,6 @@
 import { promises as fs } from 'node:fs';
 import path from 'node:path';
+import { createRequire } from 'node:module';
 import type { Logger } from 'pino';
 import {
   init as initDatabase,
@@ -97,22 +98,36 @@ const loadValidationArtifacts = async (config: TasksConfig): Promise<ValidationA
     );
   }
 
-  const registry = await readJsonFile(registryPath, 'validation registry');
-  const overrides = await readJsonFile(overridesPath, 'validation overrides');
+  const registry = await loadValidationResource(registryPath, 'validation registry');
+  const overrides = await loadValidationResource(overridesPath, 'validation overrides');
 
   cachedArtifacts = { registry, overrides };
   return cachedArtifacts;
 };
 
-const readJsonFile = async (inputPath: string, description: string): Promise<unknown> => {
+const moduleRequire = createRequire(import.meta.url);
+
+const loadValidationResource = async (inputPath: string, description: string): Promise<unknown> => {
   const absolutePath = path.isAbsolute(inputPath) ? inputPath : path.resolve(process.cwd(), inputPath);
 
+  const extension = path.extname(absolutePath).toLowerCase();
+
+  if (extension === '.json') {
+    try {
+      const raw = await fs.readFile(absolutePath, 'utf8');
+      return JSON.parse(raw);
+    } catch (error) {
+      const reason = error instanceof Error ? error.message : String(error);
+      throw new DatabaseBootstrapError(`Unable to load ${description} from ${absolutePath}: ${reason}`, error);
+    }
+  }
+
   try {
-    const raw = await fs.readFile(absolutePath, 'utf8');
-    return JSON.parse(raw);
+    const loaded = moduleRequire(absolutePath);
+    return loaded && typeof loaded === 'object' && 'default' in loaded ? loaded.default : loaded;
   } catch (error) {
     const reason = error instanceof Error ? error.message : String(error);
-    throw new DatabaseBootstrapError(`Unable to load ${description} from ${absolutePath}: ${reason}`, error);
+    throw new DatabaseBootstrapError(`Unable to require ${description} from ${absolutePath}: ${reason}`, error);
   }
 };
 

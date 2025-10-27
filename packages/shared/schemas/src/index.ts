@@ -35,3 +35,5 @@ export const listRegisteredTypes = (context: ValidationContext): {
     description: entry.rule.description,
   })),
 });
+
+export { z } from 'zod';

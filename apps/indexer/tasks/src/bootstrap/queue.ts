@@ -74,17 +74,20 @@ class SerialExecutor {
   }
 }
 
-const resolveQueueTimings = (config: TasksConfig): {
+const resolveQueueTimings = (
+  config: TasksConfig,
+): {
   fetchIntervalMs: number;
   pollIntervalSeconds: number;
   retryDelaySeconds: number;
 } => {
   const fetchIntervalMs = Math.max(100, config.queue.fetchIntervalMs);
-  const pollIntervalSeconds = Math.max(1, Math.ceil(fetchIntervalMs / 1000));
+  const pollIntervalSeconds = Math.max(0.1, fetchIntervalMs / 1000);
+  const retryDelaySeconds = Math.max(1, Math.round(pollIntervalSeconds));
   return {
     fetchIntervalMs,
     pollIntervalSeconds,
-    retryDelaySeconds: pollIntervalSeconds
+    retryDelaySeconds,
   };
 };
 
@@ -97,7 +100,8 @@ export const bootstrapQueue = async (options: QueueInitOptions = {}): Promise<vo
   const logger = options.logger ?? getLogger();
 
   const retryLimit = Math.max(0, config.thresholds.rpcFailure - 1);
-  const { pollIntervalSeconds, retryDelaySeconds } = resolveQueueTimings(config);
+  const { fetchIntervalMs, pollIntervalSeconds, retryDelaySeconds } =
+    resolveQueueTimings(config);
 
   const boss = new PgBoss({
     connectionString: config.queue.url,
@@ -164,7 +168,7 @@ export const registerWorker = async <TPayload>(
   const boss = ensureBoss();
   const config = ensureConfig();
   const logger = ensureLogger();
-  const { pollIntervalSeconds } = resolveQueueTimings(config);
+  const { fetchIntervalMs, pollIntervalSeconds } = resolveQueueTimings(config);
 
   const serialExecutor = options.keyResolver ? new SerialExecutor() : null;
 
