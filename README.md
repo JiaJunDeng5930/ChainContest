@@ -73,6 +73,10 @@ pnpm --filter @chaincontest/dev-console dev
 3. `pnpm dev-bootstrap validate && pnpm dev-bootstrap start --profile core --profile indexer`
 4. `pnpm --filter @chaincontest/db build`（生成 Drizzle 所需的 schema JS）
 5. `pnpm --filter @chaincontest/db migrate:push`（依据 `dev-bootstrap.env` 中的 `DATABASE_URL` 初始化本地数据库）
+6. `docker exec chaincontest-dev-hardhat-node-1 pnpm --filter @chaincontest/contracts exec -- hardhat run scripts/e2e/register-setup.ts --network localhost \| tee register-output.json`（在正在运行的 Hardhat 节点上部署演示用 Contest 及其依赖）
+7. `pnpm exec jq --arg rpc "http://127.0.0.1:48545" --argjson chain 31337 --argjson port 4100 '{ rpcUrl: $rpc, chainId: $chain, devPort: $port, defaultAccount: .deployer.address, contracts: [ {id:"contest",name:"Contest",address:.contest,abiPath:"/abi/Contest.json",tags:["core","entry"]}, {id:"priceSource",name:"PriceSource",address:.priceSource,abiPath:"/abi/PriceSource.json"}, {id:"vaultFactory",name:"VaultFactory",address:.vaultFactory,abiPath:"/abi/VaultFactory.json"}, {id:"entryAsset",name:"ERC20",address:.entryAsset,abiPath:"/abi/ERC20.json"}, {id:"quoteAsset",name:"ERC20",address:.quoteAsset,abiPath:"/abi/ERC20.json"} ] }' register-output.json > runtime-config.json`（生成前端需要的运行时配置）
+8. `export RUNTIME_CONFIG=$(jq -c '.' runtime-config.json) && docker exec chaincontest-dev-postgres-1 psql -U chaincontest -d chaincontest -c "INSERT INTO contests (chain_id, contract_address, internal_key, time_window_start, time_window_end, metadata) VALUES (31337, '0x9A676e781A523b5d0C0e43731313A708CB607508', 'contest-001', NOW(), NOW() + INTERVAL '3 hour', jsonb_build_object('runtimeConfig', '${RUNTIME_CONFIG}'::jsonb));"`（把运行时配置写入数据库，供 `/api/runtime/config` 对外暴露）
+9. `curl http://localhost:44000/api/runtime/config \| jq`（确认接口已返回非空配置）
 
 详细配置、服务说明与排查指南请参考 `docs/dev-bootstrap/quickstart.md`、`docs/dev-bootstrap/start.md`、`docs/dev-bootstrap/teardown.md`。
 
