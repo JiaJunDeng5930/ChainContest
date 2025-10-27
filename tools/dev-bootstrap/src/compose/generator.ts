@@ -23,6 +23,61 @@ export interface ComposeGenerationResult {
   profiles: string[];
 }
 
+type ServiceHealthcheck = NonNullable<ServiceDefinition["healthcheck"]>;
+
+const CMD_PREFIX = "CMD ";
+const CMD_SHELL_PREFIX = "CMD-SHELL ";
+
+const splitCommandArgs = (command: string): string[] => {
+  const matches = command.match(/"[^"]*"|'[^']*'|\S+/g);
+  if (!matches) {
+    return [];
+  }
+  return matches.map((segment) => {
+    const trimmed = segment.trim();
+    if (
+      (trimmed.startsWith('"') && trimmed.endsWith('"')) ||
+      (trimmed.startsWith("'") && trimmed.endsWith("'"))
+    ) {
+      return trimmed.slice(1, -1);
+    }
+    return trimmed;
+  });
+};
+
+const buildHealthcheckDefinition = (
+  healthcheck: ServiceHealthcheck,
+): Record<string, unknown> => {
+  const definition: Record<string, unknown> = {};
+  const test = healthcheck.test?.trim();
+
+  if (test) {
+    if (test.startsWith(CMD_SHELL_PREFIX)) {
+      const command = test.slice(CMD_SHELL_PREFIX.length).trim();
+      definition.test = ["CMD-SHELL", command];
+    } else if (test.startsWith(CMD_PREFIX)) {
+      const command = test.slice(CMD_PREFIX.length).trim();
+      definition.test = ["CMD", ...splitCommandArgs(command)];
+    } else {
+      definition.test = ["CMD-SHELL", test];
+    }
+  }
+
+  if (healthcheck.interval) {
+    definition.interval = healthcheck.interval;
+  }
+
+  if (healthcheck.timeout) {
+    definition.timeout = healthcheck.timeout;
+  }
+
+  if (typeof healthcheck.retries === "number") {
+    definition.retries = healthcheck.retries;
+  }
+
+  return definition;
+};
+
 const buildServiceDefinition = (
   service: ServiceDefinition,
   envFiles: string[],
@@ -61,25 +116,7 @@ const buildServiceDefinition = (
   }
 
   if (service.healthcheck) {
-    const healthcheck: Record<string, unknown> = {};
-
-    if (service.healthcheck.test) {
-      healthcheck.test = service.healthcheck.test;
-    }
-
-    if (service.healthcheck.interval) {
-      healthcheck.interval = service.healthcheck.interval;
-    }
-
-    if (service.healthcheck.timeout) {
-      healthcheck.timeout = service.healthcheck.timeout;
-    }
-
-    if (typeof service.healthcheck.retries === "number") {
-      healthcheck.retries = service.healthcheck.retries;
-    }
-
-    definition.healthcheck = healthcheck;
+    definition.healthcheck = buildHealthcheckDefinition(service.healthcheck);
   }
 
   if (service.ports.length > 0) {
