@@ -54,6 +54,63 @@ const runComposeDown = async (
   });
 };
 
+const listProjectResources = async (
+  projectName: string,
+  type: "container" | "volume" | "network",
+): Promise<string[]> => {
+  const label = `com.docker.compose.project=${projectName}`;
+  const formatFlag = type === "container" ? "{{.ID}}" : "{{.Name}}";
+  const baseArgs =
+    type === "container"
+      ? ["ps", "--all", "--filter", `label=${label}`, "--format", formatFlag]
+      : type === "volume"
+        ? ["volume", "ls", "--filter", `label=${label}`, "--format", formatFlag]
+        : ["network", "ls", "--filter", `label=${label}`, "--format", formatFlag];
+
+  try {
+    const { stdout } = await execa("docker", baseArgs);
+    return stdout
+      .split(/\r?\n/)
+      .map((line) => line.trim())
+      .filter((line) => line.length > 0);
+  } catch {
+    return [];
+  }
+};
+
+const forceRemoveContainers = async (containerIds: string[]): Promise<void> => {
+  if (containerIds.length === 0) {
+    return;
+  }
+
+  await execa("docker", ["rm", "-f", ...containerIds], {
+    stdout: "inherit",
+    stderr: "inherit",
+  });
+};
+
+const forceRemoveVolumes = async (volumeNames: string[]): Promise<void> => {
+  if (volumeNames.length === 0) {
+    return;
+  }
+
+  await execa("docker", ["volume", "rm", ...volumeNames], {
+    stdout: "inherit",
+    stderr: "inherit",
+  });
+};
+
+const forceRemoveNetworks = async (networkNames: string[]): Promise<void> => {
+  if (networkNames.length === 0) {
+    return;
+  }
+
+  await execa("docker", ["network", "rm", ...networkNames], {
+    stdout: "inherit",
+    stderr: "inherit",
+  });
+};
+
 export class StopEnvironmentError extends DevBootstrapError {
   constructor(message: string, metadata?: Record<string, unknown>) {
     super(message, ExitCode.TeardownFailed, { metadata });
@@ -95,6 +152,65 @@ export const stopEnvironment = async (
         composeFile: composeResult.filePath,
       },
     );
+  }
+
+  const remainingContainers = await listProjectResources(
+    options.config.projectName,
+    "container",
+  );
+
+  if (remainingContainers.length > 0) {
+    try {
+      await forceRemoveContainers(remainingContainers);
+    } catch (error) {
+      throw new StopEnvironmentError(
+        "强制移除残留容器失败",
+        {
+          cause: error instanceof Error ? error.message : String(error),
+          containers: remainingContainers,
+        },
+      );
+    }
+  }
+
+  if (options.removeVolumes) {
+    const remainingVolumes = await listProjectResources(
+      options.config.projectName,
+      "volume",
+    );
+
+    if (remainingVolumes.length > 0) {
+      try {
+        await forceRemoveVolumes(remainingVolumes);
+      } catch (error) {
+        throw new StopEnvironmentError(
+          "强制移除残留卷失败",
+          {
+            cause: error instanceof Error ? error.message : String(error),
+            volumes: remainingVolumes,
+          },
+        );
+      }
+    }
+  }
+
+  const remainingNetworks = await listProjectResources(
+    options.config.projectName,
+    "network",
+  );
+
+  if (remainingNetworks.length > 0) {
+    try {
+      await forceRemoveNetworks(remainingNetworks);
+    } catch (error) {
+      throw new StopEnvironmentError(
+        "强制移除残留网络失败",
+        {
+          cause: error instanceof Error ? error.message : String(error),
+          networks: remainingNetworks,
+        },
+      );
+    }
   }
 
   return {
