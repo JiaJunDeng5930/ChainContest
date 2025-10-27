@@ -53,7 +53,9 @@ const DEFAULT_OPTIONS: Pick<ApiRequestInit, "credentials" | "parseResponse"> = {
 };
 
 const DEFAULT_BASE_URL =
-  typeof window === "undefined" ? process.env.API_BASE_URL ?? process.env.NEXT_PUBLIC_API_BASE_URL ?? "" : "";
+  typeof window === "undefined"
+    ? process.env.API_BASE_URL ?? process.env.NEXT_PUBLIC_API_BASE_URL ?? ""
+    : process.env.NEXT_PUBLIC_API_BASE_URL ?? "";
 
 const JSON_CONTENT_TYPE = "application/json";
 

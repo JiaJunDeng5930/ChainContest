@@ -56,7 +56,7 @@ const buildJsonResponse = (status: number, code: string, message: string, detail
   return new NextResponse(body, { status, headers });
 };
 
-const PUBLIC_PATHS = ['/api/auth/siwe/start', '/api/auth/siwe/verify', '/api/health'];
+const PUBLIC_PATHS = ['/api/auth/siwe/start', '/api/auth/siwe/verify', '/api/health', '/api/runtime/config'];
 
 export function middleware(request: NextRequest): NextResponse {
   const { pathname } = request.nextUrl;

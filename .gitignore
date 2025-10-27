@@ -34,3 +34,4 @@ apps/**/test-results/
 dev-bootstrap.config.local.yaml
 .dev-bootstrap/
 dev-bootstrap.env
+docs/manual-tests/

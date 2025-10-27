@@ -2,13 +2,13 @@ import type { NextRequest } from 'next/server';
 import { NextResponse } from 'next/server';
 import { requireSession, SessionNotFoundError } from '@/lib/auth/session';
 import { loadRuntimeConfig } from '@/lib/runtime/runtimeConfig';
-import { httpErrors, toErrorResponse } from '@/lib/http/errors';
+import { toErrorResponse } from '@/lib/http/errors';
 
 export const GET = async (_request: NextRequest): Promise<Response> => {
   try {
     await requireSession().catch((error) => {
       if (error instanceof SessionNotFoundError) {
-        throw httpErrors.unauthorized('No active session');
+        return null;
       }
       throw error;
     });
