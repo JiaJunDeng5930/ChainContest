@@ -58,16 +58,19 @@ pnpm --filter @chaincontest/dev-console dev
 
 工具 `pnpm dev-bootstrap` 提供本地服务的全生命周期管理：
 
-- `pnpm dev-bootstrap validate`：校验配置文件（支持 `--format json` 输出机器可读结果）。
-- `pnpm dev-bootstrap start [--profile <name>]`：运行预检、生成 Compose 配置并启动需要的服务。
-- `pnpm dev-bootstrap stop [--remove-volumes]`：停止运行中的服务，按需一并删除卷。
-- `pnpm dev-bootstrap reset [--mode preserve|selective|full] [--volume <name>]`：停止服务并按策略清理卷数据。
-- `pnpm dev-bootstrap --help` / `--version`：查看命令帮助与 CLI 版本。
+| 操作 | 命令 | 说明 |
+| --- | --- | --- |
+| 校验配置 | `pnpm dev-bootstrap validate` | 检查配置文件（可加 `--format json` 输出机器可读结果）。 |
+| 启动整个工程 | `pnpm dev-bootstrap start --profile core --profile indexer` | 运行预检并启动所有服务（核心栈 + indexer 栈）。 |
+| 启动指定 Profile | `pnpm dev-bootstrap start --profile <name>` | 仅启动所需 Profile 对应的容器，可重复使用该参数。 |
+| 停止全部服务 | `pnpm dev-bootstrap stop` | 停止当前运行的容器，保留卷数据。 |
+| 停止并清理卷 | `pnpm dev-bootstrap reset --mode full` | 停止全部容器并删除 Compose 生成的卷与网络。 |
+| 其他子命令 | `pnpm dev-bootstrap --help` | 查看全部参数、Profile 与命令说明。 |
 
 快速体验：
 1. `cp dev-bootstrap.config.template.yaml dev-bootstrap.config.yaml`
 2. `cp dev-bootstrap.env.example dev-bootstrap.env`
-3. `pnpm dev-bootstrap validate && pnpm dev-bootstrap start`
+3. `pnpm dev-bootstrap validate && pnpm dev-bootstrap start --profile core --profile indexer`
 
 详细配置、服务说明与排查指南请参考 `docs/dev-bootstrap/quickstart.md`、`docs/dev-bootstrap/start.md`、`docs/dev-bootstrap/teardown.md`。
 
