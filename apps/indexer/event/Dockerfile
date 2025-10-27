@@ -32,4 +32,4 @@ RUN corepack enable
 COPY --from=builder /app ./
 
 EXPOSE 4005
-CMD ["node", "apps/indexer/event/dist/apps/indexer/event/index.js"]
+CMD ["node", "apps/indexer/event/dist/index.js"]

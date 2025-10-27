@@ -32,4 +32,4 @@ RUN corepack enable
 COPY --from=builder /app ./
 
 EXPOSE 4010
-CMD ["node", "apps/indexer/tasks/dist/apps/indexer/tasks/index.js"]
+CMD ["node", "apps/indexer/tasks/dist/index.js"]
