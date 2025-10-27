@@ -111,6 +111,7 @@
 - [X] T029 [P] Add NDJSON streaming logger and retention toggle handling in `tools/dev-bootstrap/src/reporters/log-stream.ts`
 - [X] T030 Refresh quickstart and README references for new CLI commands in `docs/dev-bootstrap/quickstart.md` and root `README.md`
 - [X] T031 Validate full happy-path using `quickstart.md` steps and capture supporting artifacts in `.dev-bootstrap/`
+- [X] T032 [Bug] Fix `@chaincontest/db` build/migration failures (`drizzle-kit` can't resolve generated schema, TypeScript errors on `pg` types) so dev-bootstrap can auto-provision runtime config tables for local startup
 
 ---
 

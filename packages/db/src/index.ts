@@ -101,9 +101,9 @@ import {
 } from './repositories/contestDeploymentArtifacts.js';
 import type { MilestoneExecutionRecord, MilestoneExecutionStatus } from './schema/milestoneExecution.js';
 import type { ReconciliationReportLedger, ReconciliationReportStatus } from './schema/reconciliationReport.js';
-import { dbSchema } from './schema/index.js';
+import { dbSchema, type DbSchema } from './schema/index.js';
 
-let pool: DatabasePool | null = null;
+let pool: DatabasePool<DbSchema> | null = null;
 
 export interface DbInitOptions {
   databaseUrl: string;
@@ -338,9 +338,22 @@ export const queryContests = async (
     validateSingleInput(DbValidationTypes.contestQuery, request);
   } catch (error) {
     const classified = ensureDbError(error);
-    const issues = classified.detail?.context?.detail?.issues;
-    const hasUnsupportedChainIssue = Array.isArray(issues)
-      && issues.some((issue: { message?: string }) => issue?.message?.toLowerCase().includes('unsupported chain'));
+    const issues = (() => {
+      const context = classified.detail?.context;
+      if (!context || typeof context !== 'object') {
+        return [] as Array<{ message?: string }>;
+      }
+      const detail = (context as { detail?: unknown }).detail;
+      if (!detail || typeof detail !== 'object') {
+        return [] as Array<{ message?: string }>;
+      }
+      const rawIssues = (detail as { issues?: unknown }).issues;
+      return Array.isArray(rawIssues) ? (rawIssues as Array<{ message?: string }>) : [];
+    })();
+    const hasUnsupportedChainIssue = issues.some(
+      (issue) =>
+        typeof issue.message === 'string' && issue.message.toLowerCase().includes('unsupported chain')
+    );
 
     if (
       classified.code === DbErrorCode.INPUT_INVALID
@@ -631,7 +644,7 @@ export const db = {
 
 export type { WalletMutationActorContext, WalletMutationAction };
 
-const ensurePool = (): DatabasePool => {
+const ensurePool = (): DatabasePool<DbSchema> => {
   if (!pool) {
     throw new DbError(DbErrorCode.INTERNAL_ERROR, 'packages/db has not been initialised');
   }

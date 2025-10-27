@@ -1,21 +1,24 @@
 import { Pool } from 'pg';
 import type { PoolConfig } from 'pg';
 import { drizzle } from 'drizzle-orm/node-postgres';
-import type {
-  NodePgDatabase,
-  NodePgQueryResultHKT,
-  NodePgSession,
-  NodePgTransaction,
-  PgTransactionConfig
-} from 'drizzle-orm/node-postgres';
+import type { NodePgDatabase } from 'drizzle-orm/node-postgres';
+import type { PgTransactionConfig } from 'drizzle-orm/pg-core/session.js';
 
 type EmptySchema = Record<string, never>;
 
+type TransactionRunner<TSchema extends Record<string, unknown>> =
+  Parameters<NodePgDatabase<TSchema>['transaction']>[0];
+
+type TransactionScope<TSchema extends Record<string, unknown>> =
+  TransactionRunner<TSchema> extends (tx: infer TTx, ...args: unknown[]) => Promise<unknown> ? TTx : never;
+
+type RunnerResult<TSchema extends Record<string, unknown>, TRunner extends TransactionRunner<TSchema>> =
+  TRunner extends (tx: TransactionScope<TSchema>, ...args: unknown[]) => Promise<infer TResult> ? TResult : never;
+
 export type DrizzleDatabase<TSchema extends Record<string, unknown> = EmptySchema> = NodePgDatabase<TSchema>;
 
-export type DrizzleTransaction<
-  TSchema extends Record<string, unknown> = EmptySchema
-> = NodePgTransaction<TSchema, NodePgSession, NodePgQueryResultHKT>;
+export type DrizzleTransaction<TSchema extends Record<string, unknown> = EmptySchema> =
+  TransactionScope<TSchema>;
 
 export interface DatabasePoolOptions<TSchema extends Record<string, unknown> = EmptySchema> {
   connectionString: string;
@@ -27,10 +30,10 @@ export interface DatabasePoolOptions<TSchema extends Record<string, unknown> = E
 export interface DatabasePool<TSchema extends Record<string, unknown> = EmptySchema> {
   readonly pool: Pool;
   readonly db: DrizzleDatabase<TSchema>;
-  withTransaction<TResult>(
-    runner: (tx: DrizzleTransaction<TSchema>) => Promise<TResult>,
+  withTransaction<TRunner extends TransactionRunner<TSchema>>(
+    runner: TRunner,
     config?: PgTransactionConfig
-  ): Promise<TResult>;
+  ): Promise<RunnerResult<TSchema, TRunner>>;
   close(): Promise<void>;
 }
 
@@ -58,18 +61,15 @@ export function createDatabasePool<TSchema extends Record<string, unknown> = Emp
     logger
   });
 
-  async function withTransaction<TResult>(
-    runner: (tx: DrizzleTransaction<TSchema>) => Promise<TResult>,
+  async function withTransaction<TRunner extends TransactionRunner<TSchema>>(
+    runner: TRunner,
     config?: PgTransactionConfig
-  ): Promise<TResult> {
+  ): Promise<RunnerResult<TSchema, TRunner>> {
     const isolationLevel = config?.isolationLevel ?? READ_COMMITTED;
-    return db.transaction(
-      (tx) => runner(tx),
-      {
-        ...config,
-        isolationLevel
-      }
-    );
+    return db.transaction(runner, {
+      ...config,
+      isolationLevel
+    }) as Promise<RunnerResult<TSchema, TRunner>>;
   }
 
   async function close(): Promise<void> {

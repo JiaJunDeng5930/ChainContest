@@ -83,7 +83,7 @@ importers:
         version: 5.9.3
       vitest:
         specifier: ^1.6.1
-        version: 1.6.1(@types/node@20.19.19)(jsdom@24.1.3)
+        version: 1.6.1(@types/node@20.19.19)(jsdom@24.1.3(bufferutil@4.0.9)(utf-8-validate@5.0.10))
 
   apps/dev-console:
     dependencies:
@@ -199,7 +199,7 @@ importers:
         version: 5.9.3
       vitest:
         specifier: ^1.6.1
-        version: 1.6.1(@types/node@20.19.19)(jsdom@24.1.3)
+        version: 1.6.1(@types/node@20.19.19)(jsdom@24.1.3(bufferutil@4.0.9)(utf-8-validate@5.0.10))
 
   apps/indexer/tasks:
     dependencies:
@@ -263,7 +263,7 @@ importers:
         version: 5.9.3
       vitest:
         specifier: ^1.6.1
-        version: 1.6.1(@types/node@20.19.19)(jsdom@24.1.3)
+        version: 1.6.1(@types/node@20.19.19)(jsdom@24.1.3(bufferutil@4.0.9)(utf-8-validate@5.0.10))
 
   apps/web-ui:
     dependencies:
@@ -458,7 +458,7 @@ importers:
         version: 5.9.3
       vitest:
         specifier: ^1.5.2
-        version: 1.6.1(@types/node@20.19.19)(jsdom@24.1.3)
+        version: 1.6.1(@types/node@20.19.19)(jsdom@24.1.3(bufferutil@4.0.9)(utf-8-validate@5.0.10))
 
   packages/db:
     dependencies:
@@ -470,7 +470,7 @@ importers:
         version: 16.6.1
       drizzle-orm:
         specifier: ^0.32.0
-        version: 0.32.2(@types/react@18.3.26)(pg@8.16.3)(react@18.3.1)
+        version: 0.32.2(@types/pg@8.15.5)(@types/react@18.3.26)(pg@8.16.3)(react@18.3.1)
       pg:
         specifier: ^8.12.0
         version: 8.16.3
@@ -481,6 +481,9 @@ importers:
       '@types/node':
         specifier: ^20.12.7
         version: 20.19.19
+      '@types/pg':
+        specifier: ^8.11.6
+        version: 8.15.5
       '@typescript-eslint/eslint-plugin':
         specifier: ^7.16.1
         version: 7.18.0(@typescript-eslint/parser@7.18.0(eslint@8.57.1)(typescript@5.9.3))(eslint@8.57.1)(typescript@5.9.3)
@@ -507,7 +510,7 @@ importers:
         version: 5.9.3
       vitest:
         specifier: ^1.5.2
-        version: 1.6.1(@types/node@20.19.19)(jsdom@24.1.3)
+        version: 1.6.1(@types/node@20.19.19)(jsdom@24.1.3(bufferutil@4.0.9)(utf-8-validate@5.0.10))
 
   packages/shared/i18n:
     devDependencies:
@@ -562,7 +565,7 @@ importers:
         version: 5.9.3
       vitest:
         specifier: ^1.5.2
-        version: 1.6.1(@types/node@20.19.19)(jsdom@24.1.3)
+        version: 1.6.1(@types/node@20.19.19)(jsdom@24.1.3(bufferutil@4.0.9)(utf-8-validate@5.0.10))
 
   tools/dev-bootstrap:
     dependencies:
@@ -605,7 +608,7 @@ importers:
         version: 5.9.3
       vitest:
         specifier: ^1.5.2
-        version: 1.6.1(@types/node@20.19.19)(jsdom@24.1.3)
+        version: 1.6.1(@types/node@20.19.19)(jsdom@24.1.3(bufferutil@4.0.9)(utf-8-validate@5.0.10))
 
 packages:
 
@@ -2416,6 +2419,9 @@ packages:
 
   '@types/pbkdf2@3.1.2':
     resolution: {integrity: sha512-uRwJqmiXmh9++aSu1VNEn3iIxWOhd8AHXNSdlaLfdAAdSTY9jYVeGWnzejM3dvrkbqE3/hyQkQQ29IFATEGlew==}
+
+  '@types/pg@8.15.5':
+    resolution: {integrity: sha512-LF7lF6zWEKxuT3/OR8wAZGzkg4ENGXFNyiV/JeOt9z5B+0ZVwbql9McqX5c/WStFq1GaGso7H1AzP/qSzmlCKQ==}
 
   '@types/prettier@2.7.3':
     resolution: {integrity: sha512-+68kP9yzs4LMp7VNh8gdzMSPZFL44MLGqiHWvttYJe+6qnuVr4Ek9wSBQoveqY/r+LwjCcU29kNVkidwim+kYA==}
@@ -9473,6 +9479,12 @@ snapshots:
     dependencies:
       '@types/node': 20.19.19
 
+  '@types/pg@8.15.5':
+    dependencies:
+      '@types/node': 20.19.19
+      pg-protocol: 1.10.3
+      pg-types: 2.2.0
+
   '@types/prettier@2.7.3': {}
 
   '@types/prop-types@15.7.15': {}
@@ -11559,8 +11571,9 @@ snapshots:
     transitivePeerDependencies:
       - supports-color
 
-  drizzle-orm@0.32.2(@types/react@18.3.26)(pg@8.16.3)(react@18.3.1):
+  drizzle-orm@0.32.2(@types/pg@8.15.5)(@types/react@18.3.26)(pg@8.16.3)(react@18.3.1):
     optionalDependencies:
+      '@types/pg': 8.15.5
       '@types/react': 18.3.26
       pg: 8.16.3
       react: 18.3.1

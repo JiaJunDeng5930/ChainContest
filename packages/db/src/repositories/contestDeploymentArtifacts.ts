@@ -1,6 +1,6 @@
 import { eq } from 'drizzle-orm';
 import type { DrizzleDatabase } from '../adapters/connection.js';
-import { contestDeploymentArtifacts, type ContestDeploymentArtifact } from '../schema/index.js';
+import { contestDeploymentArtifacts, type ContestDeploymentArtifact, type DbSchema } from '../schema/index.js';
 
 export interface RecordContestDeploymentArtifactParams {
   requestId: string;
@@ -34,7 +34,7 @@ export const normalizeDeploymentArtifact = (
 };
 
 export const recordContestDeploymentArtifactRecord = async (
-  db: DrizzleDatabase,
+  db: DrizzleDatabase<DbSchema>,
   params: RecordContestDeploymentArtifactParams
 ): Promise<ContestDeploymentArtifact> => {
   const [existing] = await db
@@ -58,6 +58,10 @@ export const recordContestDeploymentArtifactRecord = async (
       })
       .returning();
 
+    if (!inserted) {
+      throw new Error('Failed to insert contest deployment artifact record.');
+    }
+
     return normalizeDeploymentArtifact(inserted)!;
   }
 
@@ -75,6 +79,10 @@ export const recordContestDeploymentArtifactRecord = async (
     })
     .where(eq(contestDeploymentArtifacts.id, existing.id))
     .returning();
+
+  if (!updated) {
+    throw new Error('Failed to update contest deployment artifact record.');
+  }
 
   return normalizeDeploymentArtifact(updated)!;
 };

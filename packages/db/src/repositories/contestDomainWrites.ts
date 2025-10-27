@@ -37,6 +37,189 @@ export interface ContestDomainWriteResult {
   contestId?: string;
 }
 
+const CONTEST_STATUS_SET = new Set<ContestStatus>(
+  contestStatusEnum.enumValues as readonly ContestStatus[]
+);
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value);
+}
+
+function isDateInput(value: unknown): value is string | Date {
+  return typeof value === 'string' || value instanceof Date;
+}
+
+function isAmountValue(value: unknown): value is string | number | bigint {
+  return (
+    typeof value === 'string' || typeof value === 'number' || typeof value === 'bigint'
+  );
+}
+
+function assertTrackContestPayload(payload: unknown): asserts payload is TrackContestPayload {
+  if (!isRecord(payload)) {
+    throw new DbError(DbErrorCode.INPUT_INVALID, 'track payload must be an object');
+  }
+
+  const { chainId, contractAddress, timeWindow, internalKey, status, metadata } = payload;
+
+  if (typeof chainId !== 'number' || Number.isNaN(chainId)) {
+    throw new DbError(DbErrorCode.INPUT_INVALID, 'track payload requires numeric chainId');
+  }
+
+  if (typeof contractAddress !== 'string' || contractAddress.trim().length === 0) {
+    throw new DbError(DbErrorCode.INPUT_INVALID, 'track payload requires contractAddress');
+  }
+
+  if (!isRecord(timeWindow) || !isDateInput(timeWindow.start) || !isDateInput(timeWindow.end)) {
+    throw new DbError(DbErrorCode.INPUT_INVALID, 'track payload requires valid timeWindow');
+  }
+
+  if (internalKey !== undefined && internalKey !== null && typeof internalKey !== 'string') {
+    throw new DbError(DbErrorCode.INPUT_INVALID, 'track payload internalKey must be string when provided');
+  }
+
+  if (
+    status !== undefined
+    && (typeof status !== 'string' || !CONTEST_STATUS_SET.has(status as ContestStatus))
+  ) {
+    throw new DbError(DbErrorCode.INPUT_INVALID, 'track payload status is invalid');
+  }
+
+  if (metadata !== undefined && !isRecord(metadata)) {
+    throw new DbError(DbErrorCode.INPUT_INVALID, 'track payload metadata must be an object when provided');
+  }
+}
+
+function assertSnapshotPayload(payload: unknown): asserts payload is SnapshotPayload {
+  if (!isRecord(payload)) {
+    throw new DbError(DbErrorCode.INPUT_INVALID, 'snapshot payload must be an object');
+  }
+
+  const { contestId, cursorHeight, effectiveAt } = payload;
+
+  if (typeof contestId !== 'string' || contestId.trim().length === 0) {
+    throw new DbError(DbErrorCode.INPUT_INVALID, 'snapshot payload requires contestId');
+  }
+
+  if (!isAmountValue(cursorHeight)) {
+    throw new DbError(DbErrorCode.INPUT_INVALID, 'snapshot payload requires cursorHeight');
+  }
+
+  if (!isDateInput(effectiveAt)) {
+    throw new DbError(DbErrorCode.INPUT_INVALID, 'snapshot payload requires effectiveAt');
+  }
+}
+
+function assertParticipationPayload(payload: unknown): asserts payload is ParticipationPayload {
+  if (!isRecord(payload)) {
+    throw new DbError(DbErrorCode.INPUT_INVALID, 'participation payload must be an object');
+  }
+
+  const { contestId, walletAddress, amountWei, occurredAt, event } = payload;
+
+  if (typeof contestId !== 'string' || contestId.trim().length === 0) {
+    throw new DbError(DbErrorCode.INPUT_INVALID, 'participation payload requires contestId');
+  }
+
+  if (typeof walletAddress !== 'string' || walletAddress.trim().length === 0) {
+    throw new DbError(DbErrorCode.INPUT_INVALID, 'participation payload requires walletAddress');
+  }
+
+  if (!isAmountValue(amountWei)) {
+    throw new DbError(DbErrorCode.INPUT_INVALID, 'participation payload requires amountWei');
+  }
+
+  if (!isDateInput(occurredAt)) {
+    throw new DbError(DbErrorCode.INPUT_INVALID, 'participation payload requires occurredAt');
+  }
+
+  if (!isRecord(event)) {
+    throw new DbError(DbErrorCode.INPUT_INVALID, 'participation payload requires event metadata');
+  }
+
+  const { chainId, txHash, logIndex } = event;
+  if (typeof chainId !== 'number' || typeof txHash !== 'string' || typeof logIndex !== 'number') {
+    throw new DbError(DbErrorCode.INPUT_INVALID, 'participation event is invalid');
+  }
+}
+
+function assertLeaderboardPayload(payload: unknown): asserts payload is LeaderboardPayload {
+  if (!isRecord(payload)) {
+    throw new DbError(DbErrorCode.INPUT_INVALID, 'leaderboard payload must be an object');
+  }
+
+  const { contestId, version, entries, writtenAt } = payload;
+
+  if (typeof contestId !== 'string' || contestId.trim().length === 0) {
+    throw new DbError(DbErrorCode.INPUT_INVALID, 'leaderboard payload requires contestId');
+  }
+
+  if (!isAmountValue(version)) {
+    throw new DbError(DbErrorCode.INPUT_INVALID, 'leaderboard payload requires version');
+  }
+
+  if (!Array.isArray(entries)) {
+    throw new DbError(DbErrorCode.INPUT_INVALID, 'leaderboard payload requires entries array');
+  }
+
+  if (!isDateInput(writtenAt)) {
+    throw new DbError(DbErrorCode.INPUT_INVALID, 'leaderboard payload requires writtenAt');
+  }
+}
+
+function assertSealContestPayload(payload: unknown): asserts payload is SealContestPayload {
+  if (!isRecord(payload)) {
+    throw new DbError(DbErrorCode.INPUT_INVALID, 'seal payload must be an object');
+  }
+
+  const { contestId, sealedAt, status } = payload;
+
+  if (typeof contestId !== 'string' || contestId.trim().length === 0) {
+    throw new DbError(DbErrorCode.INPUT_INVALID, 'seal payload requires contestId');
+  }
+
+  if (!isDateInput(sealedAt)) {
+    throw new DbError(DbErrorCode.INPUT_INVALID, 'seal payload requires sealedAt');
+  }
+
+  if (status !== undefined && status !== 'sealed' && status !== 'settled') {
+    throw new DbError(DbErrorCode.INPUT_INVALID, 'seal payload status must be sealed or settled when provided');
+  }
+}
+
+function assertRewardClaimPayload(payload: unknown): asserts payload is RewardClaimPayload {
+  if (!isRecord(payload)) {
+    throw new DbError(DbErrorCode.INPUT_INVALID, 'reward payload must be an object');
+  }
+
+  const { contestId, walletAddress, amountWei, claimedAt, event } = payload;
+
+  if (typeof contestId !== 'string' || contestId.trim().length === 0) {
+    throw new DbError(DbErrorCode.INPUT_INVALID, 'reward payload requires contestId');
+  }
+
+  if (typeof walletAddress !== 'string' || walletAddress.trim().length === 0) {
+    throw new DbError(DbErrorCode.INPUT_INVALID, 'reward payload requires walletAddress');
+  }
+
+  if (!isAmountValue(amountWei)) {
+    throw new DbError(DbErrorCode.INPUT_INVALID, 'reward payload requires amountWei');
+  }
+
+  if (!isDateInput(claimedAt)) {
+    throw new DbError(DbErrorCode.INPUT_INVALID, 'reward payload requires claimedAt');
+  }
+
+  if (!isRecord(event)) {
+    throw new DbError(DbErrorCode.INPUT_INVALID, 'reward payload requires event metadata');
+  }
+
+  const { chainId, txHash, logIndex } = event;
+  if (typeof chainId !== 'number' || typeof txHash !== 'string' || typeof logIndex !== 'number') {
+    throw new DbError(DbErrorCode.INPUT_INVALID, 'reward payload event is invalid');
+  }
+}
+
 export type ContestDomainWriteExecutor = (
   tx: DrizzleTransaction<DbSchema>,
   params: ContestDomainWriteParams
@@ -145,18 +328,36 @@ export interface IngestionWriteResult {
 
 export const writeContestDomain: ContestDomainWriteExecutor = async (tx, params) => {
   switch (params.action) {
-    case 'track':
-      return trackContest(tx, params.payload as TrackContestPayload, params.actorContext ?? null);
-    case 'ingest_snapshot':
-      return ingestSnapshot(tx, params.payload as SnapshotPayload, params.actorContext ?? null);
-    case 'register_participation':
-      return registerParticipation(tx, params.payload as ParticipationPayload, params.actorContext ?? null);
-    case 'write_leaders_version':
-      return writeLeaderboardVersion(tx, params.payload as LeaderboardPayload, params.actorContext ?? null);
-    case 'seal':
-      return sealContest(tx, params.payload as SealContestPayload, params.actorContext ?? null);
-    case 'append_reward_claim':
-      return appendRewardClaim(tx, params.payload as RewardClaimPayload, params.actorContext ?? null);
+    case 'track': {
+      const payload = params.payload;
+      assertTrackContestPayload(payload);
+      return trackContest(tx, payload, params.actorContext ?? null);
+    }
+    case 'ingest_snapshot': {
+      const payload = params.payload;
+      assertSnapshotPayload(payload);
+      return ingestSnapshot(tx, payload, params.actorContext ?? null);
+    }
+    case 'register_participation': {
+      const payload = params.payload;
+      assertParticipationPayload(payload);
+      return registerParticipation(tx, payload, params.actorContext ?? null);
+    }
+    case 'write_leaders_version': {
+      const payload = params.payload;
+      assertLeaderboardPayload(payload);
+      return writeLeaderboardVersion(tx, payload, params.actorContext ?? null);
+    }
+    case 'seal': {
+      const payload = params.payload;
+      assertSealContestPayload(payload);
+      return sealContest(tx, payload, params.actorContext ?? null);
+    }
+    case 'append_reward_claim': {
+      const payload = params.payload;
+      assertRewardClaimPayload(payload);
+      return appendRewardClaim(tx, payload, params.actorContext ?? null);
+    }
     default:
       throw new DbError(DbErrorCode.INPUT_INVALID, `Unsupported contest domain action "${params.action}"`, {
         detail: {
@@ -168,7 +369,7 @@ export const writeContestDomain: ContestDomainWriteExecutor = async (tx, params)
 };
 
 export async function readIngestionStatus(
-  db: DrizzleDatabase,
+  db: DrizzleDatabase<DbSchema>,
   params: ReadIngestionStatusParams
 ): Promise<CursorState> {
   if (!params.contestId && !(params.chainId && params.contractAddress)) {
@@ -284,6 +485,10 @@ async function trackContest(
       })
       .returning({ id: contests.id });
 
+    if (!inserted) {
+      throw new Error('Failed to insert contest record during track action.');
+    }
+
     return { status: 'applied', contestId: inserted.id };
   }
 
@@ -298,7 +503,8 @@ async function trackContest(
     updates.timeWindowStart = windowStart;
     updates.timeWindowEnd = windowEnd;
   }
-  if (payload.metadata && !deepEquals(existing.metadata ?? {}, payload.metadata)) {
+  const currentMetadata = (existing.metadata ?? {}) as Record<string, unknown>;
+  if (payload.metadata && !deepEquals(currentMetadata, payload.metadata)) {
     updates.metadata = payload.metadata;
   }
 

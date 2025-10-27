@@ -4,7 +4,8 @@ import {
   contestCreationRequests,
   contestDeploymentArtifacts,
   type ContestCreationRequest,
-  type ContestDeploymentArtifact
+  type ContestDeploymentArtifact,
+  type DbSchema
 } from '../schema/index.js';
 import { normalizeDeploymentArtifact } from './contestDeploymentArtifacts.js';
 
@@ -88,7 +89,7 @@ export const toContestCreationAggregate = (
 };
 
 export const createContestCreationRequestRecord = async (
-  db: DrizzleDatabase,
+  db: DrizzleDatabase<DbSchema>,
   params: CreateContestCreationRequestParams
 ): Promise<ContestCreationRequestAggregate> => {
   const [inserted] = await db
@@ -100,11 +101,15 @@ export const createContestCreationRequestRecord = async (
     })
     .returning();
 
+  if (!inserted) {
+    throw new Error('Failed to insert contest creation request record.');
+  }
+
   return toContestCreationAggregate(inserted, null);
 };
 
 export const getContestCreationRequestRecord = async (
-  db: DrizzleDatabase,
+  db: DrizzleDatabase<DbSchema>,
   requestId: string
 ): Promise<GetContestCreationRequestResult | null> => {
   const [row] = await db
@@ -125,7 +130,7 @@ export const getContestCreationRequestRecord = async (
 };
 
 export const listContestCreationRequestsRecords = async (
-  db: DrizzleDatabase,
+  db: DrizzleDatabase<DbSchema>,
   params: ListContestCreationRequestsParams
 ): Promise<ListContestCreationRequestsResponse> => {
   const normalizedUserId = params.userId.trim();
@@ -140,7 +145,7 @@ export const listContestCreationRequestsRecords = async (
     conditions.push(applyCursorCondition(cursorPayload));
   }
 
-  let query = db
+  const baseQuery = db
     .select({ request: contestCreationRequests, artifact: contestDeploymentArtifacts })
     .from(contestCreationRequests)
     .leftJoin(
@@ -150,25 +155,29 @@ export const listContestCreationRequestsRecords = async (
     .orderBy(desc(contestCreationRequests.createdAt), desc(contestCreationRequests.id))
     .limit(pageSize + 1);
 
-  if (conditions.length === 1) {
-    query = query.where(conditions[0]!);
-  } else {
-    query = query.where(and(...conditions));
-  }
+  const filteredQuery =
+    conditions.length === 1
+      ? baseQuery.where(conditions[0]!)
+      : baseQuery.where(and(...conditions));
 
-  const rows = await query;
+  const rows = await filteredQuery;
 
   const hasNext = rows.length > pageSize;
   const items = rows
     .slice(0, pageSize)
     .map((row) => toContestCreationAggregate(row.request, row.artifact ?? null));
 
-  const nextCursor = hasNext
-    ? encodeCursor({
-        createdAt: rows[pageSize]!.request.createdAt.toISOString(),
-        requestId: rows[pageSize]!.request.id
-      })
-    : null;
+  let nextCursor: string | null = null;
+  if (hasNext) {
+    const cursorRow = rows[pageSize];
+    if (!cursorRow) {
+      throw new Error('Pagination invariant violated: expected cursor row when additional pages exist.');
+    }
+    nextCursor = encodeCursor({
+      createdAt: cursorRow.request.createdAt.toISOString(),
+      requestId: cursorRow.request.id
+    });
+  }
 
   return {
     items,

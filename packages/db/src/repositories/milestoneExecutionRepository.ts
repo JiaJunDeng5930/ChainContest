@@ -121,6 +121,10 @@ export async function upsertMilestoneExecutionRecord(
     })
     .returning();
 
+  if (!record) {
+    throw new DbError(DbErrorCode.INTERNAL_ERROR, 'Failed to upsert milestone execution record');
+  }
+
   return record;
 }
 
@@ -259,7 +263,7 @@ function coerceNullableDate(value: Date | string | null | undefined): Date | nul
 }
 
 function validateStatus(status: string): asserts status is MilestoneExecutionStatus {
-  if (!allowedStatuses.has(status)) {
+  if (!allowedStatuses.has(status as MilestoneExecutionStatus)) {
     throw new DbError(DbErrorCode.INPUT_INVALID, 'Unsupported milestone execution status', {
       detail: { reason: 'unsupported_status', context: { status } }
     });

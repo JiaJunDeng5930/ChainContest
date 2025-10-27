@@ -3,6 +3,7 @@ import type { DrizzleDatabase } from '../adapters/connection.js';
 import {
   userIdentities,
   walletBindings,
+  type DbSchema,
   type UserIdentity,
   type WalletBinding
 } from '../schema/index.js';
@@ -32,7 +33,7 @@ export interface LookupUserWalletRecord {
 }
 
 export const lookupUserWalletRecords = async (
-  db: DrizzleDatabase,
+  db: DrizzleDatabase<DbSchema>,
   params: LookupUserWalletParams
 ): Promise<LookupUserWalletRecord[]> => {
   const userFilter = normalizeIdentifier(params.userId);
@@ -52,7 +53,7 @@ export const lookupUserWalletRecords = async (
     conditions.push(eq(walletBindings.walletAddress, walletFilter));
   }
 
-  let query = db
+  const baseQuery = db
     .select({
       identityId: userIdentities.id,
       externalId: userIdentities.externalId,
@@ -70,11 +71,13 @@ export const lookupUserWalletRecords = async (
     .from(walletBindings)
     .innerJoin(userIdentities, eq(walletBindings.userId, userIdentities.id));
 
-  if (conditions.length > 0) {
-    query = query.where(and(...conditions));
-  }
+  const filteredQuery =
+    conditions.length > 0 ? baseQuery.where(and(...conditions)) : baseQuery;
 
-  const rows = await query.orderBy(asc(walletBindings.boundAt), asc(walletBindings.walletAddress));
+  const rows = await filteredQuery.orderBy(
+    asc(walletBindings.boundAt),
+    asc(walletBindings.walletAddress)
+  );
 
   return rows.map((row) => ({
     ...row,

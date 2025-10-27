@@ -21,6 +21,8 @@ export type {
   CompositeValidationReference,
   MissingDependenciesDetail,
   ValidationIssueSummary,
+  ValidationError,
+  ValidationMetrics,
 } from './types/validation.js';
 
 export const listRegisteredTypes = (context: ValidationContext): {

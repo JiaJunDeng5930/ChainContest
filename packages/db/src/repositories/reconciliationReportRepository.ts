@@ -121,6 +121,10 @@ export async function upsertReconciliationReportRecord(
     })
     .returning();
 
+  if (!record) {
+    throw new DbError(DbErrorCode.INTERNAL_ERROR, 'Failed to upsert reconciliation report record');
+  }
+
   return record;
 }
 

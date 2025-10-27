@@ -1,6 +1,6 @@
 import { and, asc, eq } from 'drizzle-orm';
 import type { DrizzleDatabase } from '../adapters/connection.js';
-import { organizerContracts, type OrganizerContract } from '../schema/index.js';
+import { organizerContracts, type OrganizerContract, type DbSchema } from '../schema/index.js';
 
 export interface RegisterOrganizerContractParams {
   userId: string;
@@ -24,7 +24,7 @@ export interface ListOrganizerContractsParams {
 export type OrganizerRegistryRecord = OrganizerContract;
 
 export const registerOrganizerContractRecord = async (
-  db: DrizzleDatabase,
+  db: DrizzleDatabase<DbSchema>,
   params: RegisterOrganizerContractParams
 ): Promise<RegisterOrganizerContractResult> => {
   const normalizedUserId = params.userId.trim();
@@ -55,6 +55,10 @@ export const registerOrganizerContractRecord = async (
       })
       .returning();
 
+    if (!inserted) {
+      throw new Error('Failed to insert organizer contract record.');
+    }
+
     return {
       contract: inserted,
       created: true
@@ -71,6 +75,10 @@ export const registerOrganizerContractRecord = async (
     .where(eq(organizerContracts.id, existing.id))
     .returning();
 
+  if (!updated) {
+    throw new Error('Failed to update organizer contract record.');
+  }
+
   return {
     contract: updated,
     created: false
@@ -78,7 +86,7 @@ export const registerOrganizerContractRecord = async (
 };
 
 export const listOrganizerContractsRecords = async (
-  db: DrizzleDatabase,
+  db: DrizzleDatabase<DbSchema>,
   params: ListOrganizerContractsParams
 ): Promise<OrganizerRegistryRecord[]> => {
   const normalizedUserId = params.userId.trim();
@@ -91,18 +99,15 @@ export const listOrganizerContractsRecords = async (
     filters.push(eq(organizerContracts.contractType, params.contractType.trim()));
   }
 
-  let query = db
+  const baseQuery = db
     .select()
     .from(organizerContracts)
     .orderBy(asc(organizerContracts.contractType), asc(organizerContracts.networkId));
 
-  if (filters.length === 1) {
-    query = query.where(filters[0]!);
-  } else {
-    query = query.where(and(...filters));
-  }
+  const filteredQuery =
+    filters.length === 1 ? baseQuery.where(filters[0]!) : baseQuery.where(and(...filters));
 
-  const rows = await query;
+  const rows = await filteredQuery;
 
   return rows.map((row) => ({
     ...row,

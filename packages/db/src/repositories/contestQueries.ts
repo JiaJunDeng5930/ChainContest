@@ -1,4 +1,4 @@
-import { and, asc, desc, eq, gte, ilike, inArray, isNull, lte, or, sql } from 'drizzle-orm';
+import { and, asc, desc, eq, gte, ilike, inArray, isNull, lte, sql } from 'drizzle-orm';
 import type { SQL } from 'drizzle-orm';
 import type { DrizzleDatabase } from '../adapters/connection.js';
 import { DbError, DbErrorCode } from '../instrumentation/metrics.js';
@@ -10,8 +10,16 @@ import {
   userIdentities,
   walletBindings,
   contestCreationRequests,
-  contestDeploymentArtifacts
+  contestDeploymentArtifacts,
+  contestStatusEnum,
+  type DbSchema
 } from '../schema/index.js';
+
+type ContestStatusValue = (typeof contestStatusEnum.enumValues)[number];
+
+const CONTEST_STATUS_SET = new Set<ContestStatusValue>(
+  contestStatusEnum.enumValues as readonly ContestStatusValue[]
+);
 import { toContestCreationAggregate, type ContestCreationRequestAggregate } from './contestCreationRequests.js';
 
 const DEFAULT_PAGE_SIZE = 25;
@@ -19,6 +27,41 @@ const MAX_PAGE_SIZE = 100;
 
 // Temporary supported chain list until shared schemas export an authoritative catalogue.
 const SUPPORTED_CHAIN_IDS = new Set([1, 5, 10, 11155111, 42161]);
+
+function assertContestStatuses(
+  statuses: readonly string[],
+  context: { reason: string }
+): ContestStatusValue[] {
+  const normalized: ContestStatusValue[] = [];
+  for (const status of statuses) {
+    if (CONTEST_STATUS_SET.has(status as ContestStatusValue)) {
+      normalized.push(status as ContestStatusValue);
+    }
+  }
+
+  if (normalized.length === 0) {
+    throw new DbError(DbErrorCode.INPUT_INVALID, 'Invalid contest status provided', {
+      detail: {
+        reason: context.reason,
+        context: { statuses }
+      }
+    });
+  }
+
+  return normalized;
+}
+
+function combineWithAnd(predicates: SQL[]): SQL | null {
+  if (predicates.length === 0) {
+    return null;
+  }
+
+  let combined = predicates[0]!;
+  for (let index = 1; index < predicates.length; index += 1) {
+    combined = sql`(${combined}) AND (${predicates[index]!})`;
+  }
+  return combined;
+}
 
 export interface ContestItemSelector {
   internalId?: string;
@@ -195,13 +238,13 @@ const applyCreatorCursorCondition = (cursor: CreatorCursorPayload): SQL => {
     });
   }
 
-  return or(
-    ltDate(contestCreationRequests.createdAt, createdAt),
-    and(
-      eq(contestCreationRequests.createdAt, createdAt),
-      ltUuid(contestCreationRequests.id, cursor.requestId)
+  return sql`(
+    ${contestCreationRequests.createdAt} < ${createdAt}
+    OR (
+      ${contestCreationRequests.createdAt} = ${createdAt}
+      AND ${contestCreationRequests.id} < ${cursor.requestId}
     )
-  );
+  )`;
 };
 
 const mapContestRecord = (row: (typeof contests)['$inferSelect'] | null): ContestRecord | null => {
@@ -226,7 +269,7 @@ const mapContestRecord = (row: (typeof contests)['$inferSelect'] | null): Contes
 };
 
 export async function queryCreatorContests(
-  db: DrizzleDatabase,
+  db: DrizzleDatabase<DbSchema>,
   params: CreatorContestQueryParams
 ): Promise<QueryCreatorContestsResponse> {
   const normalizedUser = params.userId.trim();
@@ -262,7 +305,7 @@ export async function queryCreatorContests(
     predicates.push(applyCreatorCursorCondition(cursorPayload));
   }
 
-  let query = db
+  const baseQuery = db
     .select({
       request: contestCreationRequests,
       artifact: contestDeploymentArtifacts,
@@ -277,13 +320,8 @@ export async function queryCreatorContests(
     .orderBy(desc(contestCreationRequests.createdAt), desc(contestCreationRequests.id))
     .limit(pageSize + 1);
 
-  if (predicates.length === 1) {
-    query = query.where(predicates[0]!);
-  } else {
-    query = query.where(and(...predicates));
-  }
-
-  const rows = await query;
+  const whereClause = combineWithAnd(predicates);
+  const rows = await (whereClause ? baseQuery.where(whereClause) : baseQuery);
 
   const hasNext = rows.length > pageSize;
   const window = hasNext ? rows.slice(0, pageSize) : rows;
@@ -296,10 +334,11 @@ export async function queryCreatorContests(
     };
   });
 
-  const nextCursor = hasNext
+  const cursorRow = hasNext ? rows[pageSize] : undefined;
+  const nextCursor = cursorRow
     ? encodeCreatorCursor({
-        createdAt: rows[pageSize]!.request.createdAt.toISOString(),
-        requestId: rows[pageSize]!.request.id
+        createdAt: cursorRow.request.createdAt.toISOString(),
+        requestId: cursorRow.request.id
       })
     : null;
 
@@ -312,7 +351,7 @@ export async function queryCreatorContests(
 const BASE_ORDER = [desc(contests.timeWindowEnd), desc(contests.id)] as const;
 
 export async function queryContests(
-  db: DrizzleDatabase,
+  db: DrizzleDatabase<DbSchema>,
   params: ContestQueryParams
 ): Promise<ContestQueryResult> {
   const pagination = normalisePagination(params.pagination);
@@ -323,7 +362,7 @@ export async function queryContests(
     predicates.push(applyCursorCondition(pagination.cursor));
   }
 
-  let orderedQuery = db
+  const baseQuery = db
     .select({
       id: contests.id,
       chainId: contests.chainId,
@@ -340,20 +379,18 @@ export async function queryContests(
     })
     .from(contests);
 
-  if (predicates.length > 0) {
-    orderedQuery = orderedQuery.where(and(...predicates));
-  }
+  const whereClause = combineWithAnd(predicates);
+  const filteredQuery = whereClause ? baseQuery.where(whereClause) : baseQuery;
 
-  orderedQuery = orderedQuery.orderBy(...BASE_ORDER).limit(pagination.pageSize + 1);
-
-  const rows = await orderedQuery;
+  const rows = await filteredQuery.orderBy(...BASE_ORDER).limit(pagination.pageSize + 1);
 
   const hasNextPage = rows.length > pagination.pageSize;
   const slicedRows = hasNextPage ? rows.slice(0, pagination.pageSize) : rows;
 
   const contestAggregates = await hydrateContestAggregates(db, slicedRows, params.includes ?? {});
 
-  const nextCursor = hasNextPage ? encodeContestCursor(rows[pagination.pageSize]) : null;
+  const cursorRow = hasNextPage ? rows[pagination.pageSize] : undefined;
+  const nextCursor = cursorRow ? encodeContestCursor(cursorRow) : null;
 
   return {
     items: contestAggregates,
@@ -362,7 +399,7 @@ export async function queryContests(
 }
 
 export async function queryUserContests(
-  db: DrizzleDatabase,
+  db: DrizzleDatabase<DbSchema>,
   params: UserContestQueryParams
 ): Promise<UserContestQueryResult> {
   if (!params.userId || params.userId.trim().toLowerCase() === 'unknown') {
@@ -436,25 +473,33 @@ function buildContestConditions(selector: ContestSelector): SQL[] {
   const conditions: SQL[] = [];
 
   if (selector.items && selector.items.length > 0) {
-    const directConditions = selector.items.map((item) => {
+    const itemConditions: SQL[] = [];
+    for (const item of selector.items) {
       if (item.internalId) {
-        return eq(contests.internalKey, item.internalId);
+        itemConditions.push(eq(contests.internalKey, item.internalId));
+        continue;
       }
 
       if (item.chainId && item.contractAddress) {
         ensureSupportedChains([item.chainId]);
-        return and(
-          eq(contests.chainId, item.chainId),
-          eq(contests.contractAddress, item.contractAddress.toLowerCase())
-        );
+        const chainMatch = eq(contests.chainId, item.chainId);
+        const contractMatch = eq(contests.contractAddress, item.contractAddress.toLowerCase());
+        itemConditions.push(sql`(${chainMatch}) AND (${contractMatch})`);
+        continue;
       }
 
       throw new DbError(DbErrorCode.INPUT_INVALID, 'Invalid contest selector item');
-    });
+    }
 
-    conditions.push(
-      directConditions.length === 1 ? directConditions[0]! : or(...directConditions)
-    );
+    if (itemConditions.length === 1) {
+      conditions.push(itemConditions[0]!);
+    } else if (itemConditions.length > 1) {
+      let combined = itemConditions[0]!;
+      for (let index = 1; index < itemConditions.length; index += 1) {
+        combined = sql`(${combined}) OR (${itemConditions[index]!})`;
+      }
+      conditions.push(combined);
+    }
   }
 
   if (selector.filter) {
@@ -466,7 +511,10 @@ function buildContestConditions(selector: ContestSelector): SQL[] {
     }
 
     if (filter.statuses && filter.statuses.length > 0) {
-      conditions.push(inArray(contests.status, filter.statuses));
+      const normalizedStatuses = assertContestStatuses(filter.statuses, {
+        reason: 'contest_filter_status_invalid'
+      });
+      conditions.push(inArray(contests.status, normalizedStatuses));
     }
 
     if (filter.timeRange) {
@@ -483,12 +531,17 @@ function buildContestConditions(selector: ContestSelector): SQL[] {
         });
       }
 
-      conditions.push(and(gte(contests.timeWindowEnd, start), lte(contests.timeWindowStart, end)));
+      const lowerBound = gte(contests.timeWindowEnd, start);
+      const upperBound = lte(contests.timeWindowStart, end);
+      conditions.push(sql`(${lowerBound}) AND (${upperBound})`);
     }
 
     if (filter.keyword && filter.keyword.trim().length > 0) {
-      const keyword = `%${filter.keyword.trim().toLowerCase()}%`;
-      conditions.push(ilike(sql`metadata ->> 'keywords'`, keyword));
+      const keyword = `%${filter.keyword.trim()}%`;
+      const contractMatch = ilike(contests.contractAddress, keyword);
+      const internalMatch = ilike(contests.internalKey, keyword);
+      const keywordCondition = sql`(${contractMatch}) OR (${internalMatch})`;
+      conditions.push(keywordCondition);
     }
   }
 
@@ -513,22 +566,17 @@ function applyCursorCondition(cursor: CursorPayload): SQL {
     throw new DbError(DbErrorCode.INPUT_INVALID, 'Invalid pagination cursor for contests');
   }
 
-  return or(
-    ltDate(contests.timeWindowEnd, cursorDate),
-    and(eq(contests.timeWindowEnd, cursorDate), ltUuid(contests.id, cursor.tieBreaker))
-  );
-}
-
-function ltDate(column: typeof contests.timeWindowEnd, value: Date): SQL {
-  return sql`${column} < ${value}`;
-}
-
-function ltUuid(column: typeof contests.id, value: string): SQL {
-  return sql`${column} < ${value}`;
+  return sql`(
+    ${contests.timeWindowEnd} < ${cursorDate}
+    OR (
+      ${contests.timeWindowEnd} = ${cursorDate}
+      AND ${contests.id} < ${cursor.tieBreaker}
+    )
+  )`;
 }
 
 async function hydrateContestAggregates(
-  db: DrizzleDatabase,
+  db: DrizzleDatabase<DbSchema>,
   contestRows: Array<{
     id: string;
     chainId: number;
@@ -620,7 +668,10 @@ async function hydrateContestAggregates(
   return aggregates;
 }
 
-async function loadParticipants(db: DrizzleDatabase, contestIds: string[]): Promise<Map<string, ParticipantRecord[]>> {
+async function loadParticipants(
+  db: DrizzleDatabase<DbSchema>,
+  contestIds: string[]
+): Promise<Map<string, ParticipantRecord[]>> {
   const rows = await db
     .select({
       contestId: participants.contestId,
@@ -648,7 +699,10 @@ async function loadParticipants(db: DrizzleDatabase, contestIds: string[]): Prom
   return map;
 }
 
-async function loadRewards(db: DrizzleDatabase, contestIds: string[]): Promise<Map<string, RewardClaimRecord[]>> {
+async function loadRewards(
+  db: DrizzleDatabase<DbSchema>,
+  contestIds: string[]
+): Promise<Map<string, RewardClaimRecord[]>> {
   const rows = await db
     .select({
       contestId: rewardClaims.contestId,
@@ -675,7 +729,7 @@ async function loadRewards(db: DrizzleDatabase, contestIds: string[]): Promise<M
 }
 
 async function loadLeaderboard(
-  db: DrizzleDatabase,
+  db: DrizzleDatabase<DbSchema>,
   contestIds: string[],
   include: LeaderboardInclude
 ): Promise<Map<string, LeaderboardRecord>> {
@@ -840,7 +894,7 @@ interface UserContestCandidateRow {
 }
 
 async function loadUserContestCandidates(
-  db: DrizzleDatabase,
+  db: DrizzleDatabase<DbSchema>,
   wallets: string[],
   filters: UserContestQueryFilters | undefined,
   pagination: { pageSize: number; cursor: CursorPayload | null }
@@ -896,7 +950,10 @@ async function loadUserContestCandidates(
   }
 
   if (filters?.statuses && filters.statuses.length > 0) {
-    conditions.push(inArray(contests.status, filters.statuses));
+    const normalizedStatuses = assertContestStatuses(filters.statuses, {
+      reason: 'user_contest_status_invalid'
+    });
+    conditions.push(inArray(contests.status, normalizedStatuses));
   }
 
   if (filters?.timeRange) {
@@ -911,10 +968,13 @@ async function loadUserContestCandidates(
         }
       });
     }
-    conditions.push(and(gte(contests.timeWindowEnd, start), lte(contests.timeWindowStart, end)));
+    const lowerBound = gte(contests.timeWindowEnd, start);
+    const upperBound = lte(contests.timeWindowStart, end);
+    conditions.push(sql`(${lowerBound}) AND (${upperBound})`);
   }
 
-  const contestRows = await db
+  const whereClause = combineWithAnd(conditions);
+  const contestSelection = db
     .select({
       id: contests.id,
       chainId: contests.chainId,
@@ -929,21 +989,21 @@ async function loadUserContestCandidates(
       createdAt: contests.createdAt,
       updatedAt: contests.updatedAt
     })
-    .from(contests)
-    .where(conditions.length === 1 ? conditions[0]! : and(...conditions));
+    .from(contests);
 
-  const annotatedRows: UserContestCandidateRow[] = contestRows
-    .map((contest) => {
-      const sortKey = activityMap.get(contest.id);
-      if (!sortKey) {
-        return null;
-      }
-      return {
-        contest,
-        sortKey
-      } satisfies UserContestCandidateRow;
-    })
-    .filter((value): value is UserContestCandidateRow => value !== null);
+  const contestRows = await (whereClause ? contestSelection.where(whereClause) : contestSelection);
+
+  const annotatedRows: UserContestCandidateRow[] = [];
+  for (const contest of contestRows) {
+    const sortKey = activityMap.get(contest.id);
+    if (!sortKey) {
+      continue;
+    }
+    annotatedRows.push({
+      contest,
+      sortKey
+    });
+  }
 
   annotatedRows.sort((a, b) => {
     if (a.sortKey.getTime() === b.sortKey.getTime()) {
@@ -961,9 +1021,8 @@ async function loadUserContestCandidates(
   const hasNextPage = limited.length > pagination.pageSize;
   const rows = hasNextPage ? limited.slice(0, pagination.pageSize) : limited;
 
-  const nextCursor = hasNextPage
-    ? encodeActivityCursor(limited[pagination.pageSize]!.sortKey, limited[pagination.pageSize]!.contest.id)
-    : null;
+  const cursorRow = hasNextPage ? limited[pagination.pageSize] : undefined;
+  const nextCursor = cursorRow ? encodeActivityCursor(cursorRow.sortKey, cursorRow.contest.id) : null;
 
   return { rows, nextCursor };
 }
@@ -986,7 +1045,7 @@ function coerceActivityTimestamp(value: unknown): Date | null {
 }
 
 async function loadParticipantsForWallets(
-  db: DrizzleDatabase,
+  db: DrizzleDatabase<DbSchema>,
   wallets: string[],
   contestIds: string[]
 ): Promise<Map<string, ParticipantRecord[]>> {
@@ -1022,7 +1081,7 @@ async function loadParticipantsForWallets(
 }
 
 async function loadRewardsForWallets(
-  db: DrizzleDatabase,
+  db: DrizzleDatabase<DbSchema>,
   wallets: string[],
   contestIds: string[]
 ): Promise<Map<string, RewardClaimRecord[]>> {
