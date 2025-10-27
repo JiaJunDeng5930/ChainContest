@@ -2,12 +2,12 @@ import type { Hex } from 'viem';
 import type {
   ExecutionCallShape,
   RouteDescriptorShape,
-} from '@chain/gateway/domainModels';
+} from '../gateway/domainModels.js';
 import type {
   ContestDefinition,
   ContestRebalanceConfig,
-} from '@chain/gateway/types';
-import type { RebalanceIntent } from '@chain/gateway/contracts';
+} from '../gateway/types.js';
+import type { RebalanceIntent } from '../gateway/contracts.js';
 
 export interface TradeRoutePlan {
   readonly route: RouteDescriptorShape;
@@ -15,7 +15,7 @@ export interface TradeRoutePlan {
 }
 
 const toHex = (value: string): Hex =>
-  value.startsWith('0x') ? value : `0x${value}`;
+  (value.startsWith('0x') ? value : `0x${value}`) as Hex;
 
 const computeExpiry = (timestampIso: string, seconds: number): string => {
   const base = new Date(timestampIso);

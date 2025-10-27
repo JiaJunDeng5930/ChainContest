@@ -1,8 +1,4 @@
 import { defineConfig } from 'vitest/config';
-import { dirname, resolve } from 'node:path';
-import { fileURLToPath } from 'node:url';
-
-const packageDir = dirname(fileURLToPath(import.meta.url));
 
 export default defineConfig({
   test: {
@@ -21,15 +17,6 @@ export default defineConfig({
         statements: 90,
         branches: 80,
       },
-    },
-  },
-  resolve: {
-    alias: {
-      '@chain/gateway': resolve(packageDir, 'src/gateway'),
-      '@chain/adapters': resolve(packageDir, 'src/adapters'),
-      '@chain/policies': resolve(packageDir, 'src/policies'),
-      '@chain/events': resolve(packageDir, 'src/events'),
-      '@chain/errors': resolve(packageDir, 'src/errors'),
     },
   },
 });

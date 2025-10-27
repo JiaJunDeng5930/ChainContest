@@ -1,10 +1,10 @@
 import type { Address } from 'viem';
-import type { PlanRejectionReasonShape } from '@chain/gateway/domainModels';
+import type { PlanRejectionReasonShape } from '../gateway/domainModels.js';
 import type {
   ContestRewardConfigEntry,
   ContestRedemptionConfigEntry,
   ContestSettlementConfig,
-} from '@chain/gateway/types';
+} from '../gateway/types.js';
 
 export interface SettlementGuardsInput {
   readonly caller: Address;

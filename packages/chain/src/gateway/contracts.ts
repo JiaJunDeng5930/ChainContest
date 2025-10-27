@@ -1,5 +1,5 @@
 import type { Address } from 'viem';
-import type { ContestChainError } from '@chain/errors/contestChainError';
+import type { ContestChainError } from '../errors/contestChainError.js';
 import type {
   ContestEventBatch,
   ContestIdentifier,
@@ -14,10 +14,13 @@ import type {
   RebalancePlan,
   RewardClaimResult,
   SettlementResult,
-} from './domainModels';
-import type { GatewayValidationAdapter, ValidationContext } from '@chain/policies/validationContext';
-import type { RpcClientFactory, SignerLocator } from '@chain/adapters/rpcClientFactory';
-import type { ContestChainDataProvider } from './types';
+} from './domainModels.js';
+import type {
+  GatewayValidationAdapter,
+  ValidationContext,
+} from '../policies/validationContext.js';
+import type { RpcClientFactory, SignerLocator } from '../adapters/rpcClientFactory.js';
+import type { ContestChainDataProvider } from './types.js';
 
 export interface DescribeContestLifecycleInput {
   readonly contest: ContestIdentifier;
@@ -152,3 +155,9 @@ export interface ContestCreationGateway {
     input: ExecuteContestDeploymentInput,
   ) => Promise<ContestCreationReceipt>;
 }
+
+export type {
+  ContestCreationReceipt,
+  ContestDeploymentArtifact,
+  OrganizerContractRegistrationResult,
+} from './domainModels.js';

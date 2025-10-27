@@ -3,16 +3,16 @@ import type {
   QualificationCheckShape,
   PlanRejectionReasonShape,
   RegistrationCapacityShape,
-} from '@chain/gateway/domainModels';
+  TokenApprovalRequestShape,
+} from '../gateway/domainModels.js';
 import type {
   ContestParticipantProfile,
   RegistrationRequirement,
-} from '@chain/gateway/types';
-import type { TokenApprovalRequestShape } from '@chain/gateway/domainModels';
+} from '../gateway/types.js';
 import {
   inspectAllowances,
   type AllowanceInspectionResult,
-} from '@chain/adapters/allowanceInspector';
+} from '../adapters/allowanceInspector.js';
 
 export interface RegistrationRulesInput {
   readonly contest: ContestIdentifier;
@@ -158,6 +158,12 @@ export const evaluateRegistrationRules = (
     );
   }
 
+  const capacityDetail: Record<string, unknown> = {
+    registered: input.capacity.registered,
+    maximum: input.capacity.maximum,
+    isFull: input.capacity.isFull,
+  };
+
   const capacityAvailable = !input.capacity.isFull;
   checks.push(
     createCheck(
@@ -166,7 +172,7 @@ export const evaluateRegistrationRules = (
       capacityAvailable
         ? 'Registration capacity available'
         : 'Contest registration capacity reached',
-      input.capacity,
+      capacityDetail,
     ),
   );
   if (!capacityAvailable) {
@@ -174,7 +180,7 @@ export const evaluateRegistrationRules = (
       'registration.capacity',
       'REGISTRATION_CAPACITY_FULL',
       'Contest registration capacity reached',
-      input.capacity,
+      capacityDetail,
     );
   }
 

@@ -2,17 +2,17 @@ import type {
   ContestIdentifier,
   PlanRejectionReasonShape,
   PolicyCheckShape,
-} from '@chain/gateway/domainModels';
+  TokenApprovalRequestShape,
+} from '../gateway/domainModels.js';
 import type {
   ContestParticipantProfile,
   ContestRebalanceConfig,
-} from '@chain/gateway/types';
-import type { RebalanceIntent } from '@chain/gateway/contracts';
-import type { TokenApprovalRequestShape } from '@chain/gateway/domainModels';
+} from '../gateway/types.js';
+import type { RebalanceIntent } from '../gateway/contracts.js';
 import {
   inspectAllowances,
   type AllowanceInspectionResult,
-} from '@chain/adapters/allowanceInspector';
+} from '../adapters/allowanceInspector.js';
 
 export interface RebalanceRulesInput {
   readonly contest: ContestIdentifier;

@@ -7,21 +7,21 @@ import {
   type ContestCreationReceipt,
   type ContestDeploymentArtifact,
   type OrganizerContractRegistrationResult
-} from './domainModels';
+} from './domainModels.js';
 import {
   type ContestCreationGateway,
   type ExecuteContestDeploymentInput,
   type RegisterOrganizerContractInput,
   type CreateContestCreationGatewayOptions
-} from './contracts';
-import { lowercaseAddress } from './types';
+} from './contracts.js';
+import { lowercaseAddress } from './types.js';
 
 const hex = (buffer: Buffer, length = 40): string => buffer.toString('hex').slice(0, length);
 
 const deriveAddress = (seed: string, label: string): Address => {
   const digest = createHash('sha256').update(`${seed}:${label}`).digest();
-  const addr = `0x${hex(digest, 40)}`;
-  return addr;
+  const addr = `0x${hex(digest, 40)}` as const;
+  return addr as Address;
 };
 
 const deriveRequestId = (seed: string): string => {
@@ -98,8 +98,5 @@ export type {
   ContestCreationGateway,
   ExecuteContestDeploymentInput,
   RegisterOrganizerContractInput,
-  CreateContestCreationGatewayOptions,
-  ContestCreationReceipt,
-  ContestDeploymentArtifact,
-  OrganizerContractRegistrationResult
-} from './contracts';
+  CreateContestCreationGatewayOptions
+} from './contracts.js';

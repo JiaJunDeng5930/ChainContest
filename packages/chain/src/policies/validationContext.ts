@@ -9,7 +9,7 @@ import {
   type ValidationError,
   type ValidationMetrics,
 } from '@chaincontest/shared-schemas';
-import { createContestChainError } from '@chain/errors/contestChainError';
+import { createContestChainError } from '../errors/contestChainError.js';
 
 export type FrozenValidationMetrics = ValidationMetrics | undefined;
 

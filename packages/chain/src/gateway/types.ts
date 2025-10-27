@@ -14,7 +14,7 @@ import type {
   FeeEstimateShape,
   RouteDescriptorShape,
   PayoutDescriptorShape,
-} from './domainModels';
+} from './domainModels.js';
 
 export interface RegistrationRequirement {
   readonly tokenAddress: Address;
@@ -138,5 +138,5 @@ export type ParticipantLookup = (
   participant: Address,
 ) => ContestParticipantProfile | undefined;
 
-export const lowercaseAddress = (address: Address): string =>
-  address.toLowerCase();
+export const lowercaseAddress = (address: Address): Address =>
+  address.toLowerCase() as Address;

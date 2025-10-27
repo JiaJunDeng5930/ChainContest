@@ -1,7 +1,7 @@
 import { createPublicClient, fallback, http } from 'viem';
 import type { Chain, PublicClient, Transport, WalletClient } from 'viem';
 import type { Address } from 'viem';
-import { createContestChainError } from '@chain/errors/contestChainError';
+import { createContestChainError } from '../errors/contestChainError.js';
 
 export interface RpcClientFactoryRequest {
   readonly chainId: number;
@@ -31,7 +31,7 @@ export interface RpcClientFactoryOptions {
 
 export type RpcClientFactory = ((
   request: RpcClientFactoryRequest,
-) => PublicClient) & { readonly clear: (cacheKey?: string) => void };
+) => PublicClient) & { clear(cacheKey?: string): void };
 
 const resolveChain = (
   options: RpcClientFactoryOptions,
@@ -103,7 +103,16 @@ const createTransport = (
   );
 
   if (transports.length === 1) {
-    return transports[0];
+    return transports[0]!;
+  }
+
+  if (transports.length === 0) {
+    throw createContestChainError({
+      code: 'CHAIN_UNAVAILABLE',
+      message: `No transports could be created for chain "${chain.id}"`,
+      details: { chain, urls },
+      retryable: true,
+    });
   }
 
   return fallback(transports);

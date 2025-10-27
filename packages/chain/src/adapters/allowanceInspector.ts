@@ -1,7 +1,7 @@
 import type { Address } from 'viem';
-import type { TokenApprovalRequestShape } from '@chain/gateway/domainModels';
-import type { ContestParticipantProfile } from '@chain/gateway/types';
-import { lowercaseAddress } from '@chain/gateway/types';
+import type { TokenApprovalRequestShape } from '../gateway/domainModels.js';
+import type { ContestParticipantProfile } from '../gateway/types.js';
+import { lowercaseAddress } from '../gateway/types.js';
 
 export interface AllowanceInspectionDetail {
   readonly tokenAddress: Address;

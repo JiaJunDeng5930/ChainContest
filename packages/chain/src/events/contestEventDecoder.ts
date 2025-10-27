@@ -2,7 +2,7 @@ import type {
   BlockAnchorShape,
   ContestEventEnvelopeShape,
   EventCursorShape,
-} from '@chain/gateway/domainModels';
+} from '../gateway/domainModels.js';
 
 export interface EventDecodingOptions {
   readonly cursor?: EventCursorShape;
@@ -90,13 +90,13 @@ export const decodeContestEventBatch = (
 
   const limited = applyLimit(filtered, options.limit);
 
-  const nextCursor = limited.length
-    ? limited[limited.length - 1].cursor
+  const lastEvent = limited.length > 0 ? limited[limited.length - 1] : undefined;
+
+  const nextCursor = lastEvent
+    ? lastEvent.cursor
     : options.cursor ?? options.fallbackCursor;
 
-  const latestBlock = limited.length
-    ? limited[limited.length - 1].derivedAt
-    : options.fallbackBlock;
+  const latestBlock = lastEvent ? lastEvent.derivedAt : options.fallbackBlock;
 
   return Object.freeze({
     events: Object.freeze(limited),

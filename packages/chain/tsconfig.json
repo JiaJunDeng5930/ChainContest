@@ -10,14 +10,6 @@
     "sourceMap": true,
     "outDir": "dist",
     "rootDir": "src",
-    "baseUrl": "./src",
-    "paths": {
-      "@chain/gateway/*": ["gateway/*"],
-      "@chain/adapters/*": ["adapters/*"],
-      "@chain/policies/*": ["policies/*"],
-      "@chain/events/*": ["events/*"],
-      "@chain/errors/*": ["errors/*"]
-    },
     "types": ["node"],
     "noEmitOnError": true
   },

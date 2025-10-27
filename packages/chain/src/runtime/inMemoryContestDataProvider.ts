@@ -1,9 +1,9 @@
-import { createContestChainError } from '@chain/errors/contestChainError';
+import { createContestChainError } from '../errors/contestChainError.js';
 import type {
   ContestChainDataProvider,
   ContestDefinition,
-} from '@chain/gateway/types';
-import type { ContestIdentifier } from '@chain/gateway/domainModels';
+} from '../gateway/types.js';
+import type { ContestIdentifier } from '../gateway/domainModels.js';
 
 const makeKey = (contest: ContestIdentifier): string =>
   `${contest.contestId}:${contest.chainId}`;

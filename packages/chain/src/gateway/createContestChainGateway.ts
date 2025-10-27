@@ -2,13 +2,13 @@ import {
   createGatewayValidationAdapter,
   isGatewayValidationAdapter,
   type GatewayValidationAdapter,
-} from '@chain/policies/validationContext';
-import { createContestChainGatewayInstance } from './contestChainGateway';
+} from '../policies/validationContext.js';
+import { createContestChainGatewayInstance } from './contestChainGateway.js';
 import type {
   ContestChainGateway,
   CreateContestChainGatewayOptions,
   GatewayRuntime,
-} from './contracts';
+} from './contracts.js';
 
 const resolveValidationAdapter = (
   validators: CreateContestChainGatewayOptions['validators'],
@@ -45,4 +45,4 @@ export type {
   ExecutePrincipalRedemptionInput,
   PullContestEventsInput,
   RebalanceIntent,
-} from './contracts';
+} from './contracts.js';

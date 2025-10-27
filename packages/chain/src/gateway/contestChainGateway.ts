@@ -17,8 +17,12 @@ import {
   type RebalanceExecutionResult,
   type ContestEventBatch,
   type LifecycleSnapshot,
-} from './domainModels';
-import { wrapContestChainError, type ContestChainError } from '@chain/errors/contestChainError';
+} from './domainModels.js';
+import {
+  createContestChainError,
+  wrapContestChainError,
+  type ContestChainError,
+} from '../errors/contestChainError.js';
 import type {
   ContestChainGateway,
   DescribeContestLifecycleInput,
@@ -31,20 +35,19 @@ import type {
   ExecutePrincipalRedemptionInput,
   PullContestEventsInput,
   GatewayRuntime,
-} from './contracts';
-import type { ContestChainGateway as ContestChainGatewayContract } from './contracts';
-import type { ContestDefinition, ContestParticipantProfile } from './types';
-import { lowercaseAddress } from './types';
-import { evaluateRegistrationRules } from '@chain/policies/registrationRules';
-import { evaluateRebalanceRules } from '@chain/policies/rebalanceRules';
-import { planTradeRoute } from '@chain/adapters/tradeRoutePlanner';
-import { createContestChainError } from '@chain/errors/contestChainError';
+} from './contracts.js';
+import type { ContestChainGateway as ContestChainGatewayContract } from './contracts.js';
+import type { ContestDefinition, ContestParticipantProfile } from './types.js';
+import { lowercaseAddress } from './types.js';
+import { evaluateRegistrationRules } from '../policies/registrationRules.js';
+import { evaluateRebalanceRules } from '../policies/rebalanceRules.js';
+import { planTradeRoute } from '../adapters/tradeRoutePlanner.js';
 import {
   evaluateSettlementGuards,
   evaluateRewardClaimGuards,
   evaluateRedemptionGuards,
-} from '@chain/policies/settlementGuards';
-import { decodeContestEventBatch } from '@chain/events/contestEventDecoder';
+} from '../policies/settlementGuards.js';
+import { decodeContestEventBatch } from '../events/contestEventDecoder.js';
 
 export type ContestChainGatewayInstance = ContestChainGatewayContract;
 
