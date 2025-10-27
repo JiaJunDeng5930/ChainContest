@@ -1,7 +1,12 @@
 #!/usr/bin/env node
 
-const start = async () => {
-  await import('../cli.js');
-};
+import { runCli } from "../cli.js";
 
-void start();
+try {
+  const exitCode = await runCli();
+  process.exit(exitCode);
+} catch (error) {
+  const message = error instanceof Error ? error.stack ?? error.message : String(error);
+  process.stderr.write(`${message}\n`);
+  process.exit(1);
+}

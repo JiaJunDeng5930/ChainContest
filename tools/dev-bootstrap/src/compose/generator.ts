@@ -6,7 +6,7 @@ import {
   DevEnvironmentConfig,
   ServiceDefinition,
   VolumeRule,
-} from "../config/schema";
+} from "../config/schema.js";
 
 export const DEFAULT_COMPOSE_DIR = ".dev-bootstrap";
 export const DEFAULT_COMPOSE_FILENAME = "docker-compose.generated.yaml";

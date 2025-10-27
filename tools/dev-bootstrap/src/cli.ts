@@ -3,12 +3,12 @@ import path from "node:path";
 import process from "node:process";
 import { fileURLToPath } from "node:url";
 
-import { ExitCode } from "./orchestration/errors";
-import { runValidateCommand } from "./commands/validate";
-import { runStartCommand } from "./commands/start";
-import { runStopCommand } from "./commands/stop";
-import { runResetCommand } from "./commands/reset";
-import type { ResetMode } from "./orchestration/reset";
+import { ExitCode } from "./orchestration/errors.js";
+import { runValidateCommand } from "./commands/validate.js";
+import { runStartCommand } from "./commands/start.js";
+import { runStopCommand } from "./commands/stop.js";
+import { runResetCommand } from "./commands/reset.js";
+import type { ResetMode } from "./orchestration/reset.js";
 
 type OutputFormat = "table" | "json" | "both";
 

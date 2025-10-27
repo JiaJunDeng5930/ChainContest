@@ -1,7 +1,7 @@
-import { ExitCode, isDevBootstrapError, resolveExitCode } from "../orchestration/errors";
-import { loadDevEnvironmentConfig, LoadConfigOptions, LoadConfigResult } from "../config/loader";
-import { createSummaryReporter, SummaryOutcome, SummaryReporter, SummaryReporterOptions } from "../reporters/summary";
-import { stopEnvironment, StopEnvironmentOptions, StopEnvironmentResult } from "../orchestration/stop";
+import { ExitCode, isDevBootstrapError, resolveExitCode } from "../orchestration/errors.js";
+import { loadDevEnvironmentConfig, LoadConfigOptions, LoadConfigResult } from "../config/loader.js";
+import { createSummaryReporter, SummaryOutcome, SummaryReporter, SummaryReporterOptions } from "../reporters/summary.js";
+import { stopEnvironment, StopEnvironmentOptions, StopEnvironmentResult } from "../orchestration/stop.js";
 
 export interface StopCommandOptions extends LoadConfigOptions, Pick<StopEnvironmentOptions, "composeDir" | "composeFileName" | "removeVolumes"> {
   reporter?: SummaryReporter;

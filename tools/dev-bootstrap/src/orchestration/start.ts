@@ -1,22 +1,22 @@
 import { execa } from "execa";
 import {
   DevEnvironmentConfig,
-} from "../config/schema";
+} from "../config/schema.js";
 import {
   generateComposeFile,
   ComposeGenerationOptions,
   ComposeGenerationResult,
   DEFAULT_COMPOSE_DIR,
   DEFAULT_COMPOSE_FILENAME,
-} from "../compose/generator";
+} from "../compose/generator.js";
 import {
   runPreflightChecks,
   PreflightCheckResult,
-} from "./preflight";
+} from "./preflight.js";
 import {
   DevBootstrapError,
   ExitCode,
-} from "./errors";
+} from "./errors.js";
 
 export interface ComposeServiceStatus {
   name: string;

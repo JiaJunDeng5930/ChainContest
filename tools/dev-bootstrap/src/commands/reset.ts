@@ -1,7 +1,7 @@
-import { ExitCode, isDevBootstrapError, resolveExitCode } from "../orchestration/errors";
-import { loadDevEnvironmentConfig, LoadConfigOptions, LoadConfigResult } from "../config/loader";
-import { createSummaryReporter, SummaryOutcome, SummaryReporter, SummaryReporterOptions } from "../reporters/summary";
-import { resetEnvironment, ResetEnvironmentOptions, ResetEnvironmentResult } from "../orchestration/reset";
+import { ExitCode, isDevBootstrapError, resolveExitCode } from "../orchestration/errors.js";
+import { loadDevEnvironmentConfig, LoadConfigOptions, LoadConfigResult } from "../config/loader.js";
+import { createSummaryReporter, SummaryOutcome, SummaryReporter, SummaryReporterOptions } from "../reporters/summary.js";
+import { resetEnvironment, ResetEnvironmentOptions, ResetEnvironmentResult } from "../orchestration/reset.js";
 
 export interface ResetCommandOptions extends LoadConfigOptions, Pick<ResetEnvironmentOptions, "composeDir" | "composeFileName" | "mode" | "selectiveVolumes"> {
   reporter?: SummaryReporter;

@@ -1,13 +1,13 @@
 import { execa } from "execa";
 
-import { DevEnvironmentConfig } from "../config/schema";
+import { DevEnvironmentConfig } from "../config/schema.js";
 import {
   generateComposeFile,
   ComposeGenerationResult,
   DEFAULT_COMPOSE_DIR,
   DEFAULT_COMPOSE_FILENAME,
-} from "../compose/generator";
-import { DevBootstrapError, ExitCode } from "./errors";
+} from "../compose/generator.js";
+import { DevBootstrapError, ExitCode } from "./errors.js";
 
 export interface StopEnvironmentOptions {
   config: DevEnvironmentConfig;

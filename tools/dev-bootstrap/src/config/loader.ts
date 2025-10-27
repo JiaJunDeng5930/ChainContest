@@ -8,11 +8,11 @@ import {
   ConfigParseError,
   ConfigValidationError,
   extractIssuesFromZodError,
-} from "../orchestration/errors";
+} from "../orchestration/errors.js";
 import {
   DevEnvironmentConfig,
   devEnvironmentConfigSchema,
-} from "./schema";
+} from "./schema.js";
 
 const DEFAULT_CONFIG_FILENAME = "dev-bootstrap.config.yaml";
 const DEFAULT_OVERRIDE_FILENAME = "dev-bootstrap.config.local.yaml";

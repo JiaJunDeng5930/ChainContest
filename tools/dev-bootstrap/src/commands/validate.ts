@@ -4,22 +4,22 @@ import {
   ExitCode,
   isDevBootstrapError,
   resolveExitCode,
-} from "../orchestration/errors";
+} from "../orchestration/errors.js";
 import {
   loadDevEnvironmentConfig,
   LoadConfigOptions,
   LoadConfigResult,
-} from "../config/loader";
+} from "../config/loader.js";
 import {
   createSummaryReporter,
   SummaryOutcome,
   SummaryReporter,
   SummaryReporterOptions,
-} from "../reporters/summary";
+} from "../reporters/summary.js";
 import {
   buildValidationMessagesFromZod,
   renderValidationMessages,
-} from "../reporters/validation";
+} from "../reporters/validation.js";
 
 export interface ValidateCommandOptions extends LoadConfigOptions {
   reporter?: SummaryReporter;

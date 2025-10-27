@@ -3,9 +3,9 @@ import path from "node:path";
 
 import { execa } from "execa";
 
-import { DevEnvironmentConfig } from "../config/schema";
-import { stopEnvironment, StopEnvironmentOptions, StopEnvironmentResult } from "./stop";
-import { DevBootstrapError, ExitCode } from "./errors";
+import { DevEnvironmentConfig } from "../config/schema.js";
+import { stopEnvironment, StopEnvironmentOptions, StopEnvironmentResult } from "./stop.js";
+import { DevBootstrapError, ExitCode } from "./errors.js";
 
 export type ResetMode = "preserve" | "selective" | "full";
 

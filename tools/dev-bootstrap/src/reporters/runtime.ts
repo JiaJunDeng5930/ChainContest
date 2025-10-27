@@ -2,8 +2,8 @@ import { createWriteStream, WriteStream } from "node:fs";
 import { promises as fs } from "node:fs";
 import path from "node:path";
 
-import { ComposeServiceStatus } from "../orchestration/start";
-import { PreflightCheckResult } from "../orchestration/preflight";
+import { ComposeServiceStatus } from "../orchestration/start.js";
+import { PreflightCheckResult } from "../orchestration/preflight.js";
 
 export type RuntimeEventType =
   | "preflight"

@@ -4,8 +4,8 @@ import os from "node:os";
 import { execa } from "execa";
 import { coerce, gte } from "semver";
 
-import { DevEnvironmentConfig } from "../config/schema";
-import { DevBootstrapError, ExitCode } from "./errors";
+import { DevEnvironmentConfig } from "../config/schema.js";
+import { DevBootstrapError, ExitCode } from "./errors.js";
 
 export type PreflightIssueLevel = "error" | "warning";
 
