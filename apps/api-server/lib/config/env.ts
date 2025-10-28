@@ -21,7 +21,8 @@ const rawEnvSchema = z.object({
   LOG_LEVEL: z
     .enum(['fatal', 'error', 'warn', 'info', 'debug', 'trace', 'silent'])
     .optional()
-    .default('info')
+    .default('info'),
+  CHAIN_RPC_PUBLIC_URL: z.string().url().optional()
 });
 
 export type RawEnv = z.infer<typeof rawEnvSchema>;
@@ -39,6 +40,7 @@ export interface AppEnv {
   readonly chain: {
     readonly primaryRpc: string;
     readonly fallbackRpc?: string;
+    readonly publicRpc?: string;
   };
   readonly rateLimit: {
     readonly windowMs: number;
@@ -63,7 +65,8 @@ const normaliseEnv = (raw: RawEnv): AppEnv => ({
   },
   chain: {
     primaryRpc: raw.CHAIN_RPC_PRIMARY,
-    fallbackRpc: raw.CHAIN_RPC_FALLBACK
+    fallbackRpc: raw.CHAIN_RPC_FALLBACK,
+    publicRpc: raw.CHAIN_RPC_PUBLIC_URL
   },
   rateLimit: {
     windowMs: raw.RATE_LIMIT_WINDOW,
@@ -93,7 +96,8 @@ export const loadEnv = (input: NodeJS.ProcessEnv = process.env): AppEnv => {
     CHAIN_RPC_FALLBACK: input.CHAIN_RPC_FALLBACK,
     RATE_LIMIT_WINDOW: input.RATE_LIMIT_WINDOW,
     RATE_LIMIT_MAX: input.RATE_LIMIT_MAX,
-    LOG_LEVEL: input.LOG_LEVEL
+    LOG_LEVEL: input.LOG_LEVEL,
+    CHAIN_RPC_PUBLIC_URL: input.CHAIN_RPC_PUBLIC_URL
   });
 
   if (!parsed.success) {

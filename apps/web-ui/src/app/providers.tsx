@@ -6,7 +6,7 @@ import type { SupportedLocale } from "@chaincontest/shared-i18n";
 import { RainbowKitProvider, getDefaultConfig, type Locale } from "@rainbow-me/rainbowkit";
 import { QueryClientProvider } from "@tanstack/react-query";
 import { NextIntlClientProvider } from "next-intl";
-import { useMemo, useState, type ReactNode } from "react";
+import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { WagmiProvider } from "wagmi";
 import { http } from "wagmi";
 import { mainnet, sepolia } from "wagmi/chains";
@@ -53,6 +53,7 @@ const RAINBOWKIT_LOCALE_MAP: Record<SupportedLocale, Locale> = {
 
 export function AppProviders({ children, locale, messages }: ProvidersProps) {
   const [queryClient] = useState(() => createQueryClient());
+  const apiBaseUrl = process.env.NEXT_PUBLIC_API_BASE_URL ?? process.env.API_BASE_URL ?? "";
 
   const rainbowLocale = useMemo<Locale>(() => RAINBOWKIT_LOCALE_MAP[locale] ?? "en", [locale]);
   const defaultTimeZone = "UTC";
@@ -75,6 +76,21 @@ export function AppProviders({ children, locale, messages }: ProvidersProps) {
     }
     return accumulator;
   }, [messages]);
+
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      (window as typeof window & { __CHAINCONTEST_QUERY_CLIENT__?: typeof queryClient }).__CHAINCONTEST_QUERY_CLIENT__ =
+        queryClient;
+      if (apiBaseUrl) {
+        (window as typeof window & { __CHAINCONTEST_API_BASE_URL?: string }).__CHAINCONTEST_API_BASE_URL = apiBaseUrl;
+      }
+    }
+  }, [apiBaseUrl, queryClient]);
+
+  if (typeof window !== "undefined") {
+    (window as typeof window & { __CHAINCONTEST_QUERY_CLIENT__?: typeof queryClient }).__CHAINCONTEST_QUERY_CLIENT__ =
+      queryClient;
+  }
 
   return (
     <NextIntlClientProvider locale={locale} messages={nestedMessages} timeZone={defaultTimeZone}>

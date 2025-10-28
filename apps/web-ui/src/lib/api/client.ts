@@ -52,10 +52,31 @@ const DEFAULT_OPTIONS: Pick<ApiRequestInit, "credentials" | "parseResponse"> = {
   parseResponse: true
 };
 
-const DEFAULT_BASE_URL =
-  typeof window === "undefined"
-    ? process.env.API_BASE_URL ?? process.env.NEXT_PUBLIC_API_BASE_URL ?? ""
-    : process.env.NEXT_PUBLIC_API_BASE_URL ?? "";
+const resolveBrowserBaseUrl = (): string => {
+  if (typeof window === "undefined") {
+    return "";
+  }
+
+  const globalBase = (window as typeof window & { __CHAINCONTEST_API_BASE_URL?: unknown })
+    .__CHAINCONTEST_API_BASE_URL;
+
+  if (typeof globalBase === "string") {
+    const trimmed = globalBase.trim();
+    if (trimmed.length > 0) {
+      return trimmed;
+    }
+  }
+
+  return "";
+};
+
+const getDefaultBaseUrl = (): string => {
+  if (typeof window === "undefined") {
+    return process.env.API_BASE_URL ?? process.env.NEXT_PUBLIC_API_BASE_URL ?? "";
+  }
+
+  return resolveBrowserBaseUrl();
+};
 
 const JSON_CONTENT_TYPE = "application/json";
 
@@ -76,7 +97,8 @@ async function executeRequest<TResponse>(
   path: string,
   { baseUrl, method = "GET", body, headers, parseResponse = true, ...init }: ApiRequestOptions = {}
 ): Promise<TResponse> {
-  const resolvedUrl = baseUrl ? new URL(path, baseUrl).toString() : path;
+  const resolvedBaseUrl = baseUrl ?? getDefaultBaseUrl();
+  const resolvedUrl = resolvedBaseUrl ? new URL(path, resolvedBaseUrl).toString() : path;
   const finalHeaders = new Headers({ ...DEFAULT_HEADERS, ...(headers ?? {}) });
 
   let requestBody: BodyInit | undefined;
@@ -112,44 +134,44 @@ async function executeRequest<TResponse>(
 }
 
 export function createApiClient(config?: { baseUrl?: string }): ApiClient {
-  const baseUrl = config?.baseUrl ?? DEFAULT_BASE_URL;
+  const configuredBaseUrl = config?.baseUrl;
 
   return {
     request: (path, options = {}) =>
       executeRequest(path, {
-        baseUrl,
+        baseUrl: configuredBaseUrl,
         ...options
       }),
     get: (path, options) =>
       executeRequest(path, {
-        baseUrl,
+        baseUrl: configuredBaseUrl,
         method: "GET",
         ...options
       }),
     post: (path, body, options) =>
       executeRequest(path, {
-        baseUrl,
+        baseUrl: configuredBaseUrl,
         method: "POST",
         body,
         ...options
       }),
     put: (path, body, options) =>
       executeRequest(path, {
-        baseUrl,
+        baseUrl: configuredBaseUrl,
         method: "PUT",
         body,
         ...options
       }),
     patch: (path, body, options) =>
       executeRequest(path, {
-        baseUrl,
+        baseUrl: configuredBaseUrl,
         method: "PATCH",
         body,
         ...options
       }),
     delete: (path, options) =>
       executeRequest(path, {
-        baseUrl,
+        baseUrl: configuredBaseUrl,
         method: "DELETE",
         ...options
       })

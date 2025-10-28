@@ -7,6 +7,7 @@ const DEFAULT_ENV: Record<string, string> = {
   NEXTAUTH_URL: 'https://app.chaincontest.local',
   PG_BOSS_SCHEMA: 'boss',
   CHAIN_RPC_PRIMARY: 'https://rpc.chaincontest.local',
+  CHAIN_RPC_PUBLIC_URL: 'https://public-rpc.chaincontest.local',
   RATE_LIMIT_WINDOW: '60000',
   RATE_LIMIT_MAX: '10',
   LOG_LEVEL: 'silent'

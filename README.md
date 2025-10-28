@@ -89,6 +89,7 @@ pnpm --filter @chaincontest/dev-console dev
 | `DEPLOYER_PRIVATE_KEY`      | 部署者私钥             | 空（本地无需） | `0xabc...`                                   |
 | `FORK_RPC_URL`              | Hardhat 本地分叉数据源 | 未设置         | `https://mainnet.infura.io/v3/<key>`         |
 | `REPORT_GAS`                | 是否启用 Gas Reporter  | `false`        | `true`                                       |
+| `CHAIN_RPC_PUBLIC_URL`      | 浏览器可访问的 RPC 地址 | 空（回退 primary） | `http://127.0.0.1:48545`                      |
 | `VITE_CHAIN_ID`             | 前端目标链 ID          | `11155111`     | `31337`（本地）                              |
 | `VITE_PRIMARY_RPC`          | 前端首选 RPC           | 空（必填）     | `https://sepolia.infura.io/v3/<key>`         |
 | `VITE_FALLBACK_RPC`         | 前端备用 RPC           | 空（必填）     | `https://rpc2.sepolia.org`                   |

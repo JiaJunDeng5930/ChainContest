@@ -59,8 +59,9 @@ const buildOverrides = (): Partial<RuntimeConfigRecord> => {
   const env = getEnv();
   const overrides: Partial<RuntimeConfigRecord> = {};
 
-  if (env.chain.primaryRpc) {
-    overrides.rpcUrl = env.chain.primaryRpc;
+  const publicRpc = env.chain.publicRpc ?? env.chain.primaryRpc;
+  if (publicRpc) {
+    overrides.rpcUrl = publicRpc;
   }
 
   const envChainId = resolveNumberOverride(process.env.RUNTIME_CHAIN_ID, 'RUNTIME_CHAIN_ID');

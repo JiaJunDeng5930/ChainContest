@@ -4,7 +4,18 @@ import { requireSession, SessionNotFoundError } from '@/lib/auth/session';
 import { loadRuntimeConfig } from '@/lib/runtime/runtimeConfig';
 import { toErrorResponse } from '@/lib/http/errors';
 
-export const GET = async (_request: NextRequest): Promise<Response> => {
+const applyCorsHeaders = (response: NextResponse, request: NextRequest): void => {
+  const origin = request.headers.get('origin');
+  if (origin) {
+    response.headers.set('Access-Control-Allow-Origin', origin);
+    response.headers.set('Access-Control-Allow-Credentials', 'true');
+    response.headers.append('Vary', 'Origin');
+  } else {
+    response.headers.set('Access-Control-Allow-Origin', '*');
+  }
+};
+
+export const GET = async (request: NextRequest): Promise<Response> => {
   try {
     await requireSession().catch((error) => {
       if (error instanceof SessionNotFoundError) {
@@ -22,6 +33,7 @@ export const GET = async (_request: NextRequest): Promise<Response> => {
 
     const response = NextResponse.json(runtimeConfig, { status: 200 });
     response.headers.set('Cache-Control', 'no-store');
+    applyCorsHeaders(response, request);
     return response;
   } catch (error) {
     const normalized = toErrorResponse(error);
@@ -29,6 +41,7 @@ export const GET = async (_request: NextRequest): Promise<Response> => {
     normalized.headers &&
       Object.entries(normalized.headers).forEach(([key, value]) => response.headers.set(key, value));
     response.headers.set('Cache-Control', 'no-store');
+    applyCorsHeaders(response, request);
     return response;
   }
 };
