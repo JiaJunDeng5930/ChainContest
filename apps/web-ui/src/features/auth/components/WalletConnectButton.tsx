@@ -20,11 +20,11 @@ function formatWalletAddress(address: string): string {
 }
 
 function resolveDomain(): string {
-  if (typeof window === "undefined") {
-    return "";
+  const domain = process.env.NEXT_PUBLIC_AUTH_DOMAIN;
+  if (!domain) {
+    throw new Error("NEXT_PUBLIC_AUTH_DOMAIN is not configured");
   }
-
-  return window.location.host;
+  return domain;
 }
 
 function resolveUri(): string {
