@@ -53,20 +53,6 @@ const DEFAULT_OPTIONS: Pick<ApiRequestInit, "credentials" | "parseResponse"> = {
 };
 
 const resolveBrowserBaseUrl = (): string => {
-  if (typeof window === "undefined") {
-    return "";
-  }
-
-  const globalBase = (window as typeof window & { __CHAINCONTEST_API_BASE_URL?: unknown })
-    .__CHAINCONTEST_API_BASE_URL;
-
-  if (typeof globalBase === "string") {
-    const trimmed = globalBase.trim();
-    if (trimmed.length > 0) {
-      return trimmed;
-    }
-  }
-
   return "";
 };
 
