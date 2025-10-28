@@ -1,11 +1,10 @@
 import type { AdapterSession, AdapterUser } from '@auth/core/adapters';
-import PostgresAdapter from '@auth/pg-adapter';
 import type { NextRequest } from 'next/server';
 import { NextResponse } from 'next/server';
 import { initDatabase } from '@/lib/db/client';
-import { getPool } from '@/lib/db/pool';
 import { SESSION_COOKIE, SESSION_RENEW_THRESHOLD_MS } from '@/lib/auth/config';
 import { httpErrors, toErrorResponse } from '@/lib/http/errors';
+import { getAuthAdapter } from '@/lib/auth/config';
 
 const applyCorsHeaders = (response: NextResponse, request: NextRequest): void => {
   const origin = request.headers.get('origin');
@@ -53,7 +52,7 @@ export async function GET(request: NextRequest): Promise<Response> {
     }
 
     await initDatabase();
-    const adapter = PostgresAdapter(getPool());
+    const adapter = await getAuthAdapter();
     const sessionRecord = await adapter.getSessionAndUser?.(sessionToken);
     if (!sessionRecord) {
       throw httpErrors.unauthorized('Authentication required');

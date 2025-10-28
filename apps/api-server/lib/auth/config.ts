@@ -21,46 +21,21 @@ const sessionCookieName = isProduction
   : SESSION_COOKIE_BASE_NAME;
 
 let resolvedAdapter: Adapter | null = null;
-let resolvingAdapter: Promise<Adapter> | null = null;
 
-const resolveAdapter = async (): Promise<Adapter> => {
+const adapterPromise: Promise<Adapter> = (async () => {
+  await initDatabase();
+  const adapter = PostgresAdapter(getPool());
+  resolvedAdapter = adapter;
+  return adapter;
+})();
+
+export const getAuthAdapter = async (): Promise<Adapter> => {
   if (resolvedAdapter) {
     return resolvedAdapter;
   }
-
-  if (!resolvingAdapter) {
-    resolvingAdapter = (async () => {
-      await initDatabase();
-      const adapter = PostgresAdapter(getPool());
-      resolvedAdapter = adapter;
-      return adapter;
-    })().finally(() => {
-      resolvingAdapter = null;
-    });
-  }
-
-  return resolvingAdapter!;
+  resolvedAdapter = await adapterPromise;
+  return resolvedAdapter;
 };
-
-const lazyAdapter = new Proxy<Adapter>({} as Adapter, {
-  get(_target, property) {
-    if (property === 'displayName') {
-      return 'PostgresAdapter';
-    }
-
-    return (...args: unknown[]) =>
-      resolveAdapter().then((adapter) => {
-        const value = (adapter as Record<PropertyKey, unknown>)[property];
-        if (typeof value !== 'function') {
-          return value;
-        }
-
-        return (value as (...params: unknown[]) => unknown).apply(adapter, args);
-      });
-  }
-});
-
-export const getAuthAdapter = (): Adapter => lazyAdapter;
 
 const resolveDomain = (): string | undefined => {
   if (!env.nextAuth.url) {
@@ -129,7 +104,7 @@ export const SESSION_MAX_AGE_SECONDS = DEFAULT_SESSION_MAX_AGE_SECONDS;
 export const SESSION_UPDATE_AGE_SECONDS = DEFAULT_SESSION_UPDATE_AGE_SECONDS;
 export const SESSION_RENEW_THRESHOLD_MS = DEFAULT_SESSION_RENEW_THRESHOLD_MS;
 
-const authAdapter = getAuthAdapter();
+const authAdapter: Adapter = await getAuthAdapter();
 
 export const authOptions: NextAuthOptions = {
   adapter: authAdapter,

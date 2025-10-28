@@ -55,8 +55,7 @@ const checkAuthAdapter = async (): Promise<DependencyStatus> => {
   const startedAt = performance.now();
   try {
     await initDatabase();
-    const adapter = getAuthAdapter();
-    await Promise.resolve();
+    const adapter = await getAuthAdapter();
     const hasSessionOps = typeof adapter.updateSession === 'function' && typeof adapter.deleteSession === 'function';
 
     return {
