@@ -2,6 +2,7 @@ import { performance } from 'node:perf_hooks';
 import { getEnv } from '@/lib/config/env';
 import { getAuthAdapter } from '@/lib/auth/config';
 import { getPool } from '@/lib/db/pool';
+import { initDatabase } from '@/lib/db/client';
 
 /* eslint-disable @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access */
 
@@ -32,6 +33,7 @@ const degrade = (dependencies: DependencyStatus[]): DependencyState => {
 const checkDatabase = async (): Promise<DependencyStatus> => {
   const startedAt = performance.now();
   try {
+    await initDatabase();
     const pool = getPool();
     await pool.query<{ ok: number }>('select 1 as ok');
     return {
@@ -52,6 +54,7 @@ const checkDatabase = async (): Promise<DependencyStatus> => {
 const checkAuthAdapter = async (): Promise<DependencyStatus> => {
   const startedAt = performance.now();
   try {
+    await initDatabase();
     const adapter = getAuthAdapter();
     await Promise.resolve();
     const hasSessionOps = typeof adapter.updateSession === 'function' && typeof adapter.deleteSession === 'function';

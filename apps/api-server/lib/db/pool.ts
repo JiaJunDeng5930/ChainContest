@@ -1,38 +1,19 @@
-import { Pool } from 'pg';
-import type { PoolConfig } from 'pg';
-import { getEnv } from '@/lib/config/env';
-
-/* eslint-disable @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-redundant-type-constituents */
-
-let pool: Pool | null = null;
-
-const buildPool = (): Pool => {
-  const env = getEnv();
-  const config: PoolConfig = {
-    connectionString: env.databaseUrl,
-    max: 10,
-    idleTimeoutMillis: 30_000,
-    connectionTimeoutMillis: 5_000
-  };
-
-  const pgPool = new Pool(config);
-  return pgPool;
-};
+import type { Pool } from 'pg';
+import { getConnectionPool, isInitialised, shutdown } from '@chaincontest/db';
 
 export const getPool = (): Pool => {
-  if (!pool) {
-    pool = buildPool();
+  if (!isInitialised()) {
+    throw new Error('packages/db has not been initialised');
   }
 
-  return pool;
+  return getConnectionPool();
 };
 
 export const resetPool = async (): Promise<void> => {
-  if (!pool) {
+  if (!isInitialised()) {
     return;
   }
 
-  const currentPool = pool;
-  await currentPool.end();
-  pool = null;
+  await shutdown();
 };
+

@@ -1,3 +1,4 @@
+import type { Pool } from 'pg';
 import type { DatabasePool, DatabasePoolOptions } from './adapters/connection.js';
 import { createDatabasePool } from './adapters/connection.js';
 import {
@@ -614,6 +615,8 @@ export const shutdown = async (): Promise<void> => {
 };
 
 export const isInitialised = (): boolean => pool !== null;
+
+export const getConnectionPool = (): Pool => ensurePool().pool;
 
 export const db = {
   init,

@@ -1,15 +1,18 @@
 import { randomBytes } from 'node:crypto';
 import type { Adapter, AdapterUser } from '@auth/core/adapters';
+import PostgresAdapter from '@auth/pg-adapter';
 import type { NextRequest } from 'next/server';
 import { NextResponse } from 'next/server';
 import { SiweMessage } from 'siwe';
 import { z } from 'zod';
 import { getEnv } from '@/lib/config/env';
 import { getAuthAdapter, SESSION_COOKIE, SESSION_MAX_AGE_SECONDS } from '@/lib/auth/config';
+import { initDatabase } from '@/lib/db/client';
 import { httpErrors, toErrorResponse } from '@/lib/http/errors';
 import { enforceRateLimit } from '@/lib/middleware/rateLimit';
 import { getRequestLogger } from '@/lib/observability/logger';
 import { siweNonceCookie } from '@/app/api/auth/siwe/start/route';
+import { getConnectionPool } from '@chaincontest/db';
 
 /*
  * The Auth.js adapter surface currently relies on `any`-typed function signatures.
@@ -152,7 +155,8 @@ export async function POST(request: NextRequest): Promise<Response> {
       sessionToken: sessionCookie
     });
 
-    adapter = assertSessionAdapter(getAuthAdapter());
+    await initDatabase();
+    adapter = assertSessionAdapter(PostgresAdapter(getConnectionPool()));
     const env = getEnv();
     let expectedDomain: string | undefined;
     if (env.nextAuth.url) {
@@ -197,7 +201,7 @@ export async function POST(request: NextRequest): Promise<Response> {
     const verification = await siweMessage.verify({
       signature: parsedBody.data.signature,
       nonce: nonceCookie,
-      domain: expectedDomain
+      domain: expectedDomain ?? siweMessage.domain
     });
 
     if (!verification.success) {
@@ -239,18 +243,7 @@ export async function POST(request: NextRequest): Promise<Response> {
       }
     }
 
-    const normalized = toErrorResponse(error);
-
-    if (normalized.status === 401) {
-      const response = NextResponse.json(normalized.body, { status: normalized.status });
-      response.headers.set('Cache-Control', 'no-store');
-      return response;
-    }
-
-    const response = NextResponse.json(normalized.body, { status: normalized.status });
-    normalized.headers && Object.entries(normalized.headers).forEach(([key, value]) => response.headers.set(key, value));
-    response.headers.set('Cache-Control', 'no-store');
-    return response;
+    throw error;
   }
 }
 

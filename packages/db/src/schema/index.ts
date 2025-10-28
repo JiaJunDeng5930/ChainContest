@@ -1,10 +1,25 @@
-import { contests, contestSnapshots, leaderboardVersions, participants, rewardClaims } from './contest-domain.js';
+import {
+  contests,
+  contestSnapshots,
+  leaderboardVersions,
+  participants,
+  rewardClaims
+} from './contest-domain.js';
 import { ingestionCursors, ingestionEvents } from './ingestion.js';
 import { organizerContracts } from './organizer.js';
 import { contestCreationRequests, contestDeploymentArtifacts } from './contest-creation.js';
 import { milestoneExecutionRecords } from './milestoneExecution.js';
 import { reconciliationReportLedgers } from './reconciliationReport.js';
 import { userIdentities, walletBindings } from './user-bindings.js';
+import {
+  authAccounts,
+  authSessions,
+  authUsers,
+  authVerificationTokens,
+  authAccountRelations,
+  authSessionRelations,
+  authUserRelations
+} from './auth.js';
 
 export {
   contests,
@@ -61,6 +76,16 @@ export {
   walletSourceEnum
 } from './user-bindings.js';
 
+export {
+  authUsers,
+  authAccounts,
+  authSessions,
+  authVerificationTokens,
+  authUserRelations,
+  authAccountRelations,
+  authSessionRelations
+} from './auth.js';
+
 export type { Contest, ContestSnapshot, LeaderboardVersion, Participant, RewardClaim } from './contest-domain.js';
 export type { NewContest, NewContestSnapshot, NewLeaderboardVersion, NewParticipant, NewRewardClaim } from './contest-domain.js';
 export type { IngestionCursor, NewIngestionCursor, IngestionEvent, NewIngestionEvent } from './ingestion.js';
@@ -76,6 +101,10 @@ export type {
 } from './contest-creation.js';
 
 export const dbSchema = {
+  authUsers,
+  authAccounts,
+  authSessions,
+  authVerificationTokens,
   userIdentities,
   walletBindings,
   contests,

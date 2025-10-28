@@ -50,6 +50,13 @@
       "when": 1761264000000,
       "tag": "20251024_add_contest_creation_entities",
       "breakpoints": false
+    },
+    {
+      "idx": 7,
+      "version": "20251028",
+      "when": 1761523200000,
+      "tag": "20251028_add_auth_tables",
+      "breakpoints": false
     }
   ]
 }
