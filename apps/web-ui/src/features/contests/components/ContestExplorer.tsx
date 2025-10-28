@@ -8,7 +8,7 @@ import {
   SUPPORTED_CHAIN_IDS,
   type ContestPhase
 } from "@chaincontest/shared-i18n";
-import { useQuery, type UseQueryResult } from "@tanstack/react-query";
+import { keepPreviousData, useQuery } from "@tanstack/react-query";
 import { useTranslations } from "next-intl";
 import { usePathname, useRouter } from "next/navigation";
 import { useCallback, useMemo, useState, useTransition, type ChangeEvent } from "react";
@@ -80,10 +80,10 @@ export function ContestExplorer({ initialQuery }: ContestExplorerProps) {
 
   const queryVariables = useMemo(() => toQueryParams(filters, cursor), [filters, cursor]);
 
-  const contestsQuery: UseQueryResult<ContestListResponse, Error> = useQuery<ContestListResponse, Error>({
+  const contestsQuery = useQuery<ContestListResponse, Error>({
     queryKey: QUERY_KEYS.contests(queryVariables),
     queryFn: async () => fetchContestList(queryVariables),
-    keepPreviousData: true,
+    placeholderData: keepPreviousData,
     staleTime: 30_000,
     refetchOnWindowFocus: false
   });

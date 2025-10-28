@@ -95,7 +95,9 @@ export function NetworkGate({ children }: NetworkGateProps) {
     warnings.push({
       key: "runtime",
       error: new Error(t("runtime.degraded")),
-      onRetry: runtimeQuery.refetch,
+      onRetry: async () => {
+        await runtimeQuery.refetch();
+      },
       forceRetryable: true,
       footerSlot: (
         <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-4">

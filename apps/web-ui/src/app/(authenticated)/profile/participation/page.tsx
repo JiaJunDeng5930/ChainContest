@@ -30,12 +30,15 @@ export default function ParticipationHistoryPage() {
   const historyQuery = useInfiniteQuery<UserContestListResponse>({
     queryKey: ["participation-history", gate.requiredChainId ?? null] as const,
     initialPageParam: null,
-    queryFn: ({ pageParam }) =>
-      fetchParticipationHistory({
-        cursor: pageParam ?? undefined,
+    queryFn: ({ pageParam }) => {
+      const cursor = typeof pageParam === "string" && pageParam.length ? pageParam : undefined;
+
+      return fetchParticipationHistory({
+        cursor,
         pageSize: PAGE_SIZE,
         networkId: gate.requiredChainId ?? undefined
-      }),
+      });
+    },
     getNextPageParam: (lastPage) => lastPage.nextCursor ?? undefined,
     enabled: gate.isSessionActive
   });

@@ -8,7 +8,7 @@ import {
   type ContestPhase,
   type SupportedChainId
 } from "@chaincontest/shared-i18n";
-import { useQuery } from "@tanstack/react-query";
+import { keepPreviousData, useQuery } from "@tanstack/react-query";
 import { useTranslations } from "next-intl";
 import { useCallback, useMemo, useState, type ChangeEvent } from "react";
 
@@ -121,15 +121,10 @@ export default function MyCreatedContests() {
     isFetching,
     isError,
     refetch
-  } = useQuery<
-    CreatorContestListResponse,
-    Error,
-    CreatorContestListResponse,
-    typeof queryKey
-  >({
+  } = useQuery({
     queryKey,
     queryFn: (): Promise<CreatorContestListResponse> => fetchCreatorContests(queryVariables),
-    keepPreviousData: true,
+    placeholderData: keepPreviousData,
     staleTime: 30_000,
     refetchOnWindowFocus: false
   });

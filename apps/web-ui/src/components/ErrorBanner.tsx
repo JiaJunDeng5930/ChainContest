@@ -7,7 +7,7 @@ import useErrorPresenter from "../lib/errors/useErrorPresenter";
 
 type ErrorBannerProps = {
   error: unknown;
-  onRetry?: () => void;
+  onRetry?: () => void | Promise<void>;
   className?: string;
   footerSlot?: ReactNode;
   forceRetryable?: boolean;
@@ -53,7 +53,12 @@ export function ErrorBanner({ error, onRetry, className, footerSlot, forceRetrya
         {onRetry && (presented.retryable || forceRetryable) ? (
           <button
             type="button"
-            onClick={onRetry}
+            onClick={() => {
+              const outcome = onRetry();
+              if (outcome && typeof (outcome as Promise<unknown>).then === "function") {
+                void (outcome as Promise<unknown>);
+              }
+            }}
             className="self-end rounded border border-rose-400 px-4 py-2 text-xs font-semibold uppercase tracking-wide text-rose-100 transition focus:outline-none focus:ring focus:ring-rose-400 focus:ring-offset-2 focus:ring-offset-rose-900 hover:bg-rose-400 hover:text-rose-950"
           >
             {t("common.actions.retry")}

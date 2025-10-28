@@ -63,7 +63,14 @@ export function ContestDetail({ contestId }: ContestDetailProps) {
   }
 
   if (query.isError) {
-    return <ErrorBanner error={query.error} onRetry={async () => query.refetch()} />;
+    return (
+      <ErrorBanner
+        error={query.error}
+        onRetry={async () => {
+          await query.refetch();
+        }}
+      />
+    );
   }
 
   const contest = query.data;

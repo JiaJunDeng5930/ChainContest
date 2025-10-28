@@ -2,9 +2,11 @@ import { getTranslations } from "next-intl/server";
 
 import CreateContestForm from "../../../../features/contests/components/CreateContestForm";
 import MyCreatedContests from "../../../../features/contests/components/MyCreatedContests";
+import { resolveRequestLocale } from "../../../../lib/i18n/requestLocale";
 
 export default async function CreateContestPage() {
-  const t = await getTranslations();
+  const locale = resolveRequestLocale();
+  const t = await getTranslations({ locale });
 
   return (
     <div className="mx-auto flex max-w-5xl flex-col gap-8 py-4">

@@ -5,8 +5,8 @@ import "@rainbow-me/rainbowkit/styles.css";
 import type { SupportedLocale } from "@chaincontest/shared-i18n";
 import { RainbowKitProvider, getDefaultConfig, type Locale } from "@rainbow-me/rainbowkit";
 import { QueryClientProvider } from "@tanstack/react-query";
-import { NextIntlClientProvider } from "next-intl";
-import { useEffect, useMemo, useState, type ReactNode } from "react";
+import { NextIntlClientProvider, type AbstractIntlMessages } from "next-intl";
+import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
 import { WagmiProvider } from "wagmi";
 import { http } from "wagmi";
 import { mainnet, sepolia } from "wagmi/chains";
@@ -57,25 +57,40 @@ export function AppProviders({ children, locale, messages }: ProvidersProps) {
 
   const rainbowLocale = useMemo<Locale>(() => RAINBOWKIT_LOCALE_MAP[locale] ?? "en", [locale]);
   const defaultTimeZone = "UTC";
-  const nestedMessages = useMemo(() => {
-    const accumulator: Record<string, unknown> = {};
+  const isIntlMessageRecord = useCallback((candidate: unknown): candidate is AbstractIntlMessages => {
+    return Boolean(candidate) && typeof candidate === "object" && !Array.isArray(candidate);
+  }, []);
+  const nestedMessages = useMemo<AbstractIntlMessages>(() => {
+    const accumulator: AbstractIntlMessages = {};
+
+    const ensureNestedSegment = (container: AbstractIntlMessages, segment: string): AbstractIntlMessages => {
+      const existing = container[segment];
+      if (isIntlMessageRecord(existing)) {
+        return existing;
+      }
+
+      const next: AbstractIntlMessages = {};
+      container[segment] = next;
+      return next;
+    };
+
     for (const [key, value] of Object.entries(messages)) {
       const segments = key.split(".");
-      let current: Record<string, unknown> = accumulator;
+      let current = accumulator;
+
       segments.forEach((segment, index) => {
         const isLeaf = index === segments.length - 1;
         if (isLeaf) {
           current[segment] = value;
           return;
         }
-        if (!current[segment] || typeof current[segment] !== "object") {
-          current[segment] = {};
-        }
-        current = current[segment] as Record<string, unknown>;
+
+        current = ensureNestedSegment(current, segment);
       });
     }
+
     return accumulator;
-  }, [messages]);
+  }, [isIntlMessageRecord, messages]);
 
   useEffect(() => {
     if (typeof window !== "undefined") {

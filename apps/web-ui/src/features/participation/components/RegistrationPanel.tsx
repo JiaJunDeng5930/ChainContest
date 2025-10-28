@@ -54,28 +54,30 @@ function formatChecks(checks: unknown): DisplayCheck[] {
     return [];
   }
 
-  return checks
-    .map((candidate) => {
-      if (!candidate || typeof candidate !== "object") {
-        return null;
-      }
+  const formatted: DisplayCheck[] = [];
 
-      const record = candidate as Record<string, unknown>;
-      const detailValue = record.detail;
-      let detailMessage: string | null = null;
-      if (detailValue != null) {
-        detailMessage = typeof detailValue === "string" ? detailValue : JSON.stringify(detailValue, null, 2);
-      }
+  for (const candidate of checks) {
+    if (!candidate || typeof candidate !== "object") {
+      continue;
+    }
 
-      return {
-        rule: typeof record.rule === "string" ? record.rule : "",
-        passed: typeof record.passed === "boolean" ? record.passed : Boolean(record.passed),
-        severity: typeof record.severity === "string" ? record.severity : undefined,
-        message: typeof record.message === "string" ? record.message : undefined,
-        detail: detailMessage
-      } satisfies DisplayCheck;
-    })
-    .filter((entry): entry is DisplayCheck => entry !== null);
+    const record = candidate as Record<string, unknown>;
+    const detailValue = record.detail;
+    let detailMessage: string | null = null;
+    if (detailValue != null) {
+      detailMessage = typeof detailValue === "string" ? detailValue : JSON.stringify(detailValue, null, 2);
+    }
+
+    formatted.push({
+      rule: typeof record.rule === "string" ? record.rule : "",
+      passed: typeof record.passed === "boolean" ? record.passed : Boolean(record.passed),
+      severity: typeof record.severity === "string" ? record.severity : undefined,
+      message: typeof record.message === "string" ? record.message : undefined,
+      detail: detailMessage
+    });
+  }
+
+  return formatted;
 }
 
 function formatApprovals(approvals: unknown): DisplayApproval[] {
@@ -83,31 +85,33 @@ function formatApprovals(approvals: unknown): DisplayApproval[] {
     return [];
   }
 
-  return approvals
-    .map((candidate) => {
-      if (!candidate || typeof candidate !== "object") {
-        return null;
-      }
+  const formatted: DisplayApproval[] = [];
 
-      const record = candidate as Record<string, unknown>;
-      const tokenAddress = typeof record.tokenAddress === "string" ? record.tokenAddress : "";
-      const spender = typeof record.spender === "string" ? record.spender : "";
-      const amount = typeof record.amount === "string" ? record.amount : String(record.amount ?? "");
+  for (const candidate of approvals) {
+    if (!candidate || typeof candidate !== "object") {
+      continue;
+    }
 
-      if (!tokenAddress || !spender || !amount) {
-        return null;
-      }
+    const record = candidate as Record<string, unknown>;
+    const tokenAddress = typeof record.tokenAddress === "string" ? record.tokenAddress : "";
+    const spender = typeof record.spender === "string" ? record.spender : "";
+    const amount = typeof record.amount === "string" ? record.amount : String(record.amount ?? "");
 
-      return {
-        tokenAddress,
-        spender,
-        amount,
-        symbol: typeof record.symbol === "string" ? record.symbol : undefined,
-        reason: typeof record.reason === "string" ? record.reason : null,
-        decimals: typeof record.decimals === "number" ? record.decimals : undefined
-      } satisfies DisplayApproval;
-    })
-    .filter((entry): entry is DisplayApproval => entry !== null);
+    if (!tokenAddress || !spender || !amount) {
+      continue;
+    }
+
+    formatted.push({
+      tokenAddress,
+      spender,
+      amount,
+      symbol: typeof record.symbol === "string" ? record.symbol : undefined,
+      reason: typeof record.reason === "string" ? record.reason : null,
+      decimals: typeof record.decimals === "number" ? record.decimals : undefined
+    });
+  }
+
+  return formatted;
 }
 
 function formatCall(call: unknown): DisplayCall | null {

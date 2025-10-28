@@ -104,7 +104,40 @@ export const SESSION_MAX_AGE_SECONDS = DEFAULT_SESSION_MAX_AGE_SECONDS;
 export const SESSION_UPDATE_AGE_SECONDS = DEFAULT_SESSION_UPDATE_AGE_SECONDS;
 export const SESSION_RENEW_THRESHOLD_MS = DEFAULT_SESSION_RENEW_THRESHOLD_MS;
 
-const authAdapter: Adapter = await getAuthAdapter();
+const baseAdapter = await getAuthAdapter();
+
+const normalizeSessionExpiry = <T extends { expires?: Date | string | number | null | undefined }>(session: T | null | undefined): T | null | undefined => {
+  if (!session) {
+    return session;
+  }
+
+  const expires = session.expires;
+  if (expires && !(expires instanceof Date)) {
+    const parsed = new Date(expires);
+    if (!Number.isNaN(parsed.valueOf())) {
+      session.expires = parsed as T['expires'];
+    }
+  }
+  return session;
+};
+
+const authAdapter: Adapter = {
+  ...baseAdapter,
+  async getSession(sessionToken) {
+    const session = await baseAdapter.getSession?.(sessionToken);
+    return normalizeSessionExpiry(session); 
+  },
+  async getSessionAndUser(sessionToken) {
+    const result = await baseAdapter.getSessionAndUser?.(sessionToken);
+    if (!result) {
+      return result;
+    }
+    return {
+      ...result,
+      session: normalizeSessionExpiry(result.session)
+    };
+  }
+};
 
 export const authOptions: NextAuthOptions = {
   adapter: authAdapter,
@@ -122,6 +155,7 @@ export const authOptions: NextAuthOptions = {
   providers: [credentialsProvider],
   callbacks: {
     session({ session, user }) {
+      const expires = session.expires instanceof Date ? session.expires : new Date(session.expires);
       const checksumAddress = (user as { addressChecksum?: string; name?: string }).addressChecksum ?? user?.name ?? '';
       if (!checksumAddress) {
         throw new Error('Session construction failed: wallet address missing');
@@ -131,15 +165,18 @@ export const authOptions: NextAuthOptions = {
       const userId = 'id' in user ? String(user.id) : walletAddress;
 
       const previous = session.user ?? {};
-      session.user = {
+      const enrichedUser = {
         ...previous,
         id: userId,
         walletAddress,
         addressChecksum: checksumAddress,
         name: checksumAddress
       };
-
-      return session;
+      return {
+        ...session,
+        expires,
+        user: enrichedUser
+      };
     },
     signIn({ user }) {
       if (!user.email && user.name) {
