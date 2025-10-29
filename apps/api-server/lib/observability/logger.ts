@@ -4,6 +4,23 @@ import { getEnv } from '@/lib/config/env';
 
 let loggerInstance: Logger | null = null;
 
+interface DeploymentStatsAccumulator {
+  total: number;
+  failures: number;
+}
+
+const componentDeploymentStats: DeploymentStatsAccumulator = { total: 0, failures: 0 };
+const contestDeploymentStats: DeploymentStatsAccumulator = { total: 0, failures: 0 };
+
+const computeStatsSnapshot = (stats: DeploymentStatsAccumulator) => {
+  const failureRate = stats.total === 0 ? 0 : stats.failures / stats.total;
+  return {
+    total: stats.total,
+    failures: stats.failures,
+    failureRate
+  };
+};
+
 const buildLogger = (): Logger => {
   const env = getEnv();
 
@@ -57,6 +74,7 @@ export interface ComponentDeploymentLogPayload {
   walletAddress?: string;
   contractAddress?: string | null;
   transactionHash?: string | null;
+  durationMs?: number;
   metadata?: Record<string, unknown>;
   failureReason?: Record<string, unknown> | null;
 }
@@ -75,13 +93,72 @@ export const logComponentDeployment = (
     contractAddress: payload.contractAddress,
     transactionHash: payload.transactionHash,
     metadata: payload.metadata,
-    failureReason: payload.failureReason
+    failureReason: payload.failureReason,
+    durationMs: payload.durationMs,
+    stats: computeStatsSnapshot(componentDeploymentStats)
   };
 
+  componentDeploymentStats.total += 1;
+
   if (payload.status === 'failed') {
+    componentDeploymentStats.failures += 1;
     logger.error({ ...base, error }, 'Component deployment failed');
     return;
   }
 
   logger.info({ ...base, status: payload.status }, 'Component deployment recorded');
 };
+
+export interface ContestDeploymentLogPayload {
+  status: 'pending' | 'confirmed' | 'failed';
+  networkId: number;
+  organizer: string;
+  requestId: string;
+  contestId: string;
+  vaultComponentId: string;
+  priceSourceComponentId: string;
+  contestAddress?: string | null;
+  vaultFactoryAddress?: string | null;
+  transactionHash?: string | null;
+  durationMs?: number;
+  metadata?: Record<string, unknown>;
+  failureReason?: Record<string, unknown> | null;
+}
+
+export const logContestDeployment = (
+  payload: ContestDeploymentLogPayload,
+  error?: unknown
+): void => {
+  const logger = getLogger();
+  const base = {
+    event: 'contestDeployment',
+    networkId: payload.networkId,
+    organizer: payload.organizer,
+    requestId: payload.requestId,
+    contestId: payload.contestId,
+    vaultComponentId: payload.vaultComponentId,
+    priceSourceComponentId: payload.priceSourceComponentId,
+    contestAddress: payload.contestAddress,
+    vaultFactoryAddress: payload.vaultFactoryAddress,
+    transactionHash: payload.transactionHash,
+    durationMs: payload.durationMs,
+    metadata: payload.metadata,
+    failureReason: payload.failureReason,
+    stats: computeStatsSnapshot(contestDeploymentStats)
+  };
+
+  contestDeploymentStats.total += 1;
+
+  if (payload.status === 'failed') {
+    contestDeploymentStats.failures += 1;
+    logger.error({ ...base, error }, 'Contest deployment failed');
+    return;
+  }
+
+  logger.info({ ...base, status: payload.status }, 'Contest deployment recorded');
+};
+
+export const getDeploymentStats = () => ({
+  components: computeStatsSnapshot(componentDeploymentStats),
+  contests: computeStatsSnapshot(contestDeploymentStats)
+});

@@ -8,6 +8,7 @@ import type {
 } from '@chaincontest/db';
 import type { ContestCreationReceipt } from '@chaincontest/chain';
 import { lowercaseAddress } from '@/lib/runtime/address';
+import { logContestDeployment } from '@/lib/observability/logger';
 
 const bigintSchema = z
   .union([z.string(), z.number(), z.bigint()])
@@ -222,6 +223,7 @@ const toArtifactRecord = (
 export const deployContest = async (
   input: ContestDeploymentServiceInput
 ): Promise<ContestDeploymentServiceResult> => {
+  const startedAt = Date.now();
   const parsedPayload = payloadSchema.safeParse(input.payload);
   if (!parsedPayload.success) {
     throw httpErrors.validationFailed('Invalid contest deployment payload', {
@@ -285,6 +287,25 @@ export const deployContest = async (
       failureReason: null
     });
 
+    logContestDeployment({
+      status: 'confirmed',
+      networkId: input.networkId,
+      organizer: organizerAddress,
+      requestId: creation.request.requestId,
+      contestId: parsedPayload.data.contestId,
+      vaultComponentId: parsedPayload.data.vaultComponentId,
+      priceSourceComponentId: parsedPayload.data.priceSourceComponentId,
+      contestAddress: artifactRecord?.contestAddress ?? null,
+      vaultFactoryAddress: artifactRecord?.vaultFactoryAddress ?? null,
+      transactionHash: receipt.artifact.transactionHash ?? null,
+      durationMs: Date.now() - startedAt,
+      metadata: {
+        receiptMetadata: receipt.metadata ?? {},
+        ingestion: artifactRecord?.metadata ?? {}
+      },
+      failureReason: null
+    });
+
     return {
       request: updated,
       artifact: artifactRecord ?? updated.artifact,
@@ -300,6 +321,28 @@ export const deployContest = async (
       transactionHash: null,
       confirmedAt: null
     });
+
+    logContestDeployment(
+      {
+        status: 'failed',
+        networkId: input.networkId,
+        organizer: organizerAddress,
+        requestId: creation.request.requestId,
+        contestId: parsedPayload.data.contestId,
+        vaultComponentId: parsedPayload.data.vaultComponentId,
+        priceSourceComponentId: parsedPayload.data.priceSourceComponentId,
+        transactionHash: null,
+        durationMs: Date.now() - startedAt,
+        metadata: {
+          payload: storedPayload,
+          error: error instanceof Error ? { message: error.message } : { message: String(error) }
+        },
+        failureReason: {
+          message: error instanceof Error ? error.message : 'Contest deployment failed'
+        }
+      },
+      error
+    );
     throw error;
   }
 };
