@@ -8,3 +8,4 @@ export * from './runtime/inMemoryContestDataProvider.js';
 export * from './runtime/deploymentRuntime.js';
 export * from './gateway/types.js';
 export * from './gateway/artifacts.js';
+export * from './gateway/contestDeployment.js';
