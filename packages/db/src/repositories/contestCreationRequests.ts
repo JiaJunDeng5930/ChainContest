@@ -14,16 +14,24 @@ interface CursorPayload {
   requestId: string;
 }
 
+export type ContestCreationRequestStatus = 'accepted' | 'deploying' | 'confirmed' | 'failed';
+
 export interface CreateContestCreationRequestParams {
   userId: string;
   networkId: number;
   payload: Record<string, unknown>;
+  vaultComponentId: string;
+  priceSourceComponentId: string;
+  status?: ContestCreationRequestStatus;
+  failureReason?: Record<string, unknown> | null;
+  transactionHash?: string | null;
+  confirmedAt?: Date | null;
 }
 
 export interface ContestCreationRequestAggregate {
   request: ContestCreationRequest;
   artifact: ContestDeploymentArtifact | null;
-  status: 'accepted' | 'deployed';
+  status: ContestCreationRequestStatus;
 }
 
 export interface GetContestCreationRequestResult extends ContestCreationRequestAggregate {}
@@ -40,6 +48,14 @@ export interface ListContestCreationRequestsParams {
 export interface ListContestCreationRequestsResponse {
   items: ContestCreationRequestAggregate[];
   nextCursor: string | null;
+}
+
+export interface UpdateContestCreationRequestStatusParams {
+  requestId: string;
+  status: ContestCreationRequestStatus;
+  failureReason?: Record<string, unknown> | null;
+  transactionHash?: string | null;
+  confirmedAt?: Date | null;
 }
 
 const PAGE_SIZE_DEFAULT = 25;
@@ -65,11 +81,30 @@ const applyCursorCondition = (cursor: CursorPayload) => {
   return sql`${contestCreationRequests.createdAt} < ${cursor.createdAt} OR (${contestCreationRequests.createdAt} = ${cursor.createdAt} AND ${contestCreationRequests.id} < ${cursor.requestId})`;
 };
 
+const normalizeFailureReason = (value: unknown): Record<string, unknown> | null => {
+  if (!value || typeof value !== 'object') {
+    return null;
+  }
+
+  const entries = Object.entries(value as Record<string, unknown>);
+  if (entries.length === 0) {
+    return null;
+  }
+
+  return Object.fromEntries(entries) as Record<string, unknown>;
+};
+
 const normalizeRequest = (record: ContestCreationRequest): ContestCreationRequest => ({
   ...record,
   userId: record.userId.trim(),
   networkId: record.networkId,
   payload: record.payload ?? {},
+  vaultComponentId: record.vaultComponentId ?? null,
+  priceSourceComponentId: record.priceSourceComponentId ?? null,
+  status: record.status as ContestCreationRequestStatus,
+  failureReason: normalizeFailureReason(record.failureReason),
+  transactionHash: record.transactionHash ?? null,
+  confirmedAt: record.confirmedAt ? new Date(record.confirmedAt) : null,
   createdAt: new Date(record.createdAt),
   updatedAt: new Date(record.updatedAt)
 });
@@ -80,7 +115,7 @@ export const toContestCreationAggregate = (
 ): ContestCreationRequestAggregate => {
   const normalizedRequest = normalizeRequest(request);
   const normalizedArtifact = normalizeDeploymentArtifact(artifact);
-  const status: ContestCreationRequestAggregate['status'] = normalizedArtifact?.contestId ? 'deployed' : 'accepted';
+  const status = normalizedRequest.status as ContestCreationRequestStatus;
   return {
     request: normalizedRequest,
     artifact: normalizedArtifact,
@@ -97,7 +132,13 @@ export const createContestCreationRequestRecord = async (
     .values({
       userId: params.userId.trim(),
       networkId: params.networkId,
-      payload: params.payload ?? {}
+      payload: params.payload ?? {},
+      vaultComponentId: params.vaultComponentId,
+      priceSourceComponentId: params.priceSourceComponentId,
+      status: params.status ?? 'accepted',
+      failureReason: params.failureReason ?? {},
+      transactionHash: params.transactionHash ?? null,
+      confirmedAt: params.confirmedAt ?? null
     })
     .returning();
 
@@ -183,4 +224,34 @@ export const listContestCreationRequestsRecords = async (
     items,
     nextCursor
   };
+};
+
+export const updateContestCreationRequestStatusRecord = async (
+  db: DrizzleDatabase<DbSchema>,
+  params: UpdateContestCreationRequestStatusParams
+): Promise<ContestCreationRequestAggregate> => {
+  const failureReason = params.failureReason ?? {};
+
+  const [updated] = await db
+    .update(contestCreationRequests)
+    .set({
+      status: params.status,
+      failureReason,
+      transactionHash: params.transactionHash ?? null,
+      confirmedAt: params.confirmedAt ?? null,
+      updatedAt: new Date()
+    })
+    .where(eq(contestCreationRequests.id, params.requestId))
+    .returning();
+
+  if (!updated) {
+    throw new Error(`Failed to update contest creation request ${params.requestId}`);
+  }
+
+  const aggregate = await getContestCreationRequestRecord(db, params.requestId);
+  if (!aggregate) {
+    throw new Error(`Contest creation request ${params.requestId} not found after update`);
+  }
+
+  return aggregate;
 };
