@@ -1,469 +1,738 @@
 "use client";
 
-import {
-  CHAIN_METADATA,
-  SUPPORTED_CHAIN_IDS,
-  type SupportedChainId
-} from "@chaincontest/shared-i18n";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { useForm } from "react-hook-form";
+import { z } from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useTranslations } from "next-intl";
-import { useCallback, useEffect, useMemo } from "react";
-import { useForm } from "react-hook-form";
-import { z } from "zod";
 
 import ErrorBanner from "../../../components/ErrorBanner";
 import { useNetworkGateState } from "../../network/NetworkGate";
 import {
   submitContestCreation,
-  type ContestCreationAggregate,
-  type ContestCreationPayload
+  type ContestCreationAggregate
 } from "../api/createContest";
+import { useOrganizerComponents } from "../../components/useOrganizerComponents";
+import type { OrganizerComponentItem } from "../../components/useOrganizerComponents";
 
-const DEFAULT_PAYLOAD_TEMPLATE = `{
-  "name": "Velocity Cup",
-  "symbol": "VEL",
-  "registrationWindow": {
-    "opensAt": "2025-11-01T00:00:00Z",
-    "closesAt": "2025-11-07T00:00:00Z"
-  },
-  "entryFee": "100000000000000000",
-  "rewardToken": {
-    "address": "0x0000000000000000000000000000000000000000"
-  }
-}`;
+const ADDRESS_REGEX = /^0x[0-9a-fA-F]{40}$/u;
+const BYTES32_REGEX = /^0x[0-9a-fA-F]{64}$/u;
 
-type CreateContestFormMessages = {
+type FormMessages = {
   networkRequired: string;
   unsupportedNetwork: string;
-  payloadRequired: string;
-  payloadInvalidJson: string;
-  payloadInvalidStructure: string;
+  contestIdRequired: string;
+  contestIdInvalid: string;
+  vaultComponentRequired: string;
+  priceSourceComponentRequired: string;
+  entryAssetRequired: string;
+  entryAssetInvalid: string;
+  entryAmountRequired: string;
+  entryFeeRequired: string;
+  swapPoolRequired: string;
+  swapPoolInvalid: string;
+  numericRequired: string;
+  dateRequired: string;
+  dateInvalid: string;
+  payoutScheduleRequired: string;
+  payoutScheduleInvalid: string;
+  metadataInvalid: string;
 };
 
-function buildCreateContestFormSchema(messages: CreateContestFormMessages) {
-  return z.object({
-    networkId: z
+const numericStringSchema = (messages: FormMessages, field: keyof Pick<FormMessages, "entryAmountRequired" | "entryFeeRequired">) =>
+  z
+    .string()
+    .min(1, { message: messages[field] })
+    .refine((value) => {
+      try {
+        // eslint-disable-next-line no-new
+        BigInt(value);
+        return true;
+      } catch {
+        return false;
+      }
+    }, { message: messages.numericRequired });
+
+const addressSchema = (requiredMessage: string, invalidMessage: string) =>
+  z
+    .string()
+    .min(1, { message: requiredMessage })
+    .refine((value) => ADDRESS_REGEX.test(value), { message: invalidMessage });
+
+const datetimeSchema = (messages: FormMessages, field: keyof Pick<FormMessages, "dateRequired" | "dateInvalid">) =>
+  z
+    .string()
+    .min(1, { message: messages[field] })
+    .refine((value) => !Number.isNaN(Date.parse(value)), { message: messages.dateInvalid });
+
+const buildFormSchema = (messages: FormMessages) =>
+  z.object({
+    networkId: z.string().min(1, { message: messages.networkRequired }),
+    contestId: z
       .string()
-      .min(1, { message: messages.networkRequired })
-      .refine((value) => {
-        const parsed = Number.parseInt(value, 10);
-        return Number.isInteger(parsed);
-      }, { message: messages.networkRequired })
-      .refine((value) => {
-        const parsed = Number.parseInt(value, 10);
-        return SUPPORTED_CHAIN_IDS.includes(parsed as SupportedChainId);
-      }, { message: messages.unsupportedNetwork }),
-    payload: z
+      .min(1, { message: messages.contestIdRequired })
+      .refine((value) => BYTES32_REGEX.test(value), { message: messages.contestIdInvalid }),
+    vaultComponentId: z.string().min(1, { message: messages.vaultComponentRequired }),
+    priceSourceComponentId: z.string().min(1, { message: messages.priceSourceComponentRequired }),
+    entryAsset: addressSchema(messages.entryAssetRequired, messages.entryAssetInvalid),
+    entryAmount: numericStringSchema(messages, "entryAmountRequired"),
+    entryFee: numericStringSchema(messages, "entryFeeRequired"),
+    swapPool: addressSchema(messages.swapPoolRequired, messages.swapPoolInvalid),
+    priceToleranceBps: z
       .string()
-      .min(1, { message: messages.payloadRequired })
-      .superRefine((value, ctx) => {
-        try {
-          const parsed = JSON.parse(value) as unknown;
-          if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
-            ctx.addIssue({
-              code: z.ZodIssueCode.custom,
-              message: messages.payloadInvalidStructure
-            });
-          }
-        } catch {
-          ctx.addIssue({
-            code: z.ZodIssueCode.custom,
-            message: messages.payloadInvalidJson
-          });
+      .min(1, { message: messages.numericRequired })
+      .refine((value) => Number.isInteger(Number(value)) && Number(value) >= 0, {
+        message: messages.numericRequired
+      }),
+    settlementWindow: z
+      .string()
+      .min(1, { message: messages.numericRequired })
+      .refine((value) => Number.isInteger(Number(value)) && Number(value) > 0, {
+        message: messages.numericRequired
+      }),
+    maxParticipants: z
+      .string()
+      .min(1, { message: messages.numericRequired })
+      .refine((value) => Number.isInteger(Number(value)) && Number(value) > 0, {
+        message: messages.numericRequired
+      }),
+    topK: z
+      .string()
+      .min(1, { message: messages.numericRequired })
+      .refine((value) => Number.isInteger(Number(value)) && Number(value) > 0, {
+        message: messages.numericRequired
+      }),
+    registeringEnds: datetimeSchema(messages, "dateRequired"),
+    liveEnds: datetimeSchema(messages, "dateRequired"),
+    claimEnds: datetimeSchema(messages, "dateRequired"),
+    initialPrizeAmount: numericStringSchema(messages, "entryAmountRequired"),
+    payoutSchedule: z
+      .string()
+      .min(1, { message: messages.payoutScheduleRequired })
+      .refine((value) => {
+        const parts = value
+          .split(",")
+          .map((part) => part.trim())
+          .filter(Boolean);
+        if (!parts.length || parts.length > 32) {
+          return false;
         }
-      })
+        return parts.every((part) => Number.isInteger(Number(part)) && Number(part) >= 0);
+      }, { message: messages.payoutScheduleInvalid }),
+    metadata: z
+      .string()
+      .optional()
+      .refine((value) => {
+        if (!value || !value.trim()) {
+          return true;
+        }
+        try {
+          JSON.parse(value);
+          return true;
+        } catch {
+          return false;
+        }
+      }, { message: messages.metadataInvalid })
   });
+
+type ContestFormSchema = ReturnType<typeof buildFormSchema>;
+type ContestFormInput = z.input<ContestFormSchema>;
+
+function generateContestId(): string {
+  if (typeof crypto === "undefined" || !crypto.getRandomValues) {
+    return "0x".padEnd(66, "0");
+  }
+  const bytes = new Uint8Array(32);
+  crypto.getRandomValues(bytes);
+  return `0x${Array.from(bytes)
+    .map((byte) => byte.toString(16).padStart(2, "0"))
+    .join("")}`;
 }
 
-type CreateContestFormSchema = ReturnType<typeof buildCreateContestFormSchema>;
-type CreateContestFormInput = z.input<CreateContestFormSchema>;
-
-function formatIsoDate(isoString: string): string {
-  const timestamp = Number.isNaN(Date.parse(isoString)) ? null : new Date(isoString);
-  return timestamp ? timestamp.toLocaleString() : isoString;
-}
-
-type SummarySectionProps = {
-  title: string;
-  items: Array<{ label: string; value: string | null }>;
-  metadata?: Record<string, unknown> | null;
-  payload?: Record<string, unknown> | null;
-  emptyLabel?: string;
-  payloadLabel: string;
-  metadataLabel: string;
+const toSeconds = (value: string): bigint => {
+  const timestamp = Date.parse(value);
+  if (Number.isNaN(timestamp)) {
+    throw new Error("Invalid datetime value");
+  }
+  return BigInt(Math.floor(timestamp / 1000));
 };
 
-function SummarySection({
+const parsePayoutSchedule = (value: string): number[] =>
+  value
+    .split(",")
+    .map((part) => part.trim())
+    .filter(Boolean)
+    .map((part) => Number.parseInt(part, 10));
+
+const parseMetadata = (value?: string) => {
+  if (!value || !value.trim()) {
+    return {} as Record<string, unknown>;
+  }
+  try {
+    const parsed = JSON.parse(value) as Record<string, unknown>;
+    return parsed;
+  } catch {
+    return {} as Record<string, unknown>;
+  }
+};
+
+const SummarySection = ({
   title,
   items,
-  metadata,
-  payload,
-  emptyLabel,
-  payloadLabel,
-  metadataLabel
-}: SummarySectionProps) {
-  const hasContent = items.length > 0 || (metadata && Object.keys(metadata).length > 0) || payload;
-
-  if (!hasContent) {
-    return (
-      <section className="rounded-lg border border-slate-800 bg-slate-900/60 p-4">
-        <h3 className="text-sm font-semibold text-slate-100">{title}</h3>
-        <p className="mt-2 text-sm text-slate-400">{emptyLabel}</p>
-      </section>
-    );
-  }
-
-  return (
-    <section className="space-y-3 rounded-lg border border-slate-800 bg-slate-900/60 p-4">
-      <h3 className="text-sm font-semibold text-slate-100">{title}</h3>
-      {items.length ? (
-        <dl className="grid gap-3 sm:grid-cols-2">
-          {items.map((item) => (
-            <div key={item.label} className="rounded border border-slate-800/60 bg-slate-950/40 p-3">
-              <dt className="text-xs uppercase tracking-wide text-slate-400">{item.label}</dt>
-              <dd className="mt-1 break-all text-sm text-slate-100">{item.value ?? "—"}</dd>
-            </div>
-          ))}
-        </dl>
-      ) : null}
-      {payload ? (
-        <div>
-          <h4 className="text-xs uppercase tracking-wide text-slate-400">{payloadLabel}</h4>
-          <pre className="mt-2 overflow-x-auto rounded border border-slate-800/60 bg-slate-950/60 p-3 text-xs text-slate-200">
-            {JSON.stringify(payload, null, 2)}
-          </pre>
-        </div>
-      ) : null}
-      {metadata && Object.keys(metadata).length ? (
-        <div>
-          <h4 className="text-xs uppercase tracking-wide text-slate-400">{metadataLabel}</h4>
-          <pre className="mt-2 overflow-x-auto rounded border border-slate-800/60 bg-slate-950/60 p-3 text-xs text-slate-200">
-            {JSON.stringify(metadata, null, 2)}
-          </pre>
-        </div>
-      ) : null}
-    </section>
-  );
-}
+  emptyLabel
+}: {
+  title: string;
+  items: Array<{ label: string; value: string | null }>;
+  emptyLabel: string;
+}) => (
+  <section className="rounded-lg border border-slate-800 bg-slate-900/60 p-4">
+    <h3 className="text-sm font-semibold text-slate-100">{title}</h3>
+    {items.length === 0 ? (
+      <p className="mt-2 text-sm text-slate-400">{emptyLabel}</p>
+    ) : (
+      <dl className="mt-3 grid gap-3 sm:grid-cols-2">
+        {items.map((item) => (
+          <div key={item.label} className="rounded border border-slate-800/60 bg-slate-950/40 p-3">
+            <dt className="text-xs uppercase tracking-wide text-slate-400">{item.label}</dt>
+            <dd className="mt-1 break-all text-sm text-slate-100">{item.value ?? "—"}</dd>
+          </div>
+        ))}
+      </dl>
+    )}
+  </section>
+);
 
 export default function CreateContestForm() {
   const t = useTranslations();
   const queryClient = useQueryClient();
   const { requiredChainId, isSupportedNetwork, isSessionActive } = useNetworkGateState();
 
-  const validationMessages = useMemo<CreateContestFormMessages>(
+  const messages = useMemo<FormMessages>(
     () => ({
-      networkRequired: t("contests.create.validation.networkRequired"),
-      unsupportedNetwork: t("contests.create.validation.networkUnsupported"),
-      payloadRequired: t("contests.create.validation.payloadRequired"),
-      payloadInvalidJson: t("contests.create.validation.payloadInvalidJson"),
-      payloadInvalidStructure: t("contests.create.validation.payloadInvalidStructure")
+      networkRequired: t("contests.create.validation.networkRequired", { defaultMessage: "请选择网络" }),
+      unsupportedNetwork: t("contests.create.validation.networkUnsupported", { defaultMessage: "当前网络不受支持" }),
+      contestIdRequired: t("contests.create.validation.contestIdRequired", { defaultMessage: "请填写 Contest ID" }),
+      contestIdInvalid: t("contests.create.validation.contestIdInvalid", { defaultMessage: "Contest ID 必须为 32 字节十六进制" }),
+      vaultComponentRequired: t("contests.create.validation.vaultComponentRequired", { defaultMessage: "请选择 Vault 组件" }),
+      priceSourceComponentRequired: t("contests.create.validation.priceSourceComponentRequired", { defaultMessage: "请选择 Price Source 组件" }),
+      entryAssetRequired: t("contests.create.validation.entryAssetRequired", { defaultMessage: "请填写参赛资产地址" }),
+      entryAssetInvalid: t("contests.create.validation.entryAssetInvalid", { defaultMessage: "资产地址格式不正确" }),
+      entryAmountRequired: t("contests.create.validation.entryAmountRequired", { defaultMessage: "请填写参赛金额" }),
+      entryFeeRequired: t("contests.create.validation.entryFeeRequired", { defaultMessage: "请填写报名手续费" }),
+      swapPoolRequired: t("contests.create.validation.swapPoolRequired", { defaultMessage: "请填写 Swap 池地址" }),
+      swapPoolInvalid: t("contests.create.validation.swapPoolInvalid", { defaultMessage: "Swap 池地址格式不正确" }),
+      numericRequired: t("contests.create.validation.numericRequired", { defaultMessage: "请输入有效的数字" }),
+      dateRequired: t("contests.create.validation.dateRequired", { defaultMessage: "请填写时间" }),
+      dateInvalid: t("contests.create.validation.dateInvalid", { defaultMessage: "时间格式不正确" }),
+      payoutScheduleRequired: t("contests.create.validation.payoutScheduleRequired", { defaultMessage: "请填写奖金分配表" }),
+      payoutScheduleInvalid: t("contests.create.validation.payoutScheduleInvalid", { defaultMessage: "奖金分配表需为不超过 32 个的非负整数" }),
+      metadataInvalid: t("contests.create.validation.metadataInvalid", { defaultMessage: "Metadata 必须是合法 JSON" })
     }),
     [t]
   );
 
-  const schema = useMemo(() => buildCreateContestFormSchema(validationMessages), [validationMessages]);
+  const formSchema = useMemo(() => buildFormSchema(messages), [messages]);
 
-  const defaultNetworkValue = requiredChainId ? String(requiredChainId) : "";
+  const defaultContestId = useMemo(() => generateContestId(), []);
 
   const {
     register,
     handleSubmit,
     formState: { errors, isSubmitting },
-    reset
-  } = useForm<CreateContestFormInput>({
-    resolver: zodResolver(schema),
+    reset,
+    watch,
+    setValue
+  } = useForm<ContestFormInput>({
+    resolver: zodResolver(formSchema),
     defaultValues: {
-      networkId: defaultNetworkValue,
-      payload: DEFAULT_PAYLOAD_TEMPLATE
-    },
-    mode: "onChange",
-    reValidateMode: "onChange"
-  });
-
-  useEffect(() => {
-    reset((previous) => ({
-      ...previous,
-      networkId: defaultNetworkValue || previous?.networkId || ""
-    }));
-  }, [defaultNetworkValue, reset]);
-
-  const mutation = useMutation<ContestCreationAggregate, unknown, { networkId: number; payload: ContestCreationPayload }>({
-    mutationFn: submitContestCreation,
-    onSuccess: async () => {
-      await Promise.all([
-        queryClient.invalidateQueries({
-          predicate: (query) => Array.isArray(query.queryKey) && query.queryKey[0] === "contests"
-        }),
-        queryClient.invalidateQueries({
-          predicate: (query) => Array.isArray(query.queryKey) && query.queryKey[0] === "creator-contests"
-        })
-      ]);
+      networkId: requiredChainId ? String(requiredChainId) : "",
+      contestId: defaultContestId,
+      entryAsset: "0x0000000000000000000000000000000000000000",
+      swapPool: "0x0000000000000000000000000000000000000000",
+      priceToleranceBps: "50",
+      settlementWindow: "3600",
+      maxParticipants: "1000",
+      topK: "10",
+      payoutSchedule: "6000,3000,1000"
     }
   });
 
-  const onSubmit = useCallback(
-    async (values: CreateContestFormInput) => {
-      const networkId = Number.parseInt(values.networkId, 10);
-      let payload: ContestCreationPayload;
+  useEffect(() => {
+    if (requiredChainId) {
+      setValue("networkId", String(requiredChainId));
+    }
+  }, [requiredChainId, setValue]);
 
-      try {
-        payload = JSON.parse(values.payload) as ContestCreationPayload;
-      } catch (error) {
-        // Validation should prevent this, but bail out gracefully if parsing fails.
-        throw error instanceof Error ? error : new Error("Unable to parse contest payload");
+  const networkIdValue = watch("networkId");
+  const normalizedNetworkId = useMemo(() => {
+    const parsed = Number.parseInt(networkIdValue, 10);
+    return Number.isInteger(parsed) ? parsed : undefined;
+  }, [networkIdValue]);
+
+  const vaultQueryInput = useMemo(
+    () => ({
+      type: "vault_implementation" as const,
+      statuses: ["confirmed"] as const,
+      networkId: normalizedNetworkId,
+      pageSize: 50
+    }),
+    [normalizedNetworkId]
+  );
+
+  const priceSourceQueryInput = useMemo(
+    () => ({
+      type: "price_source" as const,
+      statuses: ["confirmed"] as const,
+      networkId: normalizedNetworkId,
+      pageSize: 50
+    }),
+    [normalizedNetworkId]
+  );
+
+  const vaultComponents = useOrganizerComponents(vaultQueryInput);
+  const priceSourceComponents = useOrganizerComponents(priceSourceQueryInput);
+
+  const findComponent = useCallback(
+    (collection: OrganizerComponentItem[] | undefined, id: string): OrganizerComponentItem | null => {
+      if (!collection) {
+        return null;
+      }
+      return collection.find((item) => item.id === id) ?? null;
+    },
+    []
+  );
+
+  const [lastSubmitted, setLastSubmitted] = useState<ContestCreationAggregate | null>(null);
+
+  const mutation = useMutation<ContestCreationAggregate, unknown, { networkId: number; payload: Record<string, unknown> }>(
+    {
+      mutationFn: submitContestCreation,
+      onSuccess: async (data) => {
+        setLastSubmitted(data);
+        await Promise.all([
+          queryClient.invalidateQueries({ queryKey: ["contests"] }),
+          queryClient.invalidateQueries({ queryKey: ["creator-contests"] }),
+          queryClient.invalidateQueries({ queryKey: ["contest-requests"] })
+        ]);
+      }
+    }
+  );
+
+  const onSubmit = useCallback(
+    async (values: ContestFormInput) => {
+      const networkId = Number.parseInt(values.networkId, 10);
+      if (!Number.isInteger(networkId)) {
+        throw new Error("Invalid networkId");
       }
 
+      const vault = findComponent(vaultComponents.data?.items, values.vaultComponentId);
+      const priceSource = findComponent(priceSourceComponents.data?.items, values.priceSourceComponentId);
+
+      if (!vault) {
+        throw new Error(messages.vaultComponentRequired);
+      }
+
+      if (!priceSource) {
+        throw new Error(messages.priceSourceComponentRequired);
+      }
+
+      const registeringEnds = toSeconds(values.registeringEnds);
+      const liveEnds = toSeconds(values.liveEnds);
+      const claimEnds = toSeconds(values.claimEnds);
+      const entryAmount = BigInt(values.entryAmount);
+      const entryFee = BigInt(values.entryFee);
+      const initialPrizeAmount = BigInt(values.initialPrizeAmount);
+      const payoutSchedule = parsePayoutSchedule(values.payoutSchedule);
+
       mutation.reset();
-      await mutation.mutateAsync({ networkId, payload });
+
+      await mutation.mutateAsync({
+        networkId,
+        payload: {
+          contestId: values.contestId,
+          vaultComponentId: values.vaultComponentId,
+          priceSourceComponentId: values.priceSourceComponentId,
+          vaultImplementation: vault.contractAddress,
+          config: {
+            entryAsset: values.entryAsset,
+            entryAmount: entryAmount.toString(),
+            entryFee: entryFee.toString(),
+            priceSource: priceSource.contractAddress,
+            swapPool: values.swapPool,
+            priceToleranceBps: Number.parseInt(values.priceToleranceBps, 10),
+            settlementWindow: Number.parseInt(values.settlementWindow, 10),
+            maxParticipants: Number.parseInt(values.maxParticipants, 10),
+            topK: Number.parseInt(values.topK, 10)
+          },
+          timeline: {
+            registeringEnds: registeringEnds.toString(),
+            liveEnds: liveEnds.toString(),
+            claimEnds: claimEnds.toString()
+          },
+          initialPrizeAmount: initialPrizeAmount.toString(),
+          payoutSchedule,
+          metadata: parseMetadata(values.metadata)
+        }
+      });
     },
-    [mutation]
+    [findComponent, messages, mutation, priceSourceComponents.data, vaultComponents.data]
   );
 
-  const chainOptions = useMemo(
-    () =>
-      SUPPORTED_CHAIN_IDS.map((chainId) => ({
-        value: String(chainId),
-        label: t(CHAIN_METADATA[chainId].nameKey)
-      })),
-    [t]
-  );
-
-  const disabledReason = !isSessionActive
-    ? t("contests.create.disabled.requiresLogin")
-    : !isSupportedNetwork
-      ? t("contests.create.disabled.unsupportedNetwork")
-      : null;
+  const disabledReason = useMemo(() => {
+    if (!isSessionActive) {
+      return t("contests.create.disabled.requiresLogin", { defaultMessage: "请先登录" });
+    }
+    if (!isSupportedNetwork) {
+      return t("contests.create.disabled.unsupportedNetwork", { defaultMessage: "当前网络不受支持" });
+    }
+    if (vaultComponents.isLoading || priceSourceComponents.isLoading) {
+      return t("contests.create.disabled.loadingComponents", { defaultMessage: "正在加载可复用组件" });
+    }
+    if ((vaultComponents.data?.items?.length ?? 0) === 0) {
+      return t("contests.create.disabled.noVaultComponents", { defaultMessage: "请先部署 Vault 组件" });
+    }
+    if ((priceSourceComponents.data?.items?.length ?? 0) === 0) {
+      return t("contests.create.disabled.noPriceSourceComponents", { defaultMessage: "请先部署 Price Source 组件" });
+    }
+    return null;
+  }, [
+    isSessionActive,
+    isSupportedNetwork,
+    priceSourceComponents.data?.items?.length,
+    priceSourceComponents.isLoading,
+    t,
+    vaultComponents.data?.items?.length,
+    vaultComponents.isLoading
+  ]);
 
   const isSubmitDisabled = Boolean(disabledReason) || mutation.isPending || isSubmitting;
 
-  const latestResult = mutation.data ?? null;
-  const sectionLabels = useMemo(
-    () => ({
-      payload: t("contests.create.result.payloadLabel"),
-      metadata: t("contests.create.result.metadataLabel")
-    }),
-    [t]
-  );
+  const submitLabel = mutation.isPending
+    ? t("contests.create.actions.submitting", { defaultMessage: "部署中..." })
+    : t("contests.create.actions.submit", { defaultMessage: "部署比赛" });
+
+  const resetForm = useCallback(() => {
+    const generatedId = generateContestId();
+    reset((previous) => ({
+      ...previous,
+      contestId: generatedId
+    }));
+  }, [reset]);
 
   return (
-    <section className="space-y-6">
-      <header className="space-y-2">
-        <h2 className="text-xl font-semibold text-slate-50">{t("contests.create.title")}</h2>
-        <p className="text-sm text-slate-300">{t("contests.create.description")}</p>
-      </header>
+    <div className="space-y-6">
+      {mutation.isError ? (
+        <ErrorBanner
+          title={t("contests.create.error.title", { defaultMessage: "部署失败" })}
+          description={t("contests.create.error.description", { defaultMessage: "请稍后重试或查看日志。" })}
+        />
+      ) : null}
 
       <form
-        className="space-y-5 rounded-lg border border-slate-800 bg-slate-950/40 p-6"
+        className="space-y-6 rounded-lg border border-slate-800 bg-slate-950/40 p-6"
         onSubmit={handleSubmit(onSubmit)}
-        noValidate
       >
-        <div className="grid gap-4 lg:grid-cols-2">
-          <label className="flex flex-col gap-2">
-            <span className="text-xs uppercase tracking-wide text-slate-400">
-              {t("contests.create.fields.network")}
-            </span>
-            <select
-              {...register("networkId")}
-              className={`rounded-lg border px-3 py-2 text-sm outline-none transition ${
-                errors.networkId
-                  ? "border-rose-500 bg-rose-950/40 text-rose-100 focus:border-rose-400 focus:ring-rose-400/40"
-                  : "border-slate-700 bg-slate-900/60 text-slate-100 focus:border-slate-400 focus:ring-slate-400/40"
-              }`}
-              disabled={mutation.isPending}
-            >
-              <option value="">{t("contests.create.fields.networkPlaceholder")}</option>
-              {chainOptions.map((option) => (
-                <option key={option.value} value={option.value}>
-                  {option.label}
-                </option>
-              ))}
-            </select>
-            {errors.networkId ? (
-              <span className="text-xs text-rose-300">{errors.networkId.message}</span>
+        <fieldset className="space-y-4">
+          <legend className="text-sm font-semibold text-slate-200">
+            {t("contests.create.sections.setup", { defaultMessage: "基础配置" })}
+          </legend>
+          <div className="grid gap-4 sm:grid-cols-2">
+            <label className="flex flex-col gap-2 text-sm text-slate-200">
+              <span>{t("contests.create.labels.network", { defaultMessage: "网络" })}</span>
+              <input
+                className="rounded border border-slate-800 bg-slate-900 p-2 text-slate-100"
+                {...register("networkId")}
+                disabled
+              />
+              {errors.networkId ? (
+                <span className="text-xs text-rose-400">{errors.networkId.message}</span>
+              ) : null}
+            </label>
+            <label className="flex flex-col gap-2 text-sm text-slate-200">
+              <span>{t("contests.create.labels.contestId", { defaultMessage: "Contest ID" })}</span>
+              <div className="flex gap-2">
+                <input
+                  className="flex-1 rounded border border-slate-800 bg-slate-900 p-2 text-slate-100"
+                  {...register("contestId")}
+                  placeholder="0x..."
+                />
+                <button
+                  type="button"
+                  className="rounded border border-slate-700 px-3 py-2 text-xs text-slate-200 hover:bg-slate-800"
+                  onClick={resetForm}
+                >
+                  {t("contests.create.actions.shuffleContestId", { defaultMessage: "重新生成" })}
+                </button>
+              </div>
+              {errors.contestId ? (
+                <span className="text-xs text-rose-400">{errors.contestId.message}</span>
+              ) : null}
+            </label>
+          </div>
+
+          <div className="grid gap-4 sm:grid-cols-2">
+            <label className="flex flex-col gap-2 text-sm text-slate-200">
+              <span>{t("contests.create.labels.vaultComponent", { defaultMessage: "Vault 组件" })}</span>
+              <select
+                className="rounded border border-slate-800 bg-slate-900 p-2 text-slate-100"
+                {...register("vaultComponentId")}
+              >
+                <option value="">{t("contests.create.options.selectPlaceholder", { defaultMessage: "请选择" })}</option>
+                {vaultComponents.data?.items.map((item) => (
+                  <option key={item.id} value={item.id}>
+                    {`${item.contractAddress} (${item.networkId})`}
+                  </option>
+                ))}
+              </select>
+              {errors.vaultComponentId ? (
+                <span className="text-xs text-rose-400">{errors.vaultComponentId.message}</span>
+              ) : null}
+            </label>
+            <label className="flex flex-col gap-2 text-sm text-slate-200">
+              <span>{t("contests.create.labels.priceSourceComponent", { defaultMessage: "Price Source 组件" })}</span>
+              <select
+                className="rounded border border-slate-800 bg-slate-900 p-2 text-slate-100"
+                {...register("priceSourceComponentId")}
+              >
+                <option value="">{t("contests.create.options.selectPlaceholder", { defaultMessage: "请选择" })}</option>
+                {priceSourceComponents.data?.items.map((item) => (
+                  <option key={item.id} value={item.id}>
+                    {`${item.contractAddress} (${item.networkId})`}
+                  </option>
+                ))}
+              </select>
+              {errors.priceSourceComponentId ? (
+                <span className="text-xs text-rose-400">{errors.priceSourceComponentId.message}</span>
+              ) : null}
+            </label>
+          </div>
+        </fieldset>
+
+        <fieldset className="space-y-4">
+          <legend className="text-sm font-semibold text-slate-200">
+            {t("contests.create.sections.configuration", { defaultMessage: "比赛参数" })}
+          </legend>
+          <div className="grid gap-4 sm:grid-cols-2">
+            <label className="flex flex-col gap-2 text-sm text-slate-200">
+              <span>{t("contests.create.labels.entryAsset", { defaultMessage: "参赛资产地址" })}</span>
+              <input
+                className="rounded border border-slate-800 bg-slate-900 p-2 text-slate-100"
+                {...register("entryAsset")}
+                placeholder="0x..."
+              />
+              {errors.entryAsset ? (
+                <span className="text-xs text-rose-400">{errors.entryAsset.message}</span>
+              ) : null}
+            </label>
+            <label className="flex flex-col gap-2 text-sm text-slate-200">
+              <span>{t("contests.create.labels.swapPool", { defaultMessage: "Swap 池地址" })}</span>
+              <input
+                className="rounded border border-slate-800 bg-slate-900 p-2 text-slate-100"
+                {...register("swapPool")}
+                placeholder="0x..."
+              />
+              {errors.swapPool ? (
+                <span className="text-xs text-rose-400">{errors.swapPool.message}</span>
+              ) : null}
+            </label>
+          </div>
+
+          <div className="grid gap-4 sm:grid-cols-3">
+            <label className="flex flex-col gap-2 text-sm text-slate-200">
+              <span>{t("contests.create.labels.entryAmount", { defaultMessage: "参赛金额 (Wei)" })}</span>
+              <input
+                className="rounded border border-slate-800 bg-slate-900 p-2 text-slate-100"
+                {...register("entryAmount")}
+                placeholder="100000000000000000"
+              />
+              {errors.entryAmount ? (
+                <span className="text-xs text-rose-400">{errors.entryAmount.message}</span>
+              ) : null}
+            </label>
+            <label className="flex flex-col gap-2 text-sm text-slate-200">
+              <span>{t("contests.create.labels.entryFee", { defaultMessage: "报名手续费 (Wei)" })}</span>
+              <input
+                className="rounded border border-slate-800 bg-slate-900 p-2 text-slate-100"
+                {...register("entryFee")}
+                placeholder="1000000000000000"
+              />
+              {errors.entryFee ? (
+                <span className="text-xs text-rose-400">{errors.entryFee.message}</span>
+              ) : null}
+            </label>
+            <label className="flex flex-col gap-2 text-sm text-slate-200">
+              <span>{t("contests.create.labels.priceToleranceBps", { defaultMessage: "价格容忍度 (bps)" })}</span>
+              <input
+                className="rounded border border-slate-800 bg-slate-900 p-2 text-slate-100"
+                {...register("priceToleranceBps")}
+                placeholder="50"
+              />
+              {errors.priceToleranceBps ? (
+                <span className="text-xs text-rose-400">{errors.priceToleranceBps.message}</span>
+              ) : null}
+            </label>
+          </div>
+
+          <div className="grid gap-4 sm:grid-cols-3">
+            <label className="flex flex-col gap-2 text-sm text-slate-200">
+              <span>{t("contests.create.labels.settlementWindow", { defaultMessage: "结算窗口 (秒)" })}</span>
+              <input
+                className="rounded border border-slate-800 bg-slate-900 p-2 text-slate-100"
+                {...register("settlementWindow")}
+                placeholder="3600"
+              />
+              {errors.settlementWindow ? (
+                <span className="text-xs text-rose-400">{errors.settlementWindow.message}</span>
+              ) : null}
+            </label>
+            <label className="flex flex-col gap-2 text-sm text-slate-200">
+              <span>{t("contests.create.labels.maxParticipants", { defaultMessage: "参赛人数上限" })}</span>
+              <input
+                className="rounded border border-slate-800 bg-slate-900 p-2 text-slate-100"
+                {...register("maxParticipants")}
+                placeholder="1000"
+              />
+              {errors.maxParticipants ? (
+                <span className="text-xs text-rose-400">{errors.maxParticipants.message}</span>
+              ) : null}
+            </label>
+            <label className="flex flex-col gap-2 text-sm text-slate-200">
+              <span>{t("contests.create.labels.topK", { defaultMessage: "获胜名额" })}</span>
+              <input
+                className="rounded border border-slate-800 bg-slate-900 p-2 text-slate-100"
+                {...register("topK")}
+                placeholder="10"
+              />
+              {errors.topK ? (
+                <span className="text-xs text-rose-400">{errors.topK.message}</span>
+              ) : null}
+            </label>
+          </div>
+        </fieldset>
+
+        <fieldset className="space-y-4">
+          <legend className="text-sm font-semibold text-slate-200">
+            {t("contests.create.sections.timeline", { defaultMessage: "时间轴" })}
+          </legend>
+          <div className="grid gap-4 sm:grid-cols-3">
+            <label className="flex flex-col gap-2 text-sm text-slate-200">
+              <span>{t("contests.create.labels.registeringEnds", { defaultMessage: "报名截止" })}</span>
+              <input
+                type="datetime-local"
+                className="rounded border border-slate-800 bg-slate-900 p-2 text-slate-100"
+                {...register("registeringEnds")}
+              />
+              {errors.registeringEnds ? (
+                <span className="text-xs text-rose-400">{errors.registeringEnds.message}</span>
+              ) : null}
+            </label>
+            <label className="flex flex-col gap-2 text-sm text-slate-200">
+              <span>{t("contests.create.labels.liveEnds", { defaultMessage: "交易截止" })}</span>
+              <input
+                type="datetime-local"
+                className="rounded border border-slate-800 bg-slate-900 p-2 text-slate-100"
+                {...register("liveEnds")}
+              />
+              {errors.liveEnds ? (
+                <span className="text-xs text-rose-400">{errors.liveEnds.message}</span>
+              ) : null}
+            </label>
+            <label className="flex flex-col gap-2 text-sm text-slate-200">
+              <span>{t("contests.create.labels.claimEnds", { defaultMessage: "奖励领取截止" })}</span>
+              <input
+                type="datetime-local"
+                className="rounded border border-slate-800 bg-slate-900 p-2 text-slate-100"
+                {...register("claimEnds")}
+              />
+              {errors.claimEnds ? (
+                <span className="text-xs text-rose-400">{errors.claimEnds.message}</span>
+              ) : null}
+            </label>
+          </div>
+        </fieldset>
+
+        <fieldset className="space-y-4">
+          <legend className="text-sm font-semibold text-slate-200">
+            {t("contests.create.sections.rewards", { defaultMessage: "奖励设置" })}
+          </legend>
+          <div className="grid gap-4 sm:grid-cols-2">
+            <label className="flex flex-col gap-2 text-sm text-slate-200">
+              <span>{t("contests.create.labels.initialPrizeAmount", { defaultMessage: "初始奖池 (Wei)" })}</span>
+              <input
+                className="rounded border border-slate-800 bg-slate-900 p-2 text-slate-100"
+                {...register("initialPrizeAmount")}
+                placeholder="1000000000000000000"
+              />
+              {errors.initialPrizeAmount ? (
+                <span className="text-xs text-rose-400">{errors.initialPrizeAmount.message}</span>
+              ) : null}
+            </label>
+            <label className="flex flex-col gap-2 text-sm text-slate-200">
+              <span>{t("contests.create.labels.payoutSchedule", { defaultMessage: "奖金分配 (bps)" })}</span>
+              <input
+                className="rounded border border-slate-800 bg-slate-900 p-2 text-slate-100"
+                {...register("payoutSchedule")}
+                placeholder="6000,3000,1000"
+              />
+              {errors.payoutSchedule ? (
+                <span className="text-xs text-rose-400">{errors.payoutSchedule.message}</span>
+              ) : null}
+            </label>
+          </div>
+
+          <label className="flex flex-col gap-2 text-sm text-slate-200">
+            <span>{t("contests.create.labels.metadata", { defaultMessage: "附加 Metadata" })}</span>
+            <textarea
+              rows={4}
+              className="rounded border border-slate-800 bg-slate-900 p-2 text-sm text-slate-100"
+              {...register("metadata")}
+              placeholder='{ "notes": "optional" }'
+            />
+            {errors.metadata ? (
+              <span className="text-xs text-rose-400">{errors.metadata.message}</span>
             ) : null}
           </label>
+        </fieldset>
 
-          <div className="flex flex-col gap-2">
-            <span className="text-xs uppercase tracking-wide text-slate-400">
-              {t("contests.create.fields.payload")}
-            </span>
-            <textarea
-              {...register("payload")}
-              rows={12}
-              className={`min-h-[240px] rounded-lg border px-3 py-2 text-sm font-mono outline-none transition ${
-                errors.payload
-                  ? "border-rose-500 bg-rose-950/40 text-rose-100 focus:border-rose-400 focus:ring-rose-400/40"
-                  : "border-slate-700 bg-slate-900/60 text-slate-100 focus:border-slate-400 focus:ring-slate-400/40"
-              }`}
-              spellCheck={false}
-              disabled={mutation.isPending}
-            />
-            <p className="text-xs text-slate-400">
-              {t("contests.create.fields.payloadHelp")}
-            </p>
-            {errors.payload ? (
-              <span className="text-xs text-rose-300">{errors.payload.message}</span>
-            ) : null}
-          </div>
-        </div>
-
-        <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+        <div className="flex items-center gap-3">
           <button
             type="submit"
-            className="w-full rounded-lg bg-slate-100 px-4 py-2 text-sm font-semibold text-slate-950 transition hover:bg-slate-200 disabled:cursor-not-allowed disabled:bg-slate-700 disabled:text-slate-300 sm:w-auto"
+            className="rounded bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-500 disabled:cursor-not-allowed disabled:bg-slate-700"
             disabled={isSubmitDisabled}
           >
-            {mutation.isPending ? t("contests.create.actions.submitting") : t("contests.create.actions.submit")}
+            {submitLabel}
           </button>
-          <button
-            type="button"
-            className="w-full rounded-lg border border-slate-700 px-4 py-2 text-sm font-semibold text-slate-200 transition hover:border-slate-500 hover:text-slate-50 sm:w-auto"
-            onClick={() =>
-              reset({
-                networkId: defaultNetworkValue,
-                payload: DEFAULT_PAYLOAD_TEMPLATE
-              })
-            }
-            disabled={mutation.isPending}
-          >
-            {t("contests.create.actions.reset")}
-          </button>
-          {disabledReason ? <p className="text-xs text-amber-300 sm:ml-4">{disabledReason}</p> : null}
+          {disabledReason ? <span className="text-xs text-slate-400">{disabledReason}</span> : null}
         </div>
       </form>
 
-      {mutation.isError ? (
-        <ErrorBanner error={mutation.error} />
-      ) : mutation.isSuccess ? (
-        <div className="space-y-4 rounded-lg border border-slate-800 bg-slate-950/50 p-6">
-          <header className="space-y-1">
-            <h3 className="text-lg font-semibold text-slate-50">{t("contests.create.result.title")}</h3>
-            <p className="text-sm text-slate-300">
-              {t("contests.create.result.subtitle", { status: latestResult?.status ?? "unknown" })}
-            </p>
-          </header>
-          {latestResult ? (
-            <div className="space-y-4">
-              <SummarySection
-                title={t("contests.create.result.requestHeading")}
-                items={[
-                  {
-                    label: t("contests.create.result.requestId"),
-                    value: latestResult.request.requestId
-                  },
-                  {
-                    label: t("contests.create.result.userId"),
-                    value: latestResult.request.userId
-                  },
-                  {
-                    label: t("contests.create.result.networkId"),
-                    value: String(latestResult.request.networkId)
-                  },
-                  {
-                    label: t("contests.create.result.createdAt"),
-                    value: formatIsoDate(latestResult.request.createdAt)
-                  },
-                  {
-                    label: t("contests.create.result.updatedAt"),
-                    value: formatIsoDate(latestResult.request.updatedAt)
-                  }
-                ]}
-                payload={latestResult.request.payload}
-                metadata={null}
-                payloadLabel={sectionLabels.payload}
-                metadataLabel={sectionLabels.metadata}
-              />
-              <SummarySection
-                title={t("contests.create.result.artifactHeading")}
-                items={
-                  latestResult.artifact
-                    ? [
-                        {
-                          label: t("contests.create.result.artifactId"),
-                          value: latestResult.artifact.artifactId
-                        },
-                        {
-                          label: t("contests.create.result.requestId"),
-                          value: latestResult.artifact.requestId
-                        },
-                        {
-                          label: t("contests.create.result.contestId"),
-                          value: latestResult.artifact.contestId
-                        },
-                        {
-                          label: t("contests.create.result.networkId"),
-                          value: String(latestResult.artifact.networkId)
-                        },
-                        {
-                          label: t("contests.create.result.registrarAddress"),
-                          value: latestResult.artifact.registrarAddress
-                        },
-                        {
-                          label: t("contests.create.result.treasuryAddress"),
-                          value: latestResult.artifact.treasuryAddress
-                        },
-                        {
-                          label: t("contests.create.result.settlementAddress"),
-                          value: latestResult.artifact.settlementAddress
-                        },
-                        {
-                          label: t("contests.create.result.rewardsAddress"),
-                          value: latestResult.artifact.rewardsAddress
-                        },
-                        {
-                          label: t("contests.create.result.createdAt"),
-                          value: formatIsoDate(latestResult.artifact.createdAt)
-                        },
-                        {
-                          label: t("contests.create.result.updatedAt"),
-                          value: formatIsoDate(latestResult.artifact.updatedAt)
-                        }
-                      ]
-                    : []
-                }
-                metadata={latestResult.artifact?.metadata ?? null}
-                emptyLabel={t("contests.create.result.artifactPending")}
-                payloadLabel={sectionLabels.payload}
-                metadataLabel={sectionLabels.metadata}
-              />
-              <SummarySection
-                title={t("contests.create.result.receiptHeading")}
-                items={[
-                  {
-                    label: t("contests.create.result.receiptStatus"),
-                    value: latestResult.receipt.status
-                  },
-                  {
-                    label: t("contests.create.result.requestId"),
-                    value: latestResult.receipt.requestId
-                  },
-                  {
-                    label: t("contests.create.result.organizer"),
-                    value: latestResult.receipt.organizer
-                  },
-                  {
-                    label: t("contests.create.result.networkId"),
-                    value: String(latestResult.receipt.networkId)
-                  },
-                  {
-                    label: t("contests.create.result.acceptedAt"),
-                    value: formatIsoDate(latestResult.receipt.acceptedAt)
-                  }
-                ]}
-                metadata={latestResult.receipt.metadata}
-                payloadLabel={sectionLabels.payload}
-                metadataLabel={sectionLabels.metadata}
-              />
-            </div>
-          ) : null}
+      {lastSubmitted ? (
+        <div className="space-y-4">
+          <SummarySection
+            title={t("contests.create.summary.request", { defaultMessage: "请求详情" })}
+            emptyLabel={t("contests.create.summary.empty", { defaultMessage: "暂无数据" })}
+            items={[
+              { label: t("contests.create.summary.status", { defaultMessage: "状态" }), value: lastSubmitted.status },
+              { label: t("contests.create.summary.requestId", { defaultMessage: "请求 ID" }), value: lastSubmitted.request.requestId },
+              { label: t("contests.create.summary.transactionHash", { defaultMessage: "交易哈希" }), value: lastSubmitted.request.transactionHash },
+              { label: t("contests.create.summary.confirmedAt", { defaultMessage: "确认时间" }), value: lastSubmitted.request.confirmedAt ?? null }
+            ]}
+          />
+          <SummarySection
+            title={t("contests.create.summary.artifact", { defaultMessage: "部署产物" })}
+            emptyLabel={t("contests.create.summary.empty", { defaultMessage: "暂无数据" })}
+            items={lastSubmitted.artifact
+              ? [
+                  { label: t("contests.create.summary.contestAddress", { defaultMessage: "Contest 地址" }), value: lastSubmitted.artifact.contestAddress },
+                  { label: t("contests.create.summary.vaultFactoryAddress", { defaultMessage: "VaultFactory 地址" }), value: lastSubmitted.artifact.vaultFactoryAddress },
+                  { label: t("contests.create.summary.transactionHash", { defaultMessage: "交易哈希" }), value: lastSubmitted.artifact.transactionHash },
+                  { label: t("contests.create.summary.confirmedAt", { defaultMessage: "确认时间" }), value: lastSubmitted.artifact.confirmedAt ?? null }
+                ]
+              : []}
+          />
         </div>
-      ) : (
-        <div className="rounded-lg border border-dashed border-slate-800 bg-slate-950/30 p-6">
-          <p className="text-sm text-slate-400">{t("contests.create.result.placeholder")}</p>
-        </div>
-      )}
-    </section>
+      ) : null}
+    </div>
   );
 }
