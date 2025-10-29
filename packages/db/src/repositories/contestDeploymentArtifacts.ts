@@ -6,14 +6,21 @@ export interface RecordContestDeploymentArtifactParams {
   requestId: string;
   contestId?: string | null;
   networkId: number;
+  contestAddress?: string | null;
+  vaultFactoryAddress?: string | null;
   registrarAddress?: string | null;
   treasuryAddress?: string | null;
   settlementAddress?: string | null;
   rewardsAddress?: string | null;
   metadata?: Record<string, unknown>;
+  transactionHash?: string | null;
+  confirmedAt?: Date | null;
 }
 
 const normalizeAddress = (value?: string | null): string | null =>
+  value ? value.trim().toLowerCase() : null;
+
+const normalizeHash = (value?: string | null): string | null =>
   value ? value.trim().toLowerCase() : null;
 
 export const normalizeDeploymentArtifact = (
@@ -25,10 +32,14 @@ export const normalizeDeploymentArtifact = (
 
   return {
     ...artifact,
+    contestAddress: normalizeAddress(artifact.contestAddress),
+    vaultFactoryAddress: normalizeAddress(artifact.vaultFactoryAddress),
     registrarAddress: normalizeAddress(artifact.registrarAddress),
     treasuryAddress: normalizeAddress(artifact.treasuryAddress),
     settlementAddress: normalizeAddress(artifact.settlementAddress),
     rewardsAddress: normalizeAddress(artifact.rewardsAddress),
+    transactionHash: normalizeHash(artifact.transactionHash),
+    confirmedAt: artifact.confirmedAt ? new Date(artifact.confirmedAt) : null,
     metadata: artifact.metadata ?? {}
   };
 };
@@ -50,10 +61,14 @@ export const recordContestDeploymentArtifactRecord = async (
         requestId: params.requestId,
         contestId: params.contestId ?? null,
         networkId: params.networkId,
+        contestAddress: normalizeAddress(params.contestAddress),
+        vaultFactoryAddress: normalizeAddress(params.vaultFactoryAddress),
         registrarAddress: normalizeAddress(params.registrarAddress),
         treasuryAddress: normalizeAddress(params.treasuryAddress),
         settlementAddress: normalizeAddress(params.settlementAddress),
         rewardsAddress: normalizeAddress(params.rewardsAddress),
+        transactionHash: normalizeHash(params.transactionHash),
+        confirmedAt: params.confirmedAt ?? null,
         metadata: params.metadata ?? {}
       })
       .returning();
@@ -70,10 +85,14 @@ export const recordContestDeploymentArtifactRecord = async (
     .set({
       contestId: params.contestId ?? existing.contestId,
       networkId: params.networkId,
+      contestAddress: normalizeAddress(params.contestAddress) ?? existing.contestAddress,
+      vaultFactoryAddress: normalizeAddress(params.vaultFactoryAddress) ?? existing.vaultFactoryAddress,
       registrarAddress: normalizeAddress(params.registrarAddress) ?? existing.registrarAddress,
       treasuryAddress: normalizeAddress(params.treasuryAddress) ?? existing.treasuryAddress,
       settlementAddress: normalizeAddress(params.settlementAddress) ?? existing.settlementAddress,
       rewardsAddress: normalizeAddress(params.rewardsAddress) ?? existing.rewardsAddress,
+      transactionHash: normalizeHash(params.transactionHash) ?? existing.transactionHash,
+      confirmedAt: params.confirmedAt ?? existing.confirmedAt,
       metadata: params.metadata ?? existing.metadata,
       updatedAt: new Date()
     })

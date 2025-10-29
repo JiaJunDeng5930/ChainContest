@@ -81,21 +81,25 @@ import {
 import {
   registerOrganizerComponentRecord,
   listOrganizerComponentsRecords,
+  getOrganizerComponentRecord,
   type RegisterOrganizerComponentParams,
   type RegisterOrganizerComponentResult,
   type ListOrganizerComponentsParams,
   type OrganizerRegistryRecord,
   type OrganizerComponentStatus,
-  type OrganizerComponentType
+  type OrganizerComponentType,
+  type GetOrganizerComponentParams
 } from './repositories/organizerRegistry.js';
 import {
   createContestCreationRequestRecord,
   getContestCreationRequestRecord,
   listContestCreationRequestsRecords,
+  updateContestCreationRequestStatusRecord,
   type CreateContestCreationRequestParams,
   type ListContestCreationRequestsParams,
   type ListContestCreationRequestsResponse as RepoListContestCreationRequestsResponse,
-  type ContestCreationRequestAggregate
+  type ContestCreationRequestAggregate,
+  type UpdateContestCreationRequestStatusParams
 } from './repositories/contestCreationRequests.js';
 import {
   recordContestDeploymentArtifactRecord,
@@ -177,15 +181,23 @@ export interface ListOrganizerComponentsResponse {
   nextCursor: string | null;
 }
 
+export interface GetOrganizerComponentRequest extends GetOrganizerComponentParams {}
+
+export type GetOrganizerComponentResponse = OrganizerComponentRecord | null;
+
 export interface ContestDeploymentArtifactRecord {
   artifactId: string;
   requestId: string;
   contestId: string | null;
   networkId: number;
+  contestAddress: string | null;
+  vaultFactoryAddress: string | null;
   registrarAddress: string | null;
   treasuryAddress: string | null;
   settlementAddress: string | null;
   rewardsAddress: string | null;
+  transactionHash: string | null;
+  confirmedAt: Date | null;
   metadata: Record<string, unknown>;
   createdAt: Date;
   updatedAt: Date;
@@ -196,6 +208,12 @@ export interface ContestCreationRequestSummary {
   userId: string;
   networkId: number;
   payload: Record<string, unknown>;
+  vaultComponentId: string | null;
+  priceSourceComponentId: string | null;
+  status: 'accepted' | 'deploying' | 'confirmed' | 'failed';
+  failureReason: Record<string, unknown> | null;
+  transactionHash: string | null;
+  confirmedAt: Date | null;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -203,7 +221,7 @@ export interface ContestCreationRequestSummary {
 export interface ContestCreationRequestRecord {
   request: ContestCreationRequestSummary;
   artifact: ContestDeploymentArtifactRecord | null;
-  status: 'accepted' | 'deployed';
+  status: 'accepted' | 'deploying' | 'confirmed' | 'failed';
 }
 
 export interface CreateContestCreationRequestRequest extends CreateContestCreationRequestParams {}
@@ -218,6 +236,10 @@ export interface ListContestCreationRequestsResponse {
   items: ContestCreationRequestRecord[];
   nextCursor: string | null;
 }
+
+export interface UpdateContestCreationRequestStatusRequest extends UpdateContestCreationRequestStatusParams {}
+
+export type UpdateContestCreationRequestStatusResponse = ContestCreationRequestRecord;
 
 export interface RecordContestDeploymentArtifactRequest extends RecordContestDeploymentArtifactParams {}
 
@@ -550,6 +572,19 @@ export const listOrganizerComponents = async (
   return withMetrics('organizer.listComponents', operation);
 };
 
+export const getOrganizerComponent = async (
+  request: GetOrganizerComponentRequest
+): Promise<GetOrganizerComponentResponse> => {
+  const database = ensurePool();
+
+  const operation = async (): Promise<GetOrganizerComponentResponse> => {
+    const record = await getOrganizerComponentRecord(database.db, request);
+    return record ? mapOrganizerComponentRecord(record) : null;
+  };
+
+  return withMetrics('organizer.getComponent', operation);
+};
+
 export const createContestCreationRequest = async (
   request: CreateContestCreationRequestRequest
 ): Promise<CreateContestCreationRequestResponse> => {
@@ -561,6 +596,19 @@ export const createContestCreationRequest = async (
   };
 
   return withMetrics('contestCreation.create', operation);
+};
+
+export const updateContestCreationRequestStatus = async (
+  request: UpdateContestCreationRequestStatusRequest
+): Promise<UpdateContestCreationRequestStatusResponse> => {
+  const database = ensurePool();
+
+  const operation = async (): Promise<UpdateContestCreationRequestStatusResponse> => {
+    const aggregate = await updateContestCreationRequestStatusRecord(database.db, request);
+    return mapContestCreationAggregate(aggregate);
+  };
+
+  return withMetrics('contestCreation.updateStatus', operation);
 };
 
 export const getContestCreationRequest = async (
@@ -649,9 +697,11 @@ export const db = {
   upsertReconciliationReport,
   registerOrganizerComponent,
   listOrganizerComponents,
+  getOrganizerComponent,
   createContestCreationRequest,
   getContestCreationRequest,
   listContestCreationRequests,
+  updateContestCreationRequestStatus,
   recordContestDeploymentArtifact,
   updateReconciliationReportStatus,
   getReconciliationReportByReportId,
@@ -731,10 +781,14 @@ const mapContestDeploymentArtifactRecord = (
     requestId: artifact.requestId,
     contestId: artifact.contestId ?? null,
     networkId: artifact.networkId,
+    contestAddress: artifact.contestAddress ?? null,
+    vaultFactoryAddress: artifact.vaultFactoryAddress ?? null,
     registrarAddress: artifact.registrarAddress ?? null,
     treasuryAddress: artifact.treasuryAddress ?? null,
     settlementAddress: artifact.settlementAddress ?? null,
     rewardsAddress: artifact.rewardsAddress ?? null,
+    transactionHash: artifact.transactionHash ?? null,
+    confirmedAt: artifact.confirmedAt ?? null,
     metadata: (artifact.metadata ?? {}) as Record<string, unknown>,
     createdAt: artifact.createdAt,
     updatedAt: artifact.updatedAt
@@ -749,6 +803,12 @@ const mapContestCreationAggregate = (
     userId: aggregate.request.userId,
     networkId: aggregate.request.networkId,
     payload: (aggregate.request.payload ?? {}) as Record<string, unknown>,
+    vaultComponentId: aggregate.request.vaultComponentId ?? null,
+    priceSourceComponentId: aggregate.request.priceSourceComponentId ?? null,
+    status: aggregate.status,
+    failureReason: (aggregate.request.failureReason ?? null) as Record<string, unknown> | null,
+    transactionHash: aggregate.request.transactionHash ?? null,
+    confirmedAt: aggregate.request.confirmedAt,
     createdAt: aggregate.request.createdAt,
     updatedAt: aggregate.request.updatedAt
   },
