@@ -1,4 +1,4 @@
-import { and, asc, eq, inArray, type SQL } from 'drizzle-orm';
+import { and, desc, eq, inArray, sql, type SQL } from 'drizzle-orm';
 import { createHash } from 'node:crypto';
 import type { DrizzleDatabase } from '../adapters/connection.js';
 import { organizerComponents, type OrganizerComponent, type DbSchema } from '../schema/index.js';
@@ -29,6 +29,15 @@ export interface ListOrganizerComponentsParams {
   networkId?: number;
   componentType?: OrganizerComponentType;
   statuses?: OrganizerComponentStatus[];
+  pagination?: {
+    pageSize?: number;
+    cursor?: string | null;
+  };
+}
+
+export interface ListOrganizerComponentsResponse {
+  items: OrganizerRegistryRecord[];
+  nextCursor: string | null;
 }
 
 export type OrganizerRegistryRecord = OrganizerComponent;
@@ -59,6 +68,34 @@ const computeConfigHash = (config: Record<string, unknown>): string => {
 const normalizeAddress = (value: string): string => value.trim().toLowerCase();
 
 const normalizeConfig = (config: Record<string, unknown>): Record<string, unknown> => config;
+
+interface CursorPayload {
+  createdAt: string;
+  id: string;
+}
+
+const encodeCursor = (payload: CursorPayload): string =>
+  Buffer.from(`${payload.createdAt}::${payload.id}`, 'utf8').toString('base64url');
+
+const decodeCursor = (cursor: string | null | undefined): CursorPayload | null => {
+  if (!cursor) {
+    return null;
+  }
+
+  try {
+    const decoded = Buffer.from(cursor, 'base64url').toString('utf8');
+    const [createdAt, id] = decoded.split('::');
+    if (!createdAt || !id) {
+      return null;
+    }
+    return { createdAt, id };
+  } catch {
+    return null;
+  }
+};
+
+const applyCursorCondition = (cursor: CursorPayload) =>
+  sql`${organizerComponents.createdAt} < ${cursor.createdAt} OR (${organizerComponents.createdAt} = ${cursor.createdAt} AND ${organizerComponents.id} < ${cursor.id})`;
 
 export const registerOrganizerComponentRecord = async (
   db: DrizzleDatabase<DbSchema>,
@@ -141,7 +178,7 @@ export const registerOrganizerComponentRecord = async (
 export const listOrganizerComponentsRecords = async (
   db: DrizzleDatabase<DbSchema>,
   params: ListOrganizerComponentsParams
-): Promise<OrganizerRegistryRecord[]> => {
+): Promise<ListOrganizerComponentsResponse> => {
   const normalizedUserId = params.userId.trim();
 
   const filters = [eq(organizerComponents.userId, normalizedUserId)];
@@ -156,23 +193,45 @@ export const listOrganizerComponentsRecords = async (
     filters.push(inArray(organizerComponents.status, normalizedStatuses));
   }
 
+  const pageSize = Math.max(1, Math.min(params.pagination?.pageSize ?? 25, 100));
+  const cursorPayload = decodeCursor(params.pagination?.cursor ?? null);
+  const conditions = cursorPayload ? [...filters, applyCursorCondition(cursorPayload)] : filters;
+
   const baseQuery = db
     .select()
     .from(organizerComponents)
-    .orderBy(asc(organizerComponents.componentType), asc(organizerComponents.networkId));
+    .orderBy(desc(organizerComponents.createdAt), desc(organizerComponents.id))
+    .limit(pageSize + 1);
 
-  const whereClause = filters.reduce<SQL | undefined>((accumulator, current) =>
+  const whereClause = conditions.reduce<SQL | undefined>((accumulator, current) =>
     accumulator ? and(accumulator, current) : current,
   undefined);
 
-  const query = whereClause ? baseQuery.where(whereClause) : baseQuery;
+  const rows = await (whereClause ? baseQuery.where(whereClause) : baseQuery);
 
-  const rows = await query;
+  const hasNext = rows.length > pageSize;
+  const items = rows
+    .slice(0, pageSize)
+    .map((row) => ({
+      ...row,
+      contractAddress: row.contractAddress.toLowerCase(),
+      walletAddress: row.walletAddress?.toLowerCase() ?? null,
+      transactionHash: row.transactionHash?.toLowerCase() ?? null
+    }));
 
-  return rows.map((row) => ({
-    ...row,
-    contractAddress: row.contractAddress.toLowerCase(),
-    walletAddress: row.walletAddress?.toLowerCase() ?? null,
-    transactionHash: row.transactionHash?.toLowerCase() ?? null
-  }));
+  let nextCursor: string | null = null;
+  if (hasNext) {
+    const cursorRow = rows[pageSize];
+    if (cursorRow) {
+      nextCursor = encodeCursor({
+        createdAt: cursorRow.createdAt.toISOString(),
+        id: cursorRow.id
+      });
+    }
+  }
+
+  return {
+    items,
+    nextCursor
+  };
 };

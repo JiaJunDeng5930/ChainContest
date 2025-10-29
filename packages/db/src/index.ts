@@ -172,7 +172,10 @@ export interface RegisterOrganizerComponentResponse {
 
 export interface ListOrganizerComponentsRequest extends ListOrganizerComponentsParams {}
 
-export type ListOrganizerComponentsResponse = OrganizerComponentRecord[];
+export interface ListOrganizerComponentsResponse {
+  items: OrganizerComponentRecord[];
+  nextCursor: string | null;
+}
 
 export interface ContestDeploymentArtifactRecord {
   artifactId: string;
@@ -537,8 +540,11 @@ export const listOrganizerComponents = async (
   const database = ensurePool();
 
   const operation = async (): Promise<ListOrganizerComponentsResponse> => {
-    const records = await listOrganizerComponentsRecords(database.db, request);
-    return records.map(mapOrganizerComponentRecord);
+    const { items, nextCursor } = await listOrganizerComponentsRecords(database.db, request);
+    return {
+      items: items.map(mapOrganizerComponentRecord),
+      nextCursor
+    };
   };
 
   return withMetrics('organizer.listComponents', operation);
