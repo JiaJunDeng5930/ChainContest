@@ -6,6 +6,7 @@ import type {
   ContestCreationReceipt,
   EventCursor,
   LifecycleSnapshot,
+  OrganizerComponentRegistrationResult,
   OrganizerContractRegistrationResult,
   RedemptionResult,
   RegistrationPlan,
@@ -20,6 +21,7 @@ import type {
   ValidationContext,
 } from '../policies/validationContext.js';
 import type { RpcClientFactory, SignerLocator } from '../adapters/rpcClientFactory.js';
+import type { DeploymentRuntime } from '../runtime/deploymentRuntime.js';
 import type { ContestChainDataProvider } from './types.js';
 
 export interface DescribeContestLifecycleInput {
@@ -130,11 +132,29 @@ export interface GatewayRuntime {
   readonly dataProvider: ContestChainDataProvider;
 }
 
-export interface RegisterOrganizerContractInput {
-  readonly organizer: Address;
-  readonly networkId: number;
-  readonly contractType: string;
+export interface VaultComponentRegistrationConfig {
+  readonly componentType: 'vault_implementation';
+  readonly baseAsset: Address;
+  readonly quoteAsset: Address;
   readonly metadata?: Record<string, unknown>;
+}
+
+export interface PriceSourceComponentRegistrationConfig {
+  readonly componentType: 'price_source';
+  readonly poolAddress: Address;
+  readonly twapSeconds: number;
+  readonly metadata?: Record<string, unknown>;
+}
+
+export type OrganizerComponentRegistrationConfig =
+  | VaultComponentRegistrationConfig
+  | PriceSourceComponentRegistrationConfig;
+
+export interface RegisterOrganizerComponentInput {
+  readonly organizer: Address;
+  readonly walletAddress: Address;
+  readonly networkId: number;
+  readonly component: OrganizerComponentRegistrationConfig;
 }
 
 export interface ExecuteContestDeploymentInput {
@@ -145,12 +165,13 @@ export interface ExecuteContestDeploymentInput {
 
 export interface CreateContestCreationGatewayOptions {
   readonly clock?: () => Date;
+  readonly deploymentRuntime?: DeploymentRuntime;
 }
 
 export interface ContestCreationGateway {
-  readonly registerOrganizerContract: (
-    input: RegisterOrganizerContractInput,
-  ) => Promise<OrganizerContractRegistrationResult>;
+  readonly registerOrganizerComponent: (
+    input: RegisterOrganizerComponentInput,
+  ) => Promise<OrganizerComponentRegistrationResult>;
   readonly executeContestDeployment: (
     input: ExecuteContestDeploymentInput,
   ) => Promise<ContestCreationReceipt>;
@@ -160,4 +181,6 @@ export type {
   ContestCreationReceipt,
   ContestDeploymentArtifact,
   OrganizerContractRegistrationResult,
+  OrganizerComponentRegistrationResult,
+  OrganizerComponentStatus,
 } from './domainModels.js';

@@ -316,16 +316,27 @@ export interface ContestEventBatchShape {
 
 export type ContestEventBatch = DeepReadonly<ContestEventBatchShape>;
 
-export interface OrganizerContractRegistrationShape {
-  status: 'registered' | 'noop';
-  organizer: Address;
-  networkId: number;
-  contractType: string;
-  address: Address;
-  metadata?: Record<string, unknown>;
+export type OrganizerComponentStatus = 'pending' | 'confirmed' | 'failed';
+
+export interface OrganizerComponentMetadataShape {
+  config: Record<string, unknown>;
+  configHash: string;
+  transactionHash?: Hex;
+  failureReason?: Record<string, unknown>;
+  confirmedAt?: string;
 }
 
-export type OrganizerContractRegistrationResult = DeepReadonly<OrganizerContractRegistrationShape>;
+export interface OrganizerComponentRegistrationShape {
+  status: OrganizerComponentStatus;
+  organizer: Address;
+  walletAddress: Address;
+  networkId: number;
+  componentType: 'vault_implementation' | 'price_source';
+  contractAddress: Address | null;
+  metadata: OrganizerComponentMetadataShape;
+}
+
+export type OrganizerComponentRegistrationResult = DeepReadonly<OrganizerComponentRegistrationShape>;
 
 export interface ContestDeploymentArtifactShape {
   networkId: number;
@@ -398,9 +409,15 @@ export const createContestEventBatch = (
   payload: ContestEventBatchShape,
 ): ContestEventBatch => cloneAndFreeze(payload);
 
+export const createOrganizerComponentRegistrationResult = (
+  payload: OrganizerComponentRegistrationShape,
+): OrganizerComponentRegistrationResult => cloneAndFreeze(payload);
+
+// Backwards compatibility aliases (to be removed once call sites migrate)
+export type OrganizerContractRegistrationResult = OrganizerComponentRegistrationResult;
 export const createOrganizerContractRegistrationResult = (
-  payload: OrganizerContractRegistrationShape,
-): OrganizerContractRegistrationResult => cloneAndFreeze(payload);
+  payload: OrganizerComponentRegistrationShape,
+): OrganizerComponentRegistrationResult => createOrganizerComponentRegistrationResult(payload);
 
 export const createContestDeploymentArtifact = (
   payload: ContestDeploymentArtifactShape,

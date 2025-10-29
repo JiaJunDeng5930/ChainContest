@@ -1,27 +1,46 @@
 import { createHash } from 'node:crypto';
-import type { Address } from 'viem';
+import type { Address, Hex } from 'viem';
+import { defineChain, type Chain } from 'viem';
 import {
   createContestCreationReceipt,
   createContestDeploymentArtifact,
-  createOrganizerContractRegistrationResult,
+  createOrganizerComponentRegistrationResult,
   type ContestCreationReceipt,
   type ContestDeploymentArtifact,
-  type OrganizerContractRegistrationResult
+  type OrganizerComponentRegistrationResult
 } from './domainModels.js';
 import {
   type ContestCreationGateway,
   type ExecuteContestDeploymentInput,
-  type RegisterOrganizerContractInput,
+  type RegisterOrganizerComponentInput,
   type CreateContestCreationGatewayOptions
 } from './contracts.js';
 import { lowercaseAddress } from './types.js';
+import {
+  deployPriceSource,
+  deployVaultImplementation,
+  type ComponentDeploymentResult
+} from './componentDeployment.js';
+import { defaultDeploymentRuntime, type DeploymentRuntime } from '../runtime/deploymentRuntime.js';
+
+const ETH_CURRENCY = {
+  name: 'Ether',
+  symbol: 'ETH',
+  decimals: 18
+} as const;
 
 const hex = (buffer: Buffer, length = 40): string => buffer.toString('hex').slice(0, length);
 
 const deriveAddress = (seed: string, label: string): Address => {
   const digest = createHash('sha256').update(`${seed}:${label}`).digest();
-  const addr = `0x${hex(digest, 40)}` as const;
-  return addr as Address;
+  return `0x${hex(digest, 40)}` as Address;
+};
+
+const computeConfigHash = (config: Record<string, unknown>): string => {
+  const digest = createHash('sha256');
+  const sorted = JSON.stringify(config, Object.keys(config).sort());
+  digest.update(sorted);
+  return digest.digest('hex');
 };
 
 const deriveRequestId = (seed: string): string => {
@@ -29,32 +48,91 @@ const deriveRequestId = (seed: string): string => {
   return `${digest.slice(0, 8)}-${digest.slice(8, 12)}-${digest.slice(12, 16)}-${digest.slice(16, 20)}-${digest.slice(20, 32)}`;
 };
 
+const normalizeHex = (value: Hex | null | undefined): Hex | null =>
+  value ? (value.toLowerCase() as Hex) : null;
+
+const toIsoString = (instant: Date | null | undefined): string | undefined =>
+  instant ? instant.toISOString() : undefined;
+
 const nowIso = (clock?: () => Date): string => {
   const instant = clock ? clock() : new Date();
   return instant.toISOString();
 };
 
 class ContestCreationGatewayImpl implements ContestCreationGateway {
-  constructor(private readonly options: CreateContestCreationGatewayOptions = {}) {}
+  private readonly runtime: DeploymentRuntime;
 
-  public registerOrganizerContract(
-    input: RegisterOrganizerContractInput
-  ): Promise<OrganizerContractRegistrationResult> {
-    const organizer = lowercaseAddress(input.organizer);
-    const seed = JSON.stringify({ organizer, networkId: input.networkId, type: input.contractType });
-    const address = deriveAddress(seed, 'organizer-contract');
+  private readonly clock?: () => Date;
 
-    return Promise.resolve(createOrganizerContractRegistrationResult({
-      status: 'registered',
-      organizer,
-      networkId: input.networkId,
-      contractType: input.contractType,
-      address,
-      metadata: {
-        checksum: createHash('sha256').update(seed).digest('hex'),
-        inputMetadata: input.metadata ?? {}
+  constructor(options: CreateContestCreationGatewayOptions = {}) {
+    this.runtime = options.deploymentRuntime ?? defaultDeploymentRuntime;
+    this.clock = options.clock;
+  }
+
+  private resolveChain(networkId: number): Chain {
+    const rpcUrls = this.runtime.resolveRpcUrls(networkId);
+    return defineChain({
+      id: networkId,
+      name: `chain-${networkId}`,
+      network: `chain-${networkId}`,
+      nativeCurrency: ETH_CURRENCY,
+      rpcUrls: {
+        default: { http: rpcUrls },
+        public: { http: rpcUrls }
       }
-    }));
+    });
+  }
+
+  private async deployComponent(
+    input: RegisterOrganizerComponentInput
+  ): Promise<ComponentDeploymentResult> {
+    const chain = this.resolveChain(input.networkId);
+
+    if (input.component.componentType === 'vault_implementation') {
+      const baseAsset = lowercaseAddress(input.component.baseAsset);
+      const quoteAsset = lowercaseAddress(input.component.quoteAsset);
+
+      return deployVaultImplementation({
+        runtime: this.runtime,
+        chain,
+        baseAsset,
+        quoteAsset
+      });
+    }
+
+    const poolAddress = lowercaseAddress(input.component.poolAddress);
+    return deployPriceSource({
+      runtime: this.runtime,
+      chain,
+      poolAddress,
+      twapSeconds: input.component.twapSeconds
+    });
+  }
+
+  public async registerOrganizerComponent(
+    input: RegisterOrganizerComponentInput
+  ): Promise<OrganizerComponentRegistrationResult> {
+    const organizer = lowercaseAddress(input.organizer);
+    const walletAddress = lowercaseAddress(input.walletAddress);
+    const deployment = await this.deployComponent(input);
+
+    const config: Record<string, unknown> = { ...input.component };
+    delete config.componentType;
+
+    return createOrganizerComponentRegistrationResult({
+      status: 'confirmed',
+      organizer,
+      walletAddress,
+      networkId: input.networkId,
+      componentType: input.component.componentType,
+      contractAddress: lowercaseAddress(deployment.contractAddress),
+      metadata: {
+        config,
+        configHash: computeConfigHash(config),
+        transactionHash: deployment.transactionHash,
+        confirmedAt: toIsoString(deployment.confirmedAt)
+      }
+    });
   }
 
   public executeContestDeployment(
@@ -82,7 +160,7 @@ class ContestCreationGatewayImpl implements ContestCreationGateway {
       organizer,
       networkId: input.networkId,
       artifact,
-      acceptedAt: nowIso(this.options.clock),
+      acceptedAt: nowIso(this.clock),
       metadata: {
         payloadSummary: Array.isArray(payload) ? payload.length : Object.keys(payload).length
       }
@@ -97,6 +175,6 @@ export const createContestCreationGateway = (
 export type {
   ContestCreationGateway,
   ExecuteContestDeploymentInput,
-  RegisterOrganizerContractInput,
+  RegisterOrganizerComponentInput,
   CreateContestCreationGatewayOptions
 } from './contracts.js';

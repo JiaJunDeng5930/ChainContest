@@ -1,116 +1,178 @@
-import { and, asc, eq } from 'drizzle-orm';
+import { and, asc, eq, inArray, type SQL } from 'drizzle-orm';
+import { createHash } from 'node:crypto';
 import type { DrizzleDatabase } from '../adapters/connection.js';
-import { organizerContracts, type OrganizerContract, type DbSchema } from '../schema/index.js';
+import { organizerComponents, type OrganizerComponent, type DbSchema } from '../schema/index.js';
 
-export interface RegisterOrganizerContractParams {
+export type OrganizerComponentType = 'vault_implementation' | 'price_source';
+export type OrganizerComponentStatus = 'pending' | 'confirmed' | 'failed';
+
+export interface RegisterOrganizerComponentParams {
   userId: string;
+  walletAddress: string;
   networkId: number;
-  contractType: string;
-  address: string;
-  metadata?: Record<string, unknown>;
+  componentType: OrganizerComponentType;
+  contractAddress: string;
+  config: Record<string, unknown>;
+  transactionHash?: string | null;
+  status?: OrganizerComponentStatus;
+  failureReason?: Record<string, unknown> | null;
+  confirmedAt?: Date | null;
 }
 
-export interface RegisterOrganizerContractResult {
-  contract: OrganizerContract;
+export interface RegisterOrganizerComponentResult {
+  component: OrganizerComponent;
   created: boolean;
 }
 
-export interface ListOrganizerContractsParams {
+export interface ListOrganizerComponentsParams {
   userId: string;
   networkId?: number;
-  contractType?: string;
+  componentType?: OrganizerComponentType;
+  statuses?: OrganizerComponentStatus[];
 }
 
-export type OrganizerRegistryRecord = OrganizerContract;
+export type OrganizerRegistryRecord = OrganizerComponent;
 
-export const registerOrganizerContractRecord = async (
+const stableStringify = (value: unknown): string => {
+  if (value === null || typeof value !== 'object') {
+    return JSON.stringify(value);
+  }
+
+  if (Array.isArray(value)) {
+    return `[${value.map((entry) => stableStringify(entry)).join(',')}]`;
+  }
+
+  const entries = Object.entries(value as Record<string, unknown>).sort(([left], [right]) =>
+    left.localeCompare(right)
+  );
+  return `{${entries
+    .map(([key, entry]) => `${JSON.stringify(key)}:${stableStringify(entry)}`)
+    .join(',')}}`;
+};
+
+const computeConfigHash = (config: Record<string, unknown>): string => {
+  const digest = createHash('sha256');
+  digest.update(stableStringify(config));
+  return digest.digest('hex');
+};
+
+const normalizeAddress = (value: string): string => value.trim().toLowerCase();
+
+const normalizeConfig = (config: Record<string, unknown>): Record<string, unknown> => config;
+
+export const registerOrganizerComponentRecord = async (
   db: DrizzleDatabase<DbSchema>,
-  params: RegisterOrganizerContractParams
-): Promise<RegisterOrganizerContractResult> => {
+  params: RegisterOrganizerComponentParams
+): Promise<RegisterOrganizerComponentResult> => {
   const normalizedUserId = params.userId.trim();
-  const normalizedType = params.contractType.trim();
-  const normalizedAddress = params.address.trim().toLowerCase();
+  const normalizedWallet = normalizeAddress(params.walletAddress);
+  const normalizedType = params.componentType;
+  const normalizedAddress = normalizeAddress(params.contractAddress);
+  const normalizedConfig = normalizeConfig(params.config);
+  const configHash = computeConfigHash(normalizedConfig);
+  const status: OrganizerComponentStatus = params.status ?? 'pending';
 
   const [existing] = await db
     .select()
-    .from(organizerContracts)
+    .from(organizerComponents)
     .where(
       and(
-        eq(organizerContracts.userId, normalizedUserId),
-        eq(organizerContracts.networkId, params.networkId),
-        eq(organizerContracts.contractType, normalizedType)
+        eq(organizerComponents.userId, normalizedUserId),
+        eq(organizerComponents.networkId, params.networkId),
+        eq(organizerComponents.componentType, normalizedType),
+        eq(organizerComponents.configHash, configHash)
       )
     )
     .limit(1);
 
   if (!existing) {
     const [inserted] = await db
-      .insert(organizerContracts)
+      .insert(organizerComponents)
       .values({
         userId: normalizedUserId,
+        walletAddress: normalizedWallet,
         networkId: params.networkId,
-        contractType: normalizedType,
-        address: normalizedAddress,
-        metadata: params.metadata ?? {}
+        componentType: normalizedType,
+        contractAddress: normalizedAddress,
+        configHash,
+        config: normalizedConfig,
+        transactionHash: params.transactionHash?.toLowerCase() ?? null,
+        status,
+        failureReason: params.failureReason ?? {},
+        confirmedAt: params.confirmedAt ?? null
       })
       .returning();
 
     if (!inserted) {
-      throw new Error('Failed to insert organizer contract record.');
+      throw new Error('Failed to insert organizer component record.');
     }
 
     return {
-      contract: inserted,
+      component: inserted,
       created: true
     };
   }
 
   const [updated] = await db
-    .update(organizerContracts)
+    .update(organizerComponents)
     .set({
-      address: normalizedAddress,
-      metadata: params.metadata ?? existing.metadata,
+      walletAddress: normalizedWallet,
+      contractAddress: normalizedAddress,
+      transactionHash: params.transactionHash?.toLowerCase() ?? existing.transactionHash,
+      status,
+      failureReason: params.failureReason ?? existing.failureReason,
+      confirmedAt: params.confirmedAt ?? existing.confirmedAt,
+      config: normalizedConfig,
       updatedAt: new Date()
     })
-    .where(eq(organizerContracts.id, existing.id))
+    .where(eq(organizerComponents.id, existing.id))
     .returning();
 
   if (!updated) {
-    throw new Error('Failed to update organizer contract record.');
+    throw new Error('Failed to update organizer component record.');
   }
 
   return {
-    contract: updated,
+    component: updated,
     created: false
   };
 };
 
-export const listOrganizerContractsRecords = async (
+export const listOrganizerComponentsRecords = async (
   db: DrizzleDatabase<DbSchema>,
-  params: ListOrganizerContractsParams
+  params: ListOrganizerComponentsParams
 ): Promise<OrganizerRegistryRecord[]> => {
   const normalizedUserId = params.userId.trim();
 
-  const filters = [eq(organizerContracts.userId, normalizedUserId)];
+  const filters = [eq(organizerComponents.userId, normalizedUserId)];
   if (params.networkId !== undefined) {
-    filters.push(eq(organizerContracts.networkId, params.networkId));
+    filters.push(eq(organizerComponents.networkId, params.networkId));
   }
-  if (params.contractType) {
-    filters.push(eq(organizerContracts.contractType, params.contractType.trim()));
+  if (params.componentType) {
+    filters.push(eq(organizerComponents.componentType, params.componentType));
+  }
+  if (params.statuses && params.statuses.length > 0) {
+    const normalizedStatuses = params.statuses.map((value) => value.trim() as OrganizerComponentStatus);
+    filters.push(inArray(organizerComponents.status, normalizedStatuses));
   }
 
   const baseQuery = db
     .select()
-    .from(organizerContracts)
-    .orderBy(asc(organizerContracts.contractType), asc(organizerContracts.networkId));
+    .from(organizerComponents)
+    .orderBy(asc(organizerComponents.componentType), asc(organizerComponents.networkId));
 
-  const filteredQuery =
-    filters.length === 1 ? baseQuery.where(filters[0]!) : baseQuery.where(and(...filters));
+  const whereClause = filters.reduce<SQL | undefined>((accumulator, current) =>
+    accumulator ? and(accumulator, current) : current,
+  undefined);
 
-  const rows = await filteredQuery;
+  const query = whereClause ? baseQuery.where(whereClause) : baseQuery;
+
+  const rows = await query;
 
   return rows.map((row) => ({
     ...row,
-    address: row.address.toLowerCase()
+    contractAddress: row.contractAddress.toLowerCase(),
+    walletAddress: row.walletAddress?.toLowerCase() ?? null,
+    transactionHash: row.transactionHash?.toLowerCase() ?? null
   }));
 };
