@@ -39,6 +39,7 @@ export interface ReplayIngestionResult {
   chainId: number;
   eventsProcessed: number;
   batches: number;
+  deploymentEvents: number;
   report: ReconciliationReport;
 }
 
@@ -60,6 +61,7 @@ export const runReplayIngestion = async (
   const replayedEvents: ContestEventEnvelope[] = [];
   let totalEvents = 0;
   let batches = 0;
+  let deploymentEvents = 0;
   let cursor: { blockNumber: bigint; logIndex: number } | undefined = { blockNumber: fromBlock, logIndex: 0 };
   let firstIteration = true;
 
@@ -79,6 +81,7 @@ export const runReplayIngestion = async (
       await writer.writeBatch({ stream, batch, currentCursor: cursor, advanceCursor: false });
       totalEvents += batch.events.length;
       replayedEvents.push(...batch.events);
+      deploymentEvents += batch.events.filter((event) => event.type === 'deployment').length;
 
       const durationMs = performance.now() - startedAt;
 
@@ -143,6 +146,7 @@ export const runReplayIngestion = async (
       chainId: stream.chainId,
       eventsProcessed: totalEvents,
       batches,
+      deploymentEvents,
       report,
     };
   } catch (error) {
