@@ -4,17 +4,14 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useTranslations } from "next-intl";
 
 import ErrorBanner from "../../../components/ErrorBanner";
 import { useNetworkGateState } from "../../network/NetworkGate";
-import {
-  submitContestCreation,
-  type ContestCreationAggregate
-} from "../api/createContest";
+import type { ContestCreationAggregate } from "../api/createContest";
 import { useOrganizerComponents } from "../../components/useOrganizerComponents";
 import type { OrganizerComponentItem } from "../../components/useOrganizerComponents";
+import { useDeployContest } from "../useDeployContest";
 
 const ADDRESS_REGEX = /^0x[0-9a-fA-F]{40}$/u;
 const BYTES32_REGEX = /^0x[0-9a-fA-F]{64}$/u;
@@ -305,19 +302,11 @@ export default function CreateContestForm() {
 
   const [lastSubmitted, setLastSubmitted] = useState<ContestCreationAggregate | null>(null);
 
-  const mutation = useMutation<ContestCreationAggregate, unknown, { networkId: number; payload: Record<string, unknown> }>(
-    {
-      mutationFn: submitContestCreation,
-      onSuccess: async (data) => {
-        setLastSubmitted(data);
-        await Promise.all([
-          queryClient.invalidateQueries({ queryKey: ["contests"] }),
-          queryClient.invalidateQueries({ queryKey: ["creator-contests"] }),
-          queryClient.invalidateQueries({ queryKey: ["contest-requests"] })
-        ]);
-      }
+  const deployContest = useDeployContest({
+    onSuccess: async (data) => {
+      setLastSubmitted(data);
     }
-  );
+  });
 
   const onSubmit = useCallback(
     async (values: ContestFormInput) => {
@@ -345,9 +334,9 @@ export default function CreateContestForm() {
       const initialPrizeAmount = BigInt(values.initialPrizeAmount);
       const payoutSchedule = parsePayoutSchedule(values.payoutSchedule);
 
-      mutation.reset();
+      deployContest.reset();
 
-      await mutation.mutateAsync({
+      await deployContest.mutateAsync({
         networkId,
         payload: {
           contestId: values.contestId,
@@ -376,7 +365,7 @@ export default function CreateContestForm() {
         }
       });
     },
-    [findComponent, messages, mutation, priceSourceComponents.data, vaultComponents.data]
+    [deployContest, findComponent, messages, priceSourceComponents.data, vaultComponents.data]
   );
 
   const disabledReason = useMemo(() => {
@@ -406,9 +395,9 @@ export default function CreateContestForm() {
     vaultComponents.isLoading
   ]);
 
-  const isSubmitDisabled = Boolean(disabledReason) || mutation.isPending || isSubmitting;
+  const isSubmitDisabled = Boolean(disabledReason) || deployContest.isPending || isSubmitting;
 
-  const submitLabel = mutation.isPending
+  const submitLabel = deployContest.isPending
     ? t("contests.create.actions.submitting", { defaultMessage: "部署中..." })
     : t("contests.create.actions.submit", { defaultMessage: "部署比赛" });
 
@@ -422,7 +411,7 @@ export default function CreateContestForm() {
 
   return (
     <div className="space-y-6">
-      {mutation.isError ? (
+      {deployContest.isError ? (
         <ErrorBanner
           title={t("contests.create.error.title", { defaultMessage: "部署失败" })}
           description={t("contests.create.error.description", { defaultMessage: "请稍后重试或查看日志。" })}
