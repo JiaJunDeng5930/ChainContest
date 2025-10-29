@@ -31,9 +31,11 @@ interface InternalDb {
   writeIngestionEvent: (...args: unknown[]) => Promise<unknown>;
   registerOrganizerComponent: (...args: unknown[]) => Promise<unknown>;
   listOrganizerComponents: (...args: unknown[]) => Promise<unknown>;
+  getOrganizerComponent: (...args: unknown[]) => Promise<unknown>;
   createContestCreationRequest: (...args: unknown[]) => Promise<unknown>;
   getContestCreationRequest: (...args: unknown[]) => Promise<unknown>;
   listContestCreationRequests: (...args: unknown[]) => Promise<unknown>;
+  updateContestCreationRequestStatus: (...args: unknown[]) => Promise<unknown>;
   recordContestDeploymentArtifact: (...args: unknown[]) => Promise<unknown>;
   queryCreatorContests: (...args: unknown[]) => Promise<unknown>;
 }
@@ -50,9 +52,11 @@ export type DatabaseClient = Pick<
   | 'writeIngestionEvent'
   | 'registerOrganizerComponent'
   | 'listOrganizerComponents'
+  | 'getOrganizerComponent'
   | 'createContestCreationRequest'
   | 'getContestCreationRequest'
   | 'listContestCreationRequests'
+  | 'updateContestCreationRequestStatus'
   | 'recordContestDeploymentArtifact'
   | 'queryCreatorContests'
 >;
@@ -149,6 +153,9 @@ export const database: DatabaseClient = {
   listOrganizerComponents(request) {
     return ensureDatabase().listOrganizerComponents(request);
   },
+  getOrganizerComponent(request) {
+    return ensureDatabase().getOrganizerComponent(request);
+  },
   createContestCreationRequest(request) {
     return ensureDatabase().createContestCreationRequest(request);
   },
@@ -157,6 +164,9 @@ export const database: DatabaseClient = {
   },
   listContestCreationRequests(request) {
     return ensureDatabase().listContestCreationRequests(request);
+  },
+  updateContestCreationRequestStatus(request) {
+    return ensureDatabase().updateContestCreationRequestStatus(request);
   },
   recordContestDeploymentArtifact(request) {
     return ensureDatabase().recordContestDeploymentArtifact(request);

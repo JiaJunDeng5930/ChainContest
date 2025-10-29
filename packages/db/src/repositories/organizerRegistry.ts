@@ -40,6 +40,11 @@ export interface ListOrganizerComponentsResponse {
   nextCursor: string | null;
 }
 
+export interface GetOrganizerComponentParams {
+  userId: string;
+  componentId: string;
+}
+
 export type OrganizerRegistryRecord = OrganizerComponent;
 
 const stableStringify = (value: unknown): string => {
@@ -233,5 +238,33 @@ export const listOrganizerComponentsRecords = async (
   return {
     items,
     nextCursor
+  };
+};
+
+export const getOrganizerComponentRecord = async (
+  db: DrizzleDatabase<DbSchema>,
+  params: GetOrganizerComponentParams
+): Promise<OrganizerRegistryRecord | null> => {
+  const normalizedUserId = params.userId.trim();
+  const [record] = await db
+    .select()
+    .from(organizerComponents)
+    .where(
+      and(
+        eq(organizerComponents.userId, normalizedUserId),
+        eq(organizerComponents.id, params.componentId)
+      )
+    )
+    .limit(1);
+
+  if (!record) {
+    return null;
+  }
+
+  return {
+    ...record,
+    contractAddress: record.contractAddress.toLowerCase(),
+    walletAddress: record.walletAddress?.toLowerCase() ?? null,
+    transactionHash: record.transactionHash?.toLowerCase() ?? null
   };
 };
