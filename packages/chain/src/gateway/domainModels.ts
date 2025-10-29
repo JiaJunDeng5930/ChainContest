@@ -340,17 +340,21 @@ export type OrganizerComponentRegistrationResult = DeepReadonly<OrganizerCompone
 
 export interface ContestDeploymentArtifactShape {
   networkId: number;
-  registrarAddress: Address;
+  contestAddress: Address;
+  vaultFactoryAddress: Address;
+  registrarAddress?: Address;
   treasuryAddress?: Address;
   settlementAddress?: Address;
   rewardsAddress?: Address;
+  transactionHash?: Hex;
+  confirmedAt?: string;
   metadata?: Record<string, unknown>;
 }
 
 export type ContestDeploymentArtifact = DeepReadonly<ContestDeploymentArtifactShape>;
 
 export interface ContestCreationReceiptShape {
-  status: 'accepted' | 'noop';
+  status: 'accepted' | 'deploying' | 'confirmed' | 'failed' | 'noop';
   requestId: string;
   organizer: Address;
   networkId: number;

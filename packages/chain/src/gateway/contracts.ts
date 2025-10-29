@@ -1,4 +1,4 @@
-import type { Address } from 'viem';
+import type { Address, Hex } from 'viem';
 import type { ContestChainError } from '../errors/contestChainError.js';
 import type {
   ContestEventBatch,
@@ -160,7 +160,7 @@ export interface RegisterOrganizerComponentInput {
 export interface ExecuteContestDeploymentInput {
   readonly organizer: Address;
   readonly networkId: number;
-  readonly payload: Record<string, unknown>;
+  readonly payload: ContestDeploymentPayload;
 }
 
 export interface CreateContestCreationGatewayOptions {
@@ -184,3 +184,42 @@ export type {
   OrganizerComponentRegistrationResult,
   OrganizerComponentStatus,
 } from './domainModels.js';
+
+export interface ContestComponentReference {
+  readonly componentId: string;
+  readonly owner: Address;
+  readonly walletAddress: Address;
+  readonly contractAddress: Address;
+  readonly configHash: string;
+}
+
+export interface ContestDeploymentConfigInput {
+  readonly entryAsset: Address;
+  readonly entryAmount: bigint;
+  readonly entryFee: bigint;
+  readonly priceSource: Address;
+  readonly swapPool: Address;
+  readonly priceToleranceBps: number;
+  readonly settlementWindow: number;
+  readonly maxParticipants: number;
+  readonly topK: number;
+}
+
+export interface ContestDeploymentTimelineInput {
+  readonly registeringEnds: bigint;
+  readonly liveEnds: bigint;
+  readonly claimEnds: bigint;
+}
+
+export interface ContestDeploymentPayload {
+  readonly contestId: Hex;
+  readonly owner: Address;
+  readonly vaultImplementation: Address;
+  readonly vaultComponent: ContestComponentReference;
+  readonly priceSourceComponent: ContestComponentReference;
+  readonly config: ContestDeploymentConfigInput;
+  readonly timeline: ContestDeploymentTimelineInput;
+  readonly initialPrizeAmount: bigint;
+  readonly payoutSchedule: readonly number[];
+  readonly metadata?: Record<string, unknown>;
+}
