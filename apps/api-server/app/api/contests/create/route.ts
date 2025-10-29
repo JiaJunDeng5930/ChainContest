@@ -2,24 +2,30 @@ import type { NextRequest } from 'next/server';
 import { NextResponse } from 'next/server';
 import { z } from 'zod';
 import { requireSession, SessionNotFoundError } from '@/lib/auth/session';
-import { initDatabase, database } from '@/lib/db/client';
-import { getCreationGateway } from '@/lib/chain/creationGateway';
+import { initDatabase } from '@/lib/db/client';
 import { httpErrors, HttpError, toErrorResponse } from '@/lib/http/errors';
 import { enforceRateLimit } from '@/lib/middleware/rateLimit';
+import { deployContest } from '@/lib/contests/deploymentService';
+import type { ContestCreationRequestRecord, ContestDeploymentArtifactRecord } from '@chaincontest/db';
 
 const getClientIp = (request: NextRequest): string | null => {
   return request.headers.get('x-forwarded-for') ?? request.ip ?? null;
 };
 
 const requestSchema = z.object({
-  networkId: z.union([
-    z.number().int().positive(),
-    z
-      .string()
-      .regex(/^\d+$/)
-      .transform((value) => Number(value))
-  ]),
-  payload: z.record(z.string(), z.unknown()).default({})
+  networkId: z
+    .union([
+      z.number().int().positive(),
+      z
+        .string()
+        .regex(/^[0-9]+$/)
+        .transform((value) => Number(value))
+    ])
+    .transform((value) => (typeof value === 'number' ? value : Number(value)))
+    .refine((value) => Number.isInteger(value) && value > 0, {
+      message: 'networkId must be a positive integer'
+    }),
+  payload: z.unknown()
 });
 
 const readJson = async (request: NextRequest): Promise<unknown> => {
@@ -30,29 +36,67 @@ const readJson = async (request: NextRequest): Promise<unknown> => {
   }
 };
 
-const serializeContestCreation = (record: import('@chaincontest/db').ContestCreationRequestRecord) => ({
+const serializeArtifact = (artifact: ContestDeploymentArtifactRecord | null) => {
+  if (!artifact) {
+    return null;
+  }
+
+  return {
+    artifactId: artifact.artifactId,
+    requestId: artifact.requestId,
+    contestId: artifact.contestId,
+    networkId: artifact.networkId,
+    contestAddress: artifact.contestAddress,
+    vaultFactoryAddress: artifact.vaultFactoryAddress,
+    registrarAddress: artifact.registrarAddress,
+    treasuryAddress: artifact.treasuryAddress,
+    settlementAddress: artifact.settlementAddress,
+    rewardsAddress: artifact.rewardsAddress,
+    transactionHash: artifact.transactionHash,
+    confirmedAt: artifact.confirmedAt ? artifact.confirmedAt.toISOString() : null,
+    metadata: artifact.metadata,
+    createdAt: artifact.createdAt.toISOString(),
+    updatedAt: artifact.updatedAt.toISOString()
+  };
+};
+
+const serializeContestCreation = (record: ContestCreationRequestRecord) => ({
   status: record.status,
   request: {
     requestId: record.request.requestId,
     userId: record.request.userId,
     networkId: record.request.networkId,
     payload: record.request.payload,
+    vaultComponentId: record.request.vaultComponentId,
+    priceSourceComponentId: record.request.priceSourceComponentId,
+    failureReason: record.request.failureReason,
+    transactionHash: record.request.transactionHash,
+    confirmedAt: record.request.confirmedAt ? record.request.confirmedAt.toISOString() : null,
     createdAt: record.request.createdAt.toISOString(),
     updatedAt: record.request.updatedAt.toISOString()
   },
-  artifact: record.artifact
+  artifact: serializeArtifact(record.artifact)
+});
+
+const serializeReceipt = (receipt: import('@chaincontest/chain').ContestCreationReceipt) => ({
+  status: receipt.status,
+  requestId: receipt.requestId,
+  organizer: receipt.organizer,
+  networkId: receipt.networkId,
+  acceptedAt: receipt.acceptedAt,
+  metadata: receipt.metadata ?? {},
+  artifact: receipt.artifact
     ? {
-        artifactId: record.artifact.artifactId,
-        requestId: record.artifact.requestId,
-        contestId: record.artifact.contestId,
-        networkId: record.artifact.networkId,
-        registrarAddress: record.artifact.registrarAddress,
-        treasuryAddress: record.artifact.treasuryAddress,
-        settlementAddress: record.artifact.settlementAddress,
-        rewardsAddress: record.artifact.rewardsAddress,
-        metadata: record.artifact.metadata,
-        createdAt: record.artifact.createdAt.toISOString(),
-        updatedAt: record.artifact.updatedAt.toISOString()
+        networkId: receipt.artifact.networkId,
+        contestAddress: receipt.artifact.contestAddress,
+        vaultFactoryAddress: receipt.artifact.vaultFactoryAddress,
+        registrarAddress: receipt.artifact.registrarAddress ?? null,
+        treasuryAddress: receipt.artifact.treasuryAddress ?? null,
+        settlementAddress: receipt.artifact.settlementAddress ?? null,
+        rewardsAddress: receipt.artifact.rewardsAddress ?? null,
+        transactionHash: receipt.artifact.transactionHash ?? null,
+        confirmedAt: receipt.artifact.confirmedAt ?? null,
+        metadata: receipt.artifact.metadata ?? {}
       }
     : null
 });
@@ -77,47 +121,19 @@ export const POST = async (request: NextRequest): Promise<Response> => {
       ip: getClientIp(request),
       sessionToken: session.sessionToken ?? null
     });
+
     await initDatabase();
 
-    const creation = await database.createContestCreationRequest({
+    const result = await deployContest({
       userId: session.user.id,
+      organizerAddress: session.user.walletAddress,
       networkId,
       payload
     });
-
-    const gateway = getCreationGateway();
-    const receipt = await gateway.executeContestDeployment({
-      organizer: session.user.walletAddress,
-      networkId,
-      payload
-    });
-
-    if (receipt.status === 'accepted' && receipt.artifact) {
-      await database.recordContestDeploymentArtifact({
-        requestId: creation.request.requestId,
-        contestId: null,
-        networkId: receipt.artifact.networkId,
-        registrarAddress: receipt.artifact.registrarAddress,
-        treasuryAddress: receipt.artifact.treasuryAddress,
-        settlementAddress: receipt.artifact.settlementAddress,
-        rewardsAddress: receipt.artifact.rewardsAddress,
-        metadata: receipt.artifact.metadata ?? {}
-      });
-    }
-
-    const aggregate =
-      (await database.getContestCreationRequest(creation.request.requestId)) ?? creation;
 
     const body = {
-      ...serializeContestCreation(aggregate),
-      receipt: {
-        status: receipt.status,
-        requestId: receipt.requestId,
-        organizer: receipt.organizer,
-        networkId: receipt.networkId,
-        acceptedAt: receipt.acceptedAt,
-        metadata: receipt.metadata ?? {}
-      }
+      ...serializeContestCreation(result.request),
+      receipt: serializeReceipt(result.receipt)
     };
 
     const response = NextResponse.json(body, { status: 201 });
@@ -125,7 +141,7 @@ export const POST = async (request: NextRequest): Promise<Response> => {
     return response;
   } catch (error) {
     if (error instanceof SessionNotFoundError) {
-    const normalized = toErrorResponse(httpErrors.unauthorized('No active session'));
+      const normalized = toErrorResponse(httpErrors.unauthorized('No active session'));
       const response = NextResponse.json(normalized.body, { status: normalized.status });
       Object.entries(normalized.headers).forEach(([key, value]) => response.headers.set(key, value));
       return response;
@@ -138,6 +154,4 @@ export const POST = async (request: NextRequest): Promise<Response> => {
   }
 };
 
-export const config = {
-  runtime: 'nodejs'
-};
+export const runtime = 'nodejs';
