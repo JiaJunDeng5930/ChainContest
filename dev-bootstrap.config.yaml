@@ -6,7 +6,7 @@ services:
     dockerfile: "contracts/Dockerfile"
     context: ".."
     ports:
-      - host: 48545
+      - host: 8545
         container: 8545
     profiles:
       - "core"
@@ -141,8 +141,8 @@ prerequisites:
   cpuCores: 4
   memoryGb: 6
   portsInUse:
-    - port: 48545
-      description: "Hardhat development node (host override)"
+    - port: 8545
+      description: "Hardhat development node"
     - port: 55432
       description: "PostgreSQL database (host override)"
     - port: 56379
