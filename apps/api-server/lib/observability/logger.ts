@@ -48,3 +48,40 @@ export const getRequestLogger = (context: RequestLogContext = {}): Logger => {
 export const resetLogger = (): void => {
   loggerInstance = null;
 };
+
+export interface ComponentDeploymentLogPayload {
+  status: 'pending' | 'confirmed' | 'failed';
+  componentType: 'vault_implementation' | 'price_source';
+  networkId: number;
+  organizer: string;
+  walletAddress?: string;
+  contractAddress?: string | null;
+  transactionHash?: string | null;
+  metadata?: Record<string, unknown>;
+  failureReason?: Record<string, unknown> | null;
+}
+
+export const logComponentDeployment = (
+  payload: ComponentDeploymentLogPayload,
+  error?: unknown
+): void => {
+  const logger = getLogger();
+  const base = {
+    event: 'componentDeployment',
+    componentType: payload.componentType,
+    networkId: payload.networkId,
+    organizer: payload.organizer,
+    walletAddress: payload.walletAddress,
+    contractAddress: payload.contractAddress,
+    transactionHash: payload.transactionHash,
+    metadata: payload.metadata,
+    failureReason: payload.failureReason
+  };
+
+  if (payload.status === 'failed') {
+    logger.error({ ...base, error }, 'Component deployment failed');
+    return;
+  }
+
+  logger.info({ ...base, status: payload.status }, 'Component deployment recorded');
+};

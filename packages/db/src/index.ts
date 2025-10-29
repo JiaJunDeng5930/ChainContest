@@ -79,12 +79,14 @@ import {
   type ReconciliationReportUpsertParams
 } from './repositories/reconciliationReportRepository.js';
 import {
-  registerOrganizerContractRecord,
-  listOrganizerContractsRecords,
-  type RegisterOrganizerContractParams,
-  type RegisterOrganizerContractResult,
-  type ListOrganizerContractsParams,
-  type OrganizerRegistryRecord
+  registerOrganizerComponentRecord,
+  listOrganizerComponentsRecords,
+  type RegisterOrganizerComponentParams,
+  type RegisterOrganizerComponentResult,
+  type ListOrganizerComponentsParams,
+  type OrganizerRegistryRecord,
+  type OrganizerComponentStatus,
+  type OrganizerComponentType
 } from './repositories/organizerRegistry.js';
 import {
   createContestCreationRequestRecord,
@@ -144,27 +146,33 @@ export interface MutateUserWalletRequest extends MutateUserWalletParams {}
 
 export interface MutateUserWalletResponse extends MutateUserWalletResult {}
 
-export interface OrganizerContractRecord {
+export interface OrganizerComponentRecord {
   id: string;
   userId: string;
+  walletAddress: string | null;
   networkId: number;
-  contractType: string;
-  address: string;
-  metadata: Record<string, unknown>;
+  componentType: OrganizerComponentType;
+  contractAddress: string;
+  config: Record<string, unknown>;
+  configHash: string;
+  status: OrganizerComponentStatus;
+  transactionHash: string | null;
+  failureReason: Record<string, unknown> | null;
+  confirmedAt: Date | null;
   createdAt: Date;
   updatedAt: Date;
 }
 
-export interface RegisterOrganizerContractRequest extends RegisterOrganizerContractParams {}
+export interface RegisterOrganizerComponentRequest extends RegisterOrganizerComponentParams {}
 
-export interface RegisterOrganizerContractResponse {
-  contract: OrganizerContractRecord;
+export interface RegisterOrganizerComponentResponse {
+  component: OrganizerComponentRecord;
   created: boolean;
 }
 
-export interface ListOrganizerContractsRequest extends ListOrganizerContractsParams {}
+export interface ListOrganizerComponentsRequest extends ListOrganizerComponentsParams {}
 
-export type ListOrganizerContractsResponse = OrganizerContractRecord[];
+export type ListOrganizerComponentsResponse = OrganizerComponentRecord[];
 
 export interface ContestDeploymentArtifactRecord {
   artifactId: string;
@@ -503,37 +511,37 @@ export const updateReconciliationReportStatus = async (
   return withMetrics('reconciliationReport.transition', operation);
 };
 
-export const registerOrganizerContract = async (
-  request: RegisterOrganizerContractRequest
-): Promise<RegisterOrganizerContractResponse> => {
+export const registerOrganizerComponent = async (
+  request: RegisterOrganizerComponentRequest
+): Promise<RegisterOrganizerComponentResponse> => {
   const database = ensurePool();
 
-  const operation = async (): Promise<RegisterOrganizerContractResponse> => {
-    const result: RegisterOrganizerContractResult = await registerOrganizerContractRecord(
+  const operation = async (): Promise<RegisterOrganizerComponentResponse> => {
+    const result: RegisterOrganizerComponentResult = await registerOrganizerComponentRecord(
       database.db,
       request
     );
 
     return {
-      contract: mapOrganizerContractRecord(result.contract),
+      component: mapOrganizerComponentRecord(result.component),
       created: result.created
     };
   };
 
-  return withMetrics('organizer.registerContract', operation);
+  return withMetrics('organizer.registerComponent', operation);
 };
 
-export const listOrganizerContracts = async (
-  request: ListOrganizerContractsRequest
-): Promise<ListOrganizerContractsResponse> => {
+export const listOrganizerComponents = async (
+  request: ListOrganizerComponentsRequest
+): Promise<ListOrganizerComponentsResponse> => {
   const database = ensurePool();
 
-  const operation = async (): Promise<ListOrganizerContractsResponse> => {
-    const records = await listOrganizerContractsRecords(database.db, request);
-    return records.map(mapOrganizerContractRecord);
+  const operation = async (): Promise<ListOrganizerComponentsResponse> => {
+    const records = await listOrganizerComponentsRecords(database.db, request);
+    return records.map(mapOrganizerComponentRecord);
   };
 
-  return withMetrics('organizer.listContracts', operation);
+  return withMetrics('organizer.listComponents', operation);
 };
 
 export const createContestCreationRequest = async (
@@ -633,8 +641,8 @@ export const db = {
   getMilestoneExecutionByIdempotencyKey,
   getMilestoneExecutionByEvent,
   upsertReconciliationReport,
-  registerOrganizerContract,
-  listOrganizerContracts,
+  registerOrganizerComponent,
+  listOrganizerComponents,
   createContestCreationRequest,
   getContestCreationRequest,
   listContestCreationRequests,
@@ -686,15 +694,21 @@ const mapLookupRecord = (record: LookupUserWalletRecord): LookupUserWalletBindin
   }
 });
 
-const mapOrganizerContractRecord = (
+const mapOrganizerComponentRecord = (
   record: OrganizerRegistryRecord
-): OrganizerContractRecord => ({
+): OrganizerComponentRecord => ({
   id: record.id,
   userId: record.userId,
+  walletAddress: record.walletAddress ?? null,
   networkId: record.networkId,
-  contractType: record.contractType,
-  address: record.address.toLowerCase(),
-  metadata: (record.metadata ?? {}) as Record<string, unknown>,
+  componentType: record.componentType as OrganizerComponentType,
+  contractAddress: record.contractAddress.toLowerCase(),
+  config: (record.config ?? {}) as Record<string, unknown>,
+  configHash: record.configHash,
+  status: record.status as OrganizerComponentStatus,
+  transactionHash: record.transactionHash ?? null,
+  failureReason: (record.failureReason ?? null) as Record<string, unknown> | null,
+  confirmedAt: record.confirmedAt ?? null,
   createdAt: record.createdAt,
   updatedAt: record.updatedAt
 });
