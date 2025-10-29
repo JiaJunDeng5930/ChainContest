@@ -16,6 +16,7 @@ import { HealthTracker } from '../services/healthTracker.js';
 import { JobDispatcher } from '../services/jobDispatcher.js';
 import { ReconciliationReportService } from '../services/reconciliationReport.js';
 import type { ContestChainGateway } from '@chaincontest/chain';
+import { createDeploymentEventHandler } from '../pipelines/deploymentHandler.js';
 
 export interface BootstrapOptions {
   config?: AppConfig;
@@ -69,6 +70,7 @@ export const bootstrapContext = (options: BootstrapOptions = {}): AppContext => 
 
   const gateway = new ContestGatewayAdapter(contestGateway, logger, rpc);
   const writer = new IngestionWriter(db, logger);
+  writer.registerDomainHandler('deployment', createDeploymentEventHandler({ db, logger }));
 
   http.setHealthEvaluator(() => Promise.resolve(aggregateHealth({ db, queue, health })));
   http.setStatusProvider(() => Promise.resolve(health.snapshot()));

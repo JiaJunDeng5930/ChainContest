@@ -5,6 +5,8 @@ import {
   readIngestionStatus,
   writeContestDomain,
   writeIngestionEvent,
+  recordContestDeploymentArtifact,
+  updateContestCreationRequestStatus,
   type DbError,
   type DbInitOptions,
   type MetricsHook,
@@ -14,6 +16,10 @@ import {
   type WriteContestDomainResponse,
   type WriteIngestionEventResponse,
   type IngestionWriteAction,
+  type RecordContestDeploymentArtifactRequest,
+  type RecordContestDeploymentArtifactResponse,
+  type UpdateContestCreationRequestStatusRequest,
+  type UpdateContestCreationRequestStatusResponse,
 } from '@chaincontest/db';
 import type { AppConfig } from '../config/loadConfig.js';
 
@@ -30,6 +36,12 @@ export interface DbClient {
   readIngestionStatus: (request: ReadIngestionStatusRequest) => Promise<ReadIngestionStatusResponse>;
   writeIngestionEvent: (action: IngestionWriteAction) => Promise<WriteIngestionEventResponse>;
   writeContestDomain: (request: WriteContestDomainRequest) => Promise<WriteContestDomainResponse>;
+  recordContestDeploymentArtifact: (
+    request: RecordContestDeploymentArtifactRequest
+  ) => Promise<RecordContestDeploymentArtifactResponse>;
+  updateContestCreationRequestStatus: (
+    request: UpdateContestCreationRequestStatusRequest
+  ) => Promise<UpdateContestCreationRequestStatusResponse>;
 }
 
 export class DbClientError extends Error {
@@ -118,6 +130,8 @@ export const createDbClient = (options: DbClientOptions): DbClient => {
     readIngestionStatus,
     writeIngestionEvent,
     writeContestDomain,
+    recordContestDeploymentArtifact,
+    updateContestCreationRequestStatus,
   };
 };
 

@@ -286,7 +286,8 @@ export type ContestEventType =
   | 'rebalance'
   | 'settlement'
   | 'reward'
-  | 'redemption';
+  | 'redemption'
+  | 'deployment';
 
 export interface EventCursorShape {
   blockNumber: bigint;
