@@ -1,38 +1,64 @@
 import { relations } from 'drizzle-orm';
-import { check, index, pgTable, text, timestamp, uniqueIndex, uuid, jsonb, integer } from 'drizzle-orm/pg-core';
+import { check, jsonb, integer, pgTable, text, timestamp, uniqueIndex, uuid } from 'drizzle-orm/pg-core';
 import { sql } from 'drizzle-orm';
 import { contestCreationRequests } from './contest-creation.js';
 
-export const organizerContracts = pgTable(
-  'organizer_contracts',
+export const organizerComponents = pgTable(
+  'organizer_components',
   {
     id: uuid('id').defaultRandom().primaryKey(),
     userId: text('user_id').notNull(),
+    walletAddress: text('wallet_address'),
     networkId: integer('network_id').notNull(),
-    contractType: text('contract_type').notNull(),
-    address: text('address').notNull(),
-    metadata: jsonb('metadata').notNull().default(sql`'{}'::jsonb`),
+    componentType: text('component_type').notNull(),
+    contractAddress: text('contract_address').notNull(),
+    configHash: text('config_hash').notNull(),
+    config: jsonb('config').notNull().default(sql`'{}'::jsonb`),
+    transactionHash: text('transaction_hash'),
+    status: text('status').notNull().default('pending'),
+    failureReason: jsonb('failure_reason').notNull().default(sql`'{}'::jsonb`),
+    confirmedAt: timestamp('confirmed_at', { withTimezone: true }),
     createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
     updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull()
   },
   (table) => ({
-    userNetworkTypeUnique: uniqueIndex('organizer_contracts_user_network_type_unique').on(
+    userNetworkTypeHashUnique: uniqueIndex('organizer_components_user_network_type_hash_unique').on(
       table.userId,
       table.networkId,
-      table.contractType
+      table.componentType,
+      table.configHash
     ),
-    userNetworkIdx: index('organizer_contracts_user_network_idx').on(table.userId, table.networkId),
-    networkPositive: check('organizer_contracts_network_positive', sql`${table.networkId} > 0`),
-    addressFormat: check(
-      'organizer_contracts_address_format',
-      sql`${table.address} ~ '^0x[0-9a-fA-F]{40}$'`
+    networkContractUnique: uniqueIndex('organizer_components_network_contract_unique').on(
+      table.networkId,
+      table.contractAddress
+    ),
+    networkPositive: check('organizer_components_network_positive', sql`${table.networkId} > 0`),
+    componentTypeCheck: check(
+      'organizer_components_component_type',
+      sql`${table.componentType} IN ('vault_implementation', 'price_source')`
+    ),
+    contractFormat: check(
+      'organizer_components_contract_format',
+      sql`${table.contractAddress} ~ '^0x[0-9a-fA-F]{40}$'`
+    ),
+    walletFormat: check(
+      'organizer_components_wallet_format',
+      sql`${table.walletAddress} IS NULL OR ${table.walletAddress} ~ '^0x[0-9a-fA-F]{40}$'`
+    ),
+    transactionFormat: check(
+      'organizer_components_transaction_format',
+      sql`${table.transactionHash} IS NULL OR ${table.transactionHash} ~ '^0x[0-9a-fA-F]{64}$'`
+    ),
+    statusCheck: check(
+      'organizer_components_status',
+      sql`${table.status} IN ('pending', 'confirmed', 'failed')`
     )
   })
 );
 
-export const organizerContractRelations = relations(organizerContracts, ({ many }) => ({
+export const organizerComponentRelations = relations(organizerComponents, ({ many }) => ({
   creationRequests: many(contestCreationRequests)
 }));
 
-export type OrganizerContract = typeof organizerContracts.$inferSelect;
-export type NewOrganizerContract = typeof organizerContracts.$inferInsert;
+export type OrganizerComponent = typeof organizerComponents.$inferSelect;
+export type NewOrganizerComponent = typeof organizerComponents.$inferInsert;

@@ -6,7 +6,7 @@ import {
   rewardClaims
 } from './contest-domain.js';
 import { ingestionCursors, ingestionEvents } from './ingestion.js';
-import { organizerContracts } from './organizer.js';
+import { organizerComponents } from './organizer.js';
 import { contestCreationRequests, contestDeploymentArtifacts } from './contest-creation.js';
 import { milestoneExecutionRecords } from './milestoneExecution.js';
 import { reconciliationReportLedgers } from './reconciliationReport.js';
@@ -44,8 +44,8 @@ export {
 } from './ingestion.js';
 
 export {
-  organizerContracts,
-  organizerContractRelations
+  organizerComponents,
+  organizerComponentRelations
 } from './organizer.js';
 
 export {
@@ -92,7 +92,7 @@ export type { IngestionCursor, NewIngestionCursor, IngestionEvent, NewIngestionE
 export type { MilestoneExecutionRecord, NewMilestoneExecutionRecord, MilestoneExecutionStatus } from './milestoneExecution.js';
 export type { ReconciliationReportLedger, NewReconciliationReportLedger, ReconciliationReportStatus } from './reconciliationReport.js';
 export type { UserIdentity, WalletBinding, NewUserIdentity, NewWalletBinding } from './user-bindings.js';
-export type { OrganizerContract, NewOrganizerContract } from './organizer.js';
+export type { OrganizerComponent, NewOrganizerComponent } from './organizer.js';
 export type {
   ContestCreationRequest,
   NewContestCreationRequest,
@@ -116,7 +116,7 @@ export const dbSchema = {
   ingestionEvents,
   milestoneExecutionRecords,
   reconciliationReportLedgers,
-  organizerContracts,
+  organizerComponents,
   contestCreationRequests,
   contestDeploymentArtifacts
 };

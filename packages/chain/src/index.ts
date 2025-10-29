@@ -5,4 +5,6 @@ export * from './errors/contestChainError.js';
 export * from './policies/validationContext.js';
 export * from './adapters/rpcClientFactory.js';
 export * from './runtime/inMemoryContestDataProvider.js';
+export * from './runtime/deploymentRuntime.js';
 export * from './gateway/types.js';
+export * from './gateway/artifacts.js';
