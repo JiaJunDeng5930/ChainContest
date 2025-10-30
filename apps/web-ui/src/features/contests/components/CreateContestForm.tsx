@@ -202,7 +202,6 @@ const SummarySection = ({
 
 export default function CreateContestForm() {
   const t = useTranslations();
-  const queryClient = useQueryClient();
   const { requiredChainId, isSupportedNetwork, isSessionActive } = useNetworkGateState();
 
   const messages = useMemo<FormMessages>(
@@ -303,7 +302,7 @@ export default function CreateContestForm() {
   const [lastSubmitted, setLastSubmitted] = useState<ContestCreationAggregate | null>(null);
 
   const deployContest = useDeployContest({
-    onSuccess: async (data) => {
+    onSuccess: (data) => {
       setLastSubmitted(data);
     }
   });

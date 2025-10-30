@@ -39,6 +39,4 @@ export const GET = async (
   }
 };
 
-export const config = {
-  runtime: 'nodejs'
-};
+export const runtime = 'nodejs';

@@ -69,10 +69,19 @@ export const POST = async (
       sessionToken: session.sessionToken ?? null
     });
 
+    const participantAddress = parsed.data.participant as `0x${string}`;
+    const intent = {
+      sellAsset: parsed.data.intent.sellAsset as `0x${string}`,
+      buyAsset: parsed.data.intent.buyAsset as `0x${string}`,
+      amount: parsed.data.intent.amount,
+      minimumReceived: parsed.data.intent.minimumReceived,
+      quoteId: parsed.data.intent.quoteId
+    };
+
     const definition = await buildContestDefinition(
       {
         contestId,
-        participant: parsed.data.participant,
+        participant: participantAddress,
         blockTag: parsed.data.blockTag
       },
       {
@@ -95,8 +104,8 @@ export const POST = async (
       (gateway, blockTag) =>
         gateway.executePortfolioRebalance({
           contest: definition.contest,
-          participant: parsed.data.participant,
-          intent: parsed.data.intent,
+          participant: participantAddress,
+          intent,
           blockTag: blockTag ?? (parsed.data.blockTag as unknown as bigint | 'latest' | undefined)
         })
     );
@@ -117,6 +126,4 @@ export const POST = async (
   }
 };
 
-export const config = {
-  runtime: 'nodejs'
-};
+export const runtime = 'nodejs';

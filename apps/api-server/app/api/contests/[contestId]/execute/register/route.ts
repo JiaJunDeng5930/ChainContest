@@ -63,10 +63,15 @@ export const POST = async (
       sessionToken: session.sessionToken ?? null
     });
 
+    const participantAddress = parsed.data.participant as `0x${string}`;
+    const referrerAddress = parsed.data.referrer
+      ? (parsed.data.referrer as `0x${string}`)
+      : undefined;
+
     const definition = await buildContestDefinition(
       {
         contestId,
-        participant: parsed.data.participant,
+        participant: participantAddress,
         blockTag: parsed.data.blockTag
       },
       {
@@ -89,8 +94,8 @@ export const POST = async (
       (gateway, blockTag) =>
         gateway.executeParticipantRegistration({
           contest: definition.contest,
-          participant: parsed.data.participant,
-          referrer: parsed.data.referrer,
+          participant: participantAddress,
+          referrer: referrerAddress,
           blockTag: blockTag ?? (parsed.data.blockTag as unknown as bigint | 'latest' | undefined)
         })
     );
@@ -111,6 +116,4 @@ export const POST = async (
   }
 };
 
-export const config = {
-  runtime: 'nodejs'
-};
+export const runtime = 'nodejs';

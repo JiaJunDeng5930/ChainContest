@@ -82,8 +82,6 @@ export async function POST(request: NextRequest): Promise<Response> {
   }
 }
 
-export const config = {
-  runtime: 'nodejs'
-};
+export const runtime = 'nodejs';
 
 export const siweNonceCookie = NONCE_COOKIE;

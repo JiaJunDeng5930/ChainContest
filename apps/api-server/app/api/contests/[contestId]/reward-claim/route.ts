@@ -53,10 +53,12 @@ export const POST = async (
 
     const session = await requireSession();
 
+    const participantAddress = parsed.data.participant as `0x${string}`;
+
     const definition = await buildContestDefinition(
       {
         contestId,
-        participant: parsed.data.participant,
+        participant: participantAddress,
         blockTag: parsed.data.blockTag
       },
       {
@@ -81,7 +83,7 @@ export const POST = async (
       (gateway, blockTag) =>
         gateway.executeRewardClaim({
           contest: definition.contest,
-          participant: parsed.data.participant,
+          participant: participantAddress,
           blockTag: blockTag ?? (fallbackBlockTag as unknown as bigint | 'latest' | undefined)
         })
     );
@@ -95,6 +97,4 @@ export const POST = async (
   }
 };
 
-export const config = {
-  runtime: 'nodejs'
-};
+export const runtime = 'nodejs';

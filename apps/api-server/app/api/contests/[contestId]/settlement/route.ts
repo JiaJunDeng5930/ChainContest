@@ -68,6 +68,7 @@ export const POST = async (
       }
     );
 
+    const callerAddress = parsed.data.caller as `0x${string}`;
     const fallbackBlockTag = parsed.data.blockTag;
 
     const result = await withContestGateway(
@@ -80,7 +81,7 @@ export const POST = async (
       (gateway, blockTag) =>
         gateway.executeContestSettlement({
           contest: definition.contest,
-          caller: parsed.data.caller,
+          caller: callerAddress,
           blockTag: blockTag ?? (fallbackBlockTag as unknown as bigint | 'latest' | undefined)
         })
     );
@@ -94,6 +95,4 @@ export const POST = async (
   }
 };
 
-export const config = {
-  runtime: 'nodejs'
-};
+export const runtime = 'nodejs';

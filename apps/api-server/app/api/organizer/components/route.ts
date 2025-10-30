@@ -56,6 +56,4 @@ export const GET = async (request: NextRequest): Promise<Response> => {
   }
 };
 
-export const config = {
-  runtime: 'nodejs'
-};
+export const runtime = 'nodejs';

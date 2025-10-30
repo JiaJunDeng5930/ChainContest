@@ -1,6 +1,7 @@
 'use client';
 
 import { useMutation, type UseMutationResult } from "@tanstack/react-query";
+import { apiClient, ApiError } from "../../lib/api/client";
 
 interface VaultComponentPayload {
   componentType: "vault_implementation";
@@ -43,21 +44,16 @@ const resolveEndpoint = (payload: DeployComponentPayload): string => {
 const request = async (payload: DeployComponentPayload): Promise<DeployComponentResponse> => {
   const endpoint = resolveEndpoint(payload);
 
-  const response = await fetch(endpoint, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json"
-    },
-    body: JSON.stringify(payload)
-  });
-
-  if (!response.ok) {
-    const errorBody = (await response.json().catch(() => ({ message: response.statusText }))) as Record<string, unknown>;
-    const message = typeof errorBody.message === "string" ? errorBody.message : response.statusText;
-    throw new Error(message);
+  try {
+    return await apiClient.post<DeployComponentResponse>(endpoint, payload);
+  } catch (error) {
+    if (error instanceof ApiError) {
+      const body = error.body as Record<string, unknown> | undefined;
+      const message = typeof body?.message === "string" ? body.message : error.statusText || `Request failed with status ${error.status}`;
+      throw new Error(message);
+    }
+    throw error;
   }
-
-  return response.json() as Promise<DeployComponentResponse>;
 };
 
 export const useDeployComponent = (): UseMutationResult<DeployComponentResponse, Error, DeployComponentPayload> =>

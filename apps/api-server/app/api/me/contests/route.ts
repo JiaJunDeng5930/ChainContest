@@ -105,17 +105,20 @@ export const GET = async (request: NextRequest): Promise<Response> => {
     await initDatabase();
 
     if (kind === 'created') {
-      const result = await database.queryCreatorContests({
+      const { items, nextCursor } = (await database.queryCreatorContests({
         userId: session.user.id,
         filters: networkId ? { networkIds: [networkId] } : undefined,
         pagination: { cursor, pageSize }
-      });
+      })) as {
+        items: import('@chaincontest/db').QueryCreatorContestsResponse['items'];
+        nextCursor: string | null;
+      };
 
       const response = NextResponse.json(
         {
           kind: 'created',
-          items: result.items.map(serializeCreationItem),
-          nextCursor: result.nextCursor
+          items: items.map(serializeCreationItem),
+          nextCursor
         },
         { status: 200 }
       );
@@ -123,17 +126,20 @@ export const GET = async (request: NextRequest): Promise<Response> => {
       return response;
     }
 
-    const result = await database.queryUserContests({
+    const { items, nextCursor } = (await database.queryUserContests({
       userId: session.user.id,
       filters: networkId ? { chainIds: [networkId] } : undefined,
       pagination: { cursor, pageSize }
-    });
+    })) as {
+      items: import('@chaincontest/db').QueryUserContestsResponse['items'];
+      nextCursor: string | null;
+    };
 
     const response = NextResponse.json(
       {
         kind: 'participated',
-        items: result.items.map(serializeParticipationItem),
-        nextCursor: result.nextCursor
+        items: items.map(serializeParticipationItem),
+        nextCursor
       },
       { status: 200 }
     );
@@ -154,6 +160,4 @@ export const GET = async (request: NextRequest): Promise<Response> => {
   }
 };
 
-export const config = {
-  runtime: 'nodejs'
-};
+export const runtime = 'nodejs';
