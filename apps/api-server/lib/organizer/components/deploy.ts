@@ -3,15 +3,14 @@ import { httpErrors } from '@/lib/http/errors';
 import { database } from '@/lib/db/client';
 import { getCreationGateway } from '@/lib/chain/creationGateway';
 import { logComponentDeployment } from '@/lib/observability/logger';
-import type {
-  OrganizerComponentRecord,
-  OrganizerComponentStatus,
-  OrganizerComponentType
-} from '@chaincontest/db';
+import type { OrganizerComponentRecord } from '@chaincontest/db';
 import type {
   OrganizerComponentRegistrationResult,
-  RegisterOrganizerComponentInput
+  RegisterOrganizerComponentInput,
+  OrganizerComponentStatus
 } from '@chaincontest/chain';
+
+type OrganizerComponentType = 'vault_implementation' | 'price_source';
 
 const addressSchema = z
   .string()
@@ -57,12 +56,31 @@ export interface DeployOrganizerComponentResponse {
 
 const toRegisterInput = (
   payload: DeployOrganizerComponentRequest
-): RegisterOrganizerComponentInput => ({
-  organizer: payload.organizerAddress as `0x${string}`,
-  walletAddress: payload.walletAddress as `0x${string}`,
-  networkId: payload.networkId,
-  component: payload.component
-});
+): RegisterOrganizerComponentInput => {
+  const normalize = (value: string): `0x${string}` => value.toLowerCase() as `0x${string}`;
+
+  const component: RegisterOrganizerComponentInput['component'] =
+    payload.component.componentType === 'vault_implementation'
+      ? {
+          componentType: 'vault_implementation',
+          baseAsset: normalize(payload.component.baseAsset),
+          quoteAsset: normalize(payload.component.quoteAsset),
+          metadata: payload.component.metadata
+        }
+      : {
+          componentType: 'price_source',
+          poolAddress: normalize(payload.component.poolAddress),
+          twapSeconds: payload.component.twapSeconds,
+          metadata: payload.component.metadata
+        };
+
+  return {
+    organizer: normalize(payload.organizerAddress),
+    walletAddress: normalize(payload.walletAddress),
+    networkId: payload.networkId,
+    component
+  };
+};
 
 const toDbStatus = (status: OrganizerComponentRegistrationResult['status']): OrganizerComponentStatus => {
   switch (status) {
@@ -92,7 +110,7 @@ export const deployOrganizerComponent = async (
 ): Promise<DeployOrganizerComponentResponse> => {
   const parsed = deploymentSchema.safeParse(request);
   if (!parsed.success) {
-    throw httpErrors.validationFailed('Invalid component deployment request', {
+    throw httpErrors.badRequest('Invalid component deployment request', {
       detail: parsed.error.flatten().fieldErrors
     });
   }
@@ -135,7 +153,7 @@ export const deployOrganizerComponent = async (
     ? new Date(registration.metadata.confirmedAt)
     : null;
 
-  const dbRecord = await database.registerOrganizerComponent({
+  const dbRecord = (await database.registerOrganizerComponent({
     userId: parsed.data.userId,
     walletAddress: parsed.data.walletAddress,
     networkId: parsed.data.networkId,
@@ -146,7 +164,7 @@ export const deployOrganizerComponent = async (
     status,
     failureReason,
     confirmedAt
-  });
+  })) as { component: OrganizerComponentRecord; created: boolean };
 
   logComponentDeployment({
     status,

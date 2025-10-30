@@ -94,22 +94,22 @@ type DeleteSessionFn = (sessionToken: string) => Promise<void>;
 
 const getUpdateSession = async (): Promise<UpdateSessionFn> => {
   const adapter = await getAuthAdapter();
-  const updateSession = adapter.updateSession;
-  if (typeof updateSession !== 'function') {
+  const updateSession = typeof adapter.updateSession === 'function' ? adapter.updateSession.bind(adapter) : null;
+  if (!updateSession) {
     throw new Error('Configured auth adapter does not expose session update operations');
   }
 
-  return (params) => Promise.resolve(updateSession.call(adapter, params));
+  return (params) => Promise.resolve(updateSession(params));
 };
 
 const getDeleteSession = async (): Promise<DeleteSessionFn> => {
   const adapter = await getAuthAdapter();
-  const deleteSession = adapter.deleteSession;
-  if (typeof deleteSession !== 'function') {
+  const deleteSession = typeof adapter.deleteSession === 'function' ? adapter.deleteSession.bind(adapter) : null;
+  if (!deleteSession) {
     throw new Error('Configured auth adapter does not expose session deletion operations');
   }
 
-  return (sessionToken) => Promise.resolve(deleteSession.call(adapter, sessionToken)).then(() => undefined);
+  return (sessionToken) => Promise.resolve(deleteSession(sessionToken)).then(() => undefined);
 };
 
 export const refreshSession = async (token?: string | null): Promise<void> => {

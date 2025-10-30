@@ -59,7 +59,7 @@ export const executeRoute = async <T>(
     return {
       status: normalized.status,
       headers: new Headers(normalized.headers),
-      body: normalized.body
+      body: normalized
     };
   }
 };

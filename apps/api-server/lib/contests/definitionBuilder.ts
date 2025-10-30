@@ -5,12 +5,23 @@ import type {
   ContestRebalanceConfig,
   ContestSettlementConfig,
   ContestRewardConfigEntry,
-  ContestRedemptionConfigEntry
+  ContestRedemptionConfigEntry,
+  ContestEventEnvelopeShape
 } from '@chaincontest/chain';
 import { httpErrors } from '@/lib/http/errors';
 import { database, initDatabase } from '@/lib/db/client';
 
 type UnknownRecord = Record<string, unknown>;
+type Address = `0x${string}`;
+type HexString = `0x${string}`;
+
+interface ContestAggregateRow {
+  readonly contest?: {
+    readonly contestId?: string;
+    readonly chainId: number;
+    readonly metadata?: unknown;
+  };
+}
 
 const ADDRESS_PATTERN = /^0x[a-fA-F0-9]{40}$/;
 const HEX_PATTERN = /^0x[0-9a-fA-F]+$/;
@@ -40,17 +51,17 @@ const ensureOptionalString = (value: unknown, context: string): string | undefin
   return ensureString(value, context);
 };
 
-const ensureAddress = (value: unknown, context: string): string => {
+const ensureAddress = (value: unknown, context: string): Address => {
   const address = ensureString(value, context);
   if (!ADDRESS_PATTERN.test(address)) {
     throw httpErrors.internal('Contest metadata contains invalid address', {
       detail: { field: context, value: address }
     });
   }
-  return address;
+  return address.toLowerCase() as Address;
 };
 
-const ensureHex = (value: unknown, context: string): string | undefined => {
+const ensureHex = (value: unknown, context: string): HexString | undefined => {
   if (value === undefined || value === null) {
     return undefined;
   }
@@ -60,7 +71,7 @@ const ensureHex = (value: unknown, context: string): string | undefined => {
       detail: { field: context, value: hex }
     });
   }
-  return hex;
+  return hex.toLowerCase() as HexString;
 };
 
 const ensureBoolean = (value: unknown, context: string): boolean => {
@@ -122,10 +133,18 @@ const toNumber = (value: unknown, context: string): number => {
   });
 };
 
-const lowerKeyRecord = (value: UnknownRecord): UnknownRecord => {
-  return Object.fromEntries(
-    Object.entries(value).map(([key, entry]) => [key.toLowerCase(), entry])
-  );
+const parseStringRecord = (raw: unknown, context: string): Record<string, string> => {
+  if (!raw || typeof raw !== 'object') {
+    return {};
+  }
+
+  const source = raw as UnknownRecord;
+  const output: Record<string, string> = {};
+  for (const [key, value] of Object.entries(source)) {
+    const normalizedKey = key.toLowerCase();
+    output[normalizedKey] = ensureString(value, `${context}.${key}`);
+  }
+  return output;
 };
 
 const parseContestIdentifier = (
@@ -192,9 +211,15 @@ const parseRegistrationCapacity = (raw: unknown): ContestDefinition['registratio
 
 const parseBlockAnchor = (raw: unknown, context: string): ContestDefinition['derivedAt'] => {
   const source = ensureObject(raw, context);
+  const blockHash = ensureHex(source.blockHash, `${context}.blockHash`);
+  if (!blockHash) {
+    throw httpErrors.internal('Contest metadata missing block hash', {
+      detail: { field: `${context}.blockHash`, value: source.blockHash }
+    });
+  }
   return {
     blockNumber: toBigInt(source.blockNumber, `${context}.blockNumber`),
-    blockHash: ensureHex(source.blockHash, `${context}.blockHash`),
+    blockHash,
     timestamp: ensureOptionalString(source.timestamp, `${context}.timestamp`)
   };
 };
@@ -230,16 +255,68 @@ const parseExecutionCall = (raw: unknown, context: string): ContestDefinition['r
     data: ensureHex(source.data ?? '0x', `${context}.data`) ?? '0x',
     value: source.value === undefined ? undefined : toBigInt(source.value, `${context}.value`),
     gasLimit: source.gasLimit === undefined ? undefined : toBigInt(source.gasLimit, `${context}.gasLimit`),
-    gasPrice: source.gasPrice === undefined ? undefined : ensureString(source.gasPrice, `${context}.gasPrice`),
-    maxFeePerGas: source.maxFeePerGas === undefined ? undefined : ensureString(source.maxFeePerGas, `${context}.maxFeePerGas`),
+    maxFeePerGas: source.maxFeePerGas === undefined ? undefined : toBigInt(source.maxFeePerGas, `${context}.maxFeePerGas`),
     maxPriorityFeePerGas:
       source.maxPriorityFeePerGas === undefined
         ? undefined
-        : ensureString(source.maxPriorityFeePerGas, `${context}.maxPriorityFeePerGas`),
+        : toBigInt(source.maxPriorityFeePerGas, `${context}.maxPriorityFeePerGas`),
     deadline: ensureOptionalString(source.deadline, `${context}.deadline`)
   };
 
   return call;
+};
+
+const parsePlanRejectionReason = (raw: unknown, context: string): ContestSettlementConfig['rejectionReason'] => {
+  if (raw === undefined || raw === null) {
+    return undefined;
+  }
+
+  const source = ensureObject(raw, context);
+  return {
+    code: ensureString(source.code ?? 'unknown_reason', `${context}.code`),
+    message: ensureString(source.message ?? 'Contest operation rejected', `${context}.message`),
+    detail: source.detail ? ensureObject(source.detail, `${context}.detail`) : undefined
+  };
+};
+
+const parsePayoutDescriptor = (raw: unknown, context: string): ContestRewardConfigEntry['payout'] => {
+  if (raw === undefined || raw === null) {
+    return undefined;
+  }
+
+  const source = ensureObject(raw, context);
+  return {
+    amount: ensureString(source.amount, `${context}.amount`),
+    currency: ensureString(source.currency, `${context}.currency`),
+    tokenAddress: source.tokenAddress ? ensureAddress(source.tokenAddress, `${context}.tokenAddress`) : undefined,
+    destination: ensureAddress(source.destination, `${context}.destination`)
+  };
+};
+
+const parseRouteDescriptor = (raw: unknown, context: string): ContestRebalanceConfig['defaultRoute'] => {
+  if (raw === undefined || raw === null) {
+    return undefined;
+  }
+
+  const source = ensureObject(raw, context);
+  const steps = Array.isArray(source.steps)
+    ? source.steps.map((step, index) => ensureString(step, `${context}.steps[${index}]`))
+    : (() => {
+        throw httpErrors.internal('Contest metadata route missing steps', {
+          detail: { field: `${context}.steps`, value: source.steps }
+        });
+      })();
+
+  return {
+    steps,
+    minimumOutput: ensureOptionalString(source.minimumOutput, `${context}.minimumOutput`),
+    maximumSlippageBps:
+      source.maximumSlippageBps === undefined
+        ? undefined
+        : toNumber(source.maximumSlippageBps, `${context}.maximumSlippageBps`),
+    expiresAt: ensureOptionalString(source.expiresAt, `${context}.expiresAt`),
+    metadata: source.metadata ? ensureObject(source.metadata, `${context}.metadata`) : undefined
+  };
 };
 
 const parseEstimatedFees = (raw: unknown): ContestDefinition['registration']['template']['estimatedFees'] | undefined => {
@@ -333,7 +410,7 @@ const parseRebalanceConfig = (raw: unknown): ContestRebalanceConfig | undefined 
         reason: ensureOptionalString(approval.reason, `rebalance.approvals[${index}].reason`)
       };
     }),
-    defaultRoute: source.defaultRoute ? ensureObject(source.defaultRoute, 'rebalance.defaultRoute') : undefined
+    defaultRoute: parseRouteDescriptor(source.defaultRoute, 'rebalance.defaultRoute')
   };
 };
 
@@ -346,11 +423,11 @@ const parseSettlementConfig = (raw: unknown): ContestSettlementConfig | undefine
     ready: Boolean(source.ready ?? source.status === 'ready'),
     executed: Boolean(source.executed ?? source.status === 'applied'),
     settlementCall: source.settlementCall ? parseExecutionCall(source.settlementCall, 'settlement.settlementCall') : undefined,
-    rejectionReason: source.rejectionReason ? ensureObject(source.rejectionReason, 'settlement.rejectionReason') : undefined,
+    rejectionReason: parsePlanRejectionReason(source.rejectionReason, 'settlement.rejectionReason'),
     frozenAt: parseBlockAnchor(source.frozenAt ?? source.derivedAt ?? source.anchor ?? {}, 'settlement.frozenAt'),
     leaderboardVersion: ensureString(source.leaderboardVersion ?? source.version ?? '0', 'settlement.leaderboardVersion'),
     snapshotHash: ensureOptionalString(source.snapshotHash, 'settlement.snapshotHash'),
-    operator: ensureOptionalString(source.operator, 'settlement.operator'),
+    operator: source.operator ? ensureAddress(source.operator, 'settlement.operator') : undefined,
     detail: source.detail ? ensureObject(source.detail, 'settlement.detail') : undefined
   } satisfies ContestSettlementConfig;
 };
@@ -365,9 +442,9 @@ const parseRewardEntries = (raw: unknown): ContestDefinition['rewards'] => {
     const entry = ensureObject(value, `rewards.${key}`);
     output[key.toLowerCase()] = {
       status: ensureString(entry.status ?? 'eligible', `rewards.${key}.status`) as ContestRewardConfigEntry['status'],
-      payout: entry.payout ? ensureObject(entry.payout, `rewards.${key}.payout`) : undefined,
+      payout: parsePayoutDescriptor(entry.payout, `rewards.${key}.payout`),
       claimCall: entry.claimCall ? parseExecutionCall(entry.claimCall, `rewards.${key}.claimCall`) : undefined,
-      reason: entry.reason ? ensureObject(entry.reason, `rewards.${key}.reason`) : undefined,
+      reason: parsePlanRejectionReason(entry.reason, `rewards.${key}.reason`),
       derivedAt: parseBlockAnchor(entry.derivedAt ?? entry.anchor ?? entry.blockAnchor ?? {}, `rewards.${key}.derivedAt`)
     } satisfies ContestRewardConfigEntry;
   }
@@ -384,9 +461,9 @@ const parseRedemptionEntries = (raw: unknown): ContestDefinition['redemption'] =
     const entry = ensureObject(value, `redemption.${key}`);
     output[key.toLowerCase()] = {
       status: ensureString(entry.status ?? 'eligible', `redemption.${key}.status`) as ContestRedemptionConfigEntry['status'],
-      payout: entry.payout ? ensureObject(entry.payout, `redemption.${key}.payout`) : undefined,
+      payout: parsePayoutDescriptor(entry.payout, `redemption.${key}.payout`),
       redemptionCall: entry.redemptionCall ? parseExecutionCall(entry.redemptionCall, `redemption.${key}.redemptionCall`) : undefined,
-      reason: entry.reason ? ensureObject(entry.reason, `redemption.${key}.reason`) : undefined,
+      reason: parsePlanRejectionReason(entry.reason, `redemption.${key}.reason`),
       derivedAt: parseBlockAnchor(entry.derivedAt ?? entry.anchor ?? {}, `redemption.${key}.derivedAt`)
     } satisfies ContestRedemptionConfigEntry;
   }
@@ -402,12 +479,12 @@ const parseParticipants = (raw: unknown): Record<string, ContestParticipantProfi
   for (const [key, value] of Object.entries(source)) {
     const participant = ensureObject(value, `participants.${key}`);
     const lowerKey = key.toLowerCase();
-    const balances = participant.balances && typeof participant.balances === 'object' ? lowerKeyRecord(participant.balances as UnknownRecord) : {};
+    const balances = parseStringRecord(participant.balances, `participants.${key}.balances`);
     const allowancesRaw = participant.allowances && typeof participant.allowances === 'object' ? participant.allowances as UnknownRecord : {};
     const allowances: Record<string, Record<string, string>> = {};
     for (const [token, approvals] of Object.entries(allowancesRaw)) {
       const approvalRecord = ensureObject(approvals, `participants.${key}.allowances.${token}`);
-      allowances[token.toLowerCase()] = lowerKeyRecord(approvalRecord) as Record<string, string>;
+      allowances[token.toLowerCase()] = parseStringRecord(approvalRecord, `participants.${key}.allowances.${token}`);
     }
 
     output[lowerKey] = {
@@ -419,16 +496,24 @@ const parseParticipants = (raw: unknown): Record<string, ContestParticipantProfi
       cooldownEndsAt: ensureOptionalString(participant.cooldownEndsAt, `participants.${key}.cooldownEndsAt`),
       totalRebalanced: ensureOptionalString(participant.totalRebalanced, `participants.${key}.totalRebalanced`),
       rewardStatus: ensureOptionalString(participant.rewardStatus, `participants.${key}.rewardStatus`) as ContestParticipantProfile['rewardStatus'],
-      rewardPayout: participant.rewardPayout ? ensureObject(participant.rewardPayout, `participants.${key}.rewardPayout`) : undefined,
-      rewardReason: participant.rewardReason ? ensureObject(participant.rewardReason, `participants.${key}.rewardReason`) : undefined,
+      rewardPayout: parsePayoutDescriptor(participant.rewardPayout, `participants.${key}.rewardPayout`),
+      rewardReason: parsePlanRejectionReason(participant.rewardReason, `participants.${key}.rewardReason`),
       rewardCall: participant.rewardCall ? parseExecutionCall(participant.rewardCall, `participants.${key}.rewardCall`) : undefined,
       redemptionStatus: ensureOptionalString(participant.redemptionStatus, `participants.${key}.redemptionStatus`) as ContestParticipantProfile['redemptionStatus'],
-      redemptionPayout: participant.redemptionPayout ? ensureObject(participant.redemptionPayout, `participants.${key}.redemptionPayout`) : undefined,
-      redemptionReason: participant.redemptionReason ? ensureObject(participant.redemptionReason, `participants.${key}.redemptionReason`) : undefined,
+      redemptionPayout: parsePayoutDescriptor(participant.redemptionPayout, `participants.${key}.redemptionPayout`),
+      redemptionReason: parsePlanRejectionReason(participant.redemptionReason, `participants.${key}.redemptionReason`),
       redemptionCall: participant.redemptionCall ? parseExecutionCall(participant.redemptionCall, `participants.${key}.redemptionCall`) : undefined
     } satisfies ContestParticipantProfile;
   }
   return output;
+};
+
+const parseEventCursor = (raw: unknown, context: string): { blockNumber: bigint; logIndex: number } => {
+  const source = ensureObject(raw ?? {}, context);
+  return {
+    blockNumber: toBigInt(source.blockNumber, `${context}.blockNumber`),
+    logIndex: toNumber(source.logIndex, `${context}.logIndex`)
+  };
 };
 
 const parseEvents = (raw: unknown): ContestDefinition['events'] => {
@@ -439,9 +524,23 @@ const parseEvents = (raw: unknown): ContestDefinition['events'] => {
   if (!Array.isArray(source.events)) {
     return undefined;
   }
+  const events = source.events.map((entry, index) => {
+    const event = ensureObject(entry, `events[${index}]`);
+    const type = ensureString(event.type, `events[${index}].type`);
+    return {
+      type: type as ContestEventEnvelopeShape['type'],
+      blockNumber: toBigInt(event.blockNumber, `events[${index}].blockNumber`),
+      logIndex: toNumber(event.logIndex, `events[${index}].logIndex`),
+      txHash: ensureHex(event.txHash, `events[${index}].txHash`) ?? '0x',
+      cursor: parseEventCursor(event.cursor, `events[${index}].cursor`),
+      payload: event.payload ? ensureObject(event.payload, `events[${index}].payload`) : {},
+      reorgFlag: Boolean(event.reorgFlag),
+      derivedAt: parseBlockAnchor(event.derivedAt ?? {}, `events[${index}].derivedAt`)
+    };
+  });
   return {
-    events: source.events as readonly UnknownRecord[]
-  };
+    events
+  } satisfies ContestDefinition['events'];
 };
 
 const resolveDefinitionSource = (metadata: UnknownRecord): UnknownRecord => {
@@ -529,7 +628,7 @@ export const buildContestDefinition = async (
 
   await initDatabase();
 
-  const response = await database.queryContests({
+  const response = (await database.queryContests({
     selector: {
       items: [{ internalId: contestId }]
     },
@@ -542,7 +641,7 @@ export const buildContestDefinition = async (
       pageSize: 1,
       cursor: null
     }
-  });
+  })) as { items?: ContestAggregateRow[] };
 
   const aggregate = response.items?.[0];
   if (!aggregate || !aggregate.contest) {

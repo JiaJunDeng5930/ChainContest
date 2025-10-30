@@ -4,7 +4,8 @@ import { database } from '@/lib/db/client';
 import { httpErrors } from '@/lib/http/errors';
 import type {
   ContestCreationRequestRecord,
-  ContestDeploymentArtifactRecord
+  ContestDeploymentArtifactRecord,
+  OrganizerComponentRecord
 } from '@chaincontest/db';
 import type { ContestCreationReceipt } from '@chaincontest/chain';
 import { lowercaseAddress } from '@/lib/runtime/address';
@@ -98,10 +99,10 @@ const toContestPayload = async (
   networkId: number,
   payload: z.infer<typeof payloadSchema>
 ) => {
-  const [vaultComponent, priceSourceComponent] = await Promise.all([
+  const [vaultComponent, priceSourceComponent] = (await Promise.all([
     database.getOrganizerComponent({ userId, componentId: payload.vaultComponentId }),
     database.getOrganizerComponent({ userId, componentId: payload.priceSourceComponentId })
-  ]);
+  ])) as [OrganizerComponentRecord | null, OrganizerComponentRecord | null];
 
   if (!vaultComponent) {
     throw httpErrors.notFound('Vault component not found', {
@@ -198,35 +199,13 @@ const toContestPayload = async (
   };
 };
 
-const toArtifactRecord = (
-  requestId: string,
-  artifact: ContestDeploymentArtifact
-): ContestDeploymentArtifactRecord => ({
-  artifactId: 'pending',
-  requestId,
-  contestId: null,
-  networkId: artifact.networkId,
-  registrarAddress: artifact.registrarAddress ?? null,
-  treasuryAddress: artifact.treasuryAddress ?? null,
-  settlementAddress: artifact.settlementAddress ?? null,
-  rewardsAddress: artifact.rewardsAddress ?? null,
-  metadata: artifact.metadata ?? {},
-  contestId: null,
-  contestAddress: artifact.contestAddress,
-  vaultFactoryAddress: artifact.vaultFactoryAddress,
-  transactionHash: artifact.transactionHash ?? null,
-  confirmedAt: artifact.confirmedAt ? new Date(artifact.confirmedAt) : null,
-  createdAt: new Date(),
-  updatedAt: new Date()
-});
-
 export const deployContest = async (
   input: ContestDeploymentServiceInput
 ): Promise<ContestDeploymentServiceResult> => {
   const startedAt = Date.now();
   const parsedPayload = payloadSchema.safeParse(input.payload);
   if (!parsedPayload.success) {
-    throw httpErrors.validationFailed('Invalid contest deployment payload', {
+    throw httpErrors.badRequest('Invalid contest deployment payload', {
       detail: parsedPayload.error.flatten().fieldErrors
     });
   }
@@ -236,14 +215,14 @@ export const deployContest = async (
 
   const storedPayload = toSerializablePayload(parsedPayload.data);
 
-  const creation = await database.createContestCreationRequest({
+  const creation = (await database.createContestCreationRequest({
     userId: input.userId,
     networkId: input.networkId,
     payload: storedPayload,
     vaultComponentId: parsedPayload.data.vaultComponentId,
     priceSourceComponentId: parsedPayload.data.priceSourceComponentId,
     status: 'deploying'
-  });
+  })) as ContestCreationRequestRecord;
 
   const gateway = getCreationGateway();
 
@@ -264,7 +243,7 @@ export const deployContest = async (
     }
 
     let artifactRecord: ContestDeploymentArtifactRecord | null = null;
-    artifactRecord = await database.recordContestDeploymentArtifact({
+    artifactRecord = (await database.recordContestDeploymentArtifact({
       requestId: creation.request.requestId,
       contestId: null,
       networkId: receipt.artifact.networkId,
@@ -277,15 +256,15 @@ export const deployContest = async (
       transactionHash: receipt.artifact.transactionHash ?? null,
       confirmedAt: receipt.artifact.confirmedAt ? new Date(receipt.artifact.confirmedAt) : null,
       metadata: receipt.artifact.metadata ?? {}
-    });
+    })) as ContestDeploymentArtifactRecord;
 
-    const updated = await database.updateContestCreationRequestStatus({
+    const updated = (await database.updateContestCreationRequestStatus({
       requestId: creation.request.requestId,
       status: 'confirmed',
       transactionHash: receipt.artifact?.transactionHash ?? null,
       confirmedAt: receipt.artifact?.confirmedAt ? new Date(receipt.artifact.confirmedAt) : null,
       failureReason: null
-    });
+    })) as ContestCreationRequestRecord;
 
     logContestDeployment({
       status: 'confirmed',

@@ -5,10 +5,13 @@ import {
   isContestChainError,
   type ContestChainGateway,
   type ContestDefinition,
-  type ContestChainError
+  type ContestChainError,
+  type ContestChainDataProvider,
+  type GatewayValidationAdapter,
+  type RpcClientFactory,
+  type SignerLocator
 } from '@chaincontest/chain';
-import type { GatewayValidationAdapter } from '@chaincontest/chain/policies/validationContext';
-import type { RpcClientFactory, SignerLocator } from '@chaincontest/chain/adapters/rpcClientFactory';
+import type { ValidationContext } from '@chaincontest/shared-schemas';
 import { httpErrors } from '@/lib/http/errors';
 import { getLogger } from '@/lib/observability/logger';
 
@@ -30,14 +33,7 @@ const cacheKeyFor = (definition: ContestDefinition): string =>
   `${definition.contest.contestId}:${definition.contest.chainId}`;
 
 const noopValidationAdapter: GatewayValidationAdapter = {
-  context: {
-    registry: [],
-    activatedAt: undefined,
-    plan: {
-      orderedTypes: [],
-      entryByType: {}
-    }
-  } as unknown,
+  context: Object.freeze({}) as ValidationContext,
   validateRequest: () => Object.freeze({ status: 'success', validatedTypes: Object.freeze([]), firstError: null, metrics: undefined }),
   validateType: () => Object.freeze({ status: 'success', validatedTypes: Object.freeze([]), firstError: null, metrics: undefined }),
   assertValid: () => Object.freeze({ status: 'success', validatedTypes: Object.freeze([]), firstError: null, metrics: undefined }),
@@ -64,7 +60,7 @@ const stubSignerLocator: SignerLocator = async () => {
 };
 
 const createGateway = (definition: ContestDefinition): GatewayCacheEntry => {
-  const provider = createInMemoryContestDataProvider([definition]) as unknown as {
+  const provider = createInMemoryContestDataProvider([definition]) as ContestChainDataProvider & {
     register: (payload: ContestDefinition) => void;
   };
 
@@ -163,4 +159,3 @@ export const withContestGateway = async <T>(
     throw error;
   }
 };
-

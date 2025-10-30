@@ -1,7 +1,8 @@
-import type { Pool } from 'pg';
 import { getConnectionPool, isInitialised, shutdown } from '@chaincontest/db';
 
-export const getPool = (): Pool => {
+type DbPool = ReturnType<typeof getConnectionPool>;
+
+export const getPool = (): DbPool => {
   if (!isInitialised()) {
     throw new Error('packages/db has not been initialised');
   }
@@ -16,4 +17,3 @@ export const resetPool = async (): Promise<void> => {
 
   await shutdown();
 };
-

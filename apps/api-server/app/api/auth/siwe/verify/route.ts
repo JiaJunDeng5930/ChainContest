@@ -7,7 +7,7 @@ import { z } from 'zod';
 import { getEnv } from '@/lib/config/env';
 import { getAuthAdapter, SESSION_COOKIE, SESSION_MAX_AGE_SECONDS } from '@/lib/auth/config';
 import { initDatabase } from '@/lib/db/client';
-import { httpErrors, toErrorResponse } from '@/lib/http/errors';
+import { httpErrors } from '@/lib/http/errors';
 import { enforceRateLimit } from '@/lib/middleware/rateLimit';
 import { getRequestLogger } from '@/lib/observability/logger';
 import { siweNonceCookie } from '@/app/api/auth/siwe/start/route';
@@ -40,7 +40,8 @@ const adapterUserSchema = z
   .object({
     id: z.string(),
     name: z.string().nullable().optional(),
-    email: z.string().nullable().optional()
+    email: z.string().nullable().optional(),
+    emailVerified: z.coerce.date().nullable().optional()
   })
   .catchall(z.unknown());
 
@@ -245,6 +246,4 @@ export async function POST(request: NextRequest): Promise<Response> {
   }
 }
 
-export const config = {
-  runtime: 'nodejs'
-};
+export const runtime = 'nodejs';

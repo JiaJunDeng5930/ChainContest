@@ -1,4 +1,5 @@
 import type {
+  BlockAnchorShape,
   ExecutionCallShape,
   RegistrationPlan,
   RebalancePlan,
@@ -42,9 +43,7 @@ const formatBlockNumber = (value: bigint | undefined): number | string | undefin
   return Number.isSafeInteger(asNumber) ? asNumber : value.toString();
 };
 
-const normalizeDerivedAt = (
-  anchor: RegistrationPlan['derivedAt'] | RebalancePlan['derivedAt'] | SettlementResult['frozenAt'] | RewardClaimResult['derivedAt'] | RedemptionResult['derivedAt']
-) => ({
+const normalizeDerivedAt = (anchor: BlockAnchorShape) => ({
   blockNumber: formatBlockNumber(anchor.blockNumber),
   blockHash: anchor.blockHash,
   timestamp: anchor.timestamp
@@ -89,6 +88,12 @@ const normalizeExecutionCall = (call: ExecutionCallShape | undefined) => {
     return undefined;
   }
 
+  const extras = call as ExecutionCallShape & {
+    gasPrice?: IntegerLike;
+    deadline?: string;
+    route?: unknown;
+  };
+
   return {
     to: call.to,
     data: call.data,
@@ -96,9 +101,9 @@ const normalizeExecutionCall = (call: ExecutionCallShape | undefined) => {
     gasLimit: formatInteger(call.gasLimit),
     maxFeePerGas: formatInteger(call.maxFeePerGas),
     maxPriorityFeePerGas: formatInteger(call.maxPriorityFeePerGas),
-    gasPrice: formatInteger((call as Record<string, unknown>).gasPrice),
-    deadline: (call as Record<string, unknown>).deadline,
-    route: (call as Record<string, unknown>).route
+    gasPrice: formatInteger(extras.gasPrice),
+    deadline: extras.deadline,
+    route: extras.route
   };
 };
 
@@ -179,10 +184,11 @@ export const rewardClaimResponse = (result: RewardClaimResult): Response => {
 };
 
 export const redemptionResponse = (result: RedemptionResult): Response => {
+  const legacy = result as RedemptionResult & { redemptionCall?: ExecutionCallShape };
   return jsonResponse({
     status: result.status,
     payout: result.payout ?? undefined,
-    claimCall: normalizeExecutionCall(result.claimCall ?? result.redemptionCall),
+    claimCall: normalizeExecutionCall(result.claimCall ?? legacy.redemptionCall),
     reason: result.reason ?? undefined,
     derivedAt: normalizeDerivedAt(result.derivedAt)
   });

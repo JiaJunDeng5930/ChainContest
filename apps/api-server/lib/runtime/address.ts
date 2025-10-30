@@ -1,5 +1,6 @@
-import type { Address } from 'viem';
 import { lowercaseAddress as chainLowercaseAddress } from '@chaincontest/chain';
+
+type Address = `0x${string}`;
 
 export const lowercaseAddress = (value: string): string => {
   try {

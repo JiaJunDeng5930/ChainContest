@@ -2,6 +2,7 @@ import { z } from 'zod';
 import { getEnv } from '@/lib/config/env';
 import { database, initDatabase } from '@/lib/db/client';
 import { httpErrors } from '@/lib/http/errors';
+import type { QueryContestsResponse } from '@chaincontest/db';
 
 export interface RuntimeContractDescriptor {
   id: string;
@@ -110,7 +111,7 @@ const ANY_STATUS_FILTER = ['registered', 'active', 'sealed', 'settled'] as const
 const fetchRuntimeConfigFromDatabase = async (): Promise<RuntimeConfigRecord | null> => {
   await initDatabase();
 
-  const response = await database.queryContests({
+  const response = (await database.queryContests({
     selector: {
       filter: {
         statuses: [...ANY_STATUS_FILTER]
@@ -121,10 +122,10 @@ const fetchRuntimeConfigFromDatabase = async (): Promise<RuntimeConfigRecord | n
       pageSize: 1,
       cursor: null
     }
-  });
+  })) as QueryContestsResponse;
 
   for (const aggregate of response.items ?? []) {
-    const metadata = (aggregate.contest?.metadata ?? {}) as Record<string, unknown>;
+    const metadata = aggregate.contest?.metadata ?? {};
     const candidate = metadata.runtimeConfig ?? metadata.runtime ?? null;
     if (!candidate) {
       continue;

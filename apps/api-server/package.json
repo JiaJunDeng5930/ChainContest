@@ -12,6 +12,7 @@
     "test": "vitest run"
   },
   "dependencies": {
+    "@auth/core": "0.34.2",
     "@auth/pg-adapter": "^1.3.0",
     "@chaincontest/chain": "workspace:*",
     "@chaincontest/db": "workspace:*",

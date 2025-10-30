@@ -26,17 +26,20 @@ export const createRouteRequest = (path: string, init: RouteTestInit = {}): Next
     requestHeaders.set('cookie', serialized);
   }
 
-  const requestInit: RequestInit & { duplex?: 'half' } = {
+  const requestInit: RequestInit = {
     method,
-    headers: requestHeaders
+    headers: requestHeaders,
+    body: body !== undefined ? JSON.stringify(body) : undefined
   };
 
-  if (body !== undefined) {
-    requestInit.body = JSON.stringify(body);
-    requestInit.duplex = 'half';
-  }
+  type NextRequestInit = Omit<RequestInit, 'signal'> & { signal?: AbortSignal };
+  const nextInit: NextRequestInit = {
+    method: requestInit.method,
+    headers: requestInit.headers,
+    body: requestInit.body
+  };
 
-  return new NextRequest(targetUrl, requestInit);
+  return new NextRequest(targetUrl, nextInit);
 };
 
 export const getCookieValue = (setCookieHeader: string | null, name: string): string | undefined => {

@@ -204,7 +204,7 @@ const mapContestAggregate = (aggregate: ContestAggregate): ContestSnapshot => {
     throw httpErrors.internal('Contest aggregate missing contest payload');
   }
 
-  const metadata = (contest.metadata ?? {}) as Record<string, unknown>;
+  const metadata = contest.metadata ?? {};
 
   const derivedAt = parseDerivedAt(metadata);
   const prizePool = parsePrizePool(metadata);
@@ -226,7 +226,7 @@ const mapContestAggregate = (aggregate: ContestAggregate): ContestSnapshot => {
 
 const queryContests = async (params: Parameters<typeof database.queryContests>[0]): Promise<QueryContestsResponse> => {
   await initDatabase();
-  return database.queryContests(params);
+  return (await database.queryContests(params)) as QueryContestsResponse;
 };
 
 export const listContests = async (filters: ContestListFilters): Promise<ContestListResult> => {

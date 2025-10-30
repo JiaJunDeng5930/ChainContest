@@ -1,7 +1,9 @@
 import { z } from 'zod';
 import { httpErrors } from '@/lib/http/errors';
 import { database } from '@/lib/db/client';
-import type { OrganizerComponentRecord, OrganizerComponentStatus } from '@chaincontest/db';
+import type { OrganizerComponentRecord } from '@chaincontest/db';
+
+type OrganizerComponentStatus = 'pending' | 'confirmed' | 'failed';
 
 const statusEnum = z.enum(['pending', 'confirmed', 'failed']);
 
@@ -41,13 +43,13 @@ export const listOrganizerComponents = async (
   });
 
   if (!parsed.success) {
-    throw httpErrors.validationFailed('Invalid component listing parameters', {
+    throw httpErrors.badRequest('Invalid component listing parameters', {
       detail: parsed.error.flatten().fieldErrors
     });
   }
 
   const request = parsed.data;
-  const response = await database.listOrganizerComponents({
+  const response = (await database.listOrganizerComponents({
     userId: request.userId,
     networkId: request.networkId,
     componentType: request.componentType,
@@ -56,7 +58,7 @@ export const listOrganizerComponents = async (
       pageSize: request.pageSize,
       cursor: request.cursor ?? null
     }
-  });
+  })) as ListOrganizerComponentsOutput;
 
   return response;
 };

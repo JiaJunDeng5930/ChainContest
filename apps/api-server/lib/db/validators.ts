@@ -1,5 +1,5 @@
 import { z, type ZodType } from 'zod';
-import type { ValidationContextOptions, ValidationRegistry } from '@chaincontest/shared-schemas';
+import type { ValidationContextOptions } from '@chaincontest/shared-schemas';
 
 /* eslint-disable @typescript-eslint/no-unsafe-assignment */
 
@@ -8,10 +8,29 @@ const supportedChainIds = [1, 5, 10, 11155111, 42161] as const;
 const contestStatusValues = ['registered', 'active', 'sealed', 'settled'] as const;
 const contestOriginValues = ['factory', 'imported'] as const;
 
+const toMutableEnumValues = <T extends readonly string[]>(values: T): [T[number], ...T[number][]] =>
+  values as unknown as [T[number], ...T[number][]];
+
+type DbValidationRegistryEntry = {
+  readonly typeKey: string;
+  readonly kind: 'atomic' | 'composite';
+  readonly dependencies: readonly string[];
+  readonly rule: {
+    readonly description: string;
+    readonly failureMessage: string;
+    readonly schema?: ZodType<unknown>;
+    readonly composite?: (context: unknown) => void;
+    readonly parameters?: Record<string, unknown>;
+  };
+  readonly metadata?: Record<string, unknown>;
+};
+
+type DbValidationRegistry = readonly DbValidationRegistryEntry[];
+
 const actorContextSchema = z
   .object({
     actorId: z.string().min(1).optional(),
-    source: z.enum(walletSourceValues as [typeof walletSourceValues[number], ...typeof walletSourceValues[number][]]).optional(),
+    source: z.enum(toMutableEnumValues(walletSourceValues)).optional(),
     reason: z.string().optional()
   })
   .catchall(z.unknown());
@@ -120,8 +139,8 @@ const contestDomainWriteSchema = z.discriminatedUnion('action', [
       chainId: z.number().int().positive(),
       contractAddress: z.string().regex(/^0x[a-fA-F0-9]{40}$/),
       internalKey: z.string().min(1).optional().nullable(),
-      status: z.enum(contestStatusValues as [typeof contestStatusValues[number], ...typeof contestStatusValues[number][]]).optional(),
-      originTag: z.enum(contestOriginValues as [typeof contestOriginValues[number], ...typeof contestOriginValues[number][]]).optional(),
+      status: z.enum(toMutableEnumValues(contestStatusValues)).optional(),
+      originTag: z.enum(toMutableEnumValues(contestOriginValues)).optional(),
       timeWindow: z.object({
         start: z.string().min(1),
         end: z.string().min(1)
@@ -320,15 +339,14 @@ const registry = [
       schema: ingestionEventSchema as ZodType<unknown>
     }
   }
-// Ensure the literal conforms to ValidationRegistry without widening item types.
-] satisfies ValidationRegistry;
+] satisfies DbValidationRegistry;
 
 export interface BuildValidatorOptionsParams {
   environmentId?: string;
 }
 
 export interface ValidatorRegistrationOptions {
-  registry: ValidationRegistry;
+  registry: DbValidationRegistry;
   overrides?: ValidationContextOptions['environmentOverrides'];
   environmentId?: string;
 }

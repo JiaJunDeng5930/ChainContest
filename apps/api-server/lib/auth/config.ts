@@ -1,4 +1,4 @@
-import type { Adapter } from '@auth/core/adapters';
+import type { Adapter, AdapterSession, AdapterUser } from '@auth/core/adapters';
 import PostgresAdapter from '@auth/pg-adapter';
 import type { NextAuthOptions } from 'next-auth';
 import CredentialsProvider from 'next-auth/providers/credentials';
@@ -15,6 +15,10 @@ const SESSION_COOKIE_BASE_NAME = 'cc_session';
 const DEFAULT_SESSION_MAX_AGE_SECONDS = 60 * 60 * 24 * 7; // 7 days
 const DEFAULT_SESSION_UPDATE_AGE_SECONDS = 60 * 60 * 6; // 6 hours
 const DEFAULT_SESSION_RENEW_THRESHOLD_MS = 1000 * 60 * 15; // 15 minutes
+
+type ExtendedNextAuthOptions = NextAuthOptions & {
+  trustHost?: boolean;
+};
 
 const sessionCookieName = isProduction
   ? `__Secure-${SESSION_COOKIE_BASE_NAME}`
@@ -82,8 +86,10 @@ const credentialsProvider = CredentialsProvider({
     const normalizedAddress = checksumAddress.toLowerCase();
 
     return {
+      id: normalizedAddress,
       name: checksumAddress,
       email: `${normalizedAddress}@wallet.chaincontest`,
+      emailVerified: null,
       walletAddress: normalizedAddress,
       addressChecksum: checksumAddress
     };
@@ -121,25 +127,46 @@ const normalizeSessionExpiry = <T extends { expires?: Date | string | number | n
   return session;
 };
 
-const authAdapter: Adapter = {
+const authAdapter = {
   ...baseAdapter,
-  async getSession(sessionToken) {
-    const session = await baseAdapter.getSession?.(sessionToken);
-    return normalizeSessionExpiry(session); 
-  },
-  async getSessionAndUser(sessionToken) {
-    const result = await baseAdapter.getSessionAndUser?.(sessionToken);
-    if (!result) {
-      return result;
+  async getSession(sessionToken: string) {
+    const extendedAdapter = baseAdapter as Adapter & {
+      getSession?: (sessionToken: string) => Promise<AdapterSession | null>;
+      getSessionAndUser?: (
+        sessionToken: string
+      ) => Promise<{ session: AdapterSession; user: AdapterUser } | null>;
+    };
+    if (!extendedAdapter.getSession) {
+      return null;
     }
+    const session = await extendedAdapter.getSession(sessionToken);
+    const normalized = normalizeSessionExpiry(session);
+    return normalized ?? null;
+  },
+  async getSessionAndUser(sessionToken: string) {
+    const extendedAdapter = baseAdapter as Adapter & {
+      getSession?: (sessionToken: string) => Promise<AdapterSession | null>;
+      getSessionAndUser?: (
+        sessionToken: string
+      ) => Promise<{ session: AdapterSession; user: AdapterUser } | null>;
+    };
+    if (!extendedAdapter.getSessionAndUser) {
+      return null;
+    }
+    const result = await extendedAdapter.getSessionAndUser(sessionToken);
+    if (!result) {
+      return null;
+    }
+
+    const normalizedSession = normalizeSessionExpiry(result.session);
     return {
-      ...result,
-      session: normalizeSessionExpiry(result.session)
+      session: normalizedSession ?? result.session,
+      user: result.user
     };
   }
-};
+} as Adapter;
 
-export const authOptions: NextAuthOptions = {
+export const authOptions: ExtendedNextAuthOptions = {
   adapter: authAdapter,
   secret: env.nextAuth.secret,
   trustHost: true,
@@ -155,7 +182,7 @@ export const authOptions: NextAuthOptions = {
   providers: [credentialsProvider],
   callbacks: {
     session({ session, user }) {
-      const expires = session.expires instanceof Date ? session.expires : new Date(session.expires);
+      const expiresDate = new Date(session.expires ?? Date.now());
       const checksumAddress = (user as { addressChecksum?: string; name?: string }).addressChecksum ?? user?.name ?? '';
       if (!checksumAddress) {
         throw new Error('Session construction failed: wallet address missing');
@@ -174,7 +201,7 @@ export const authOptions: NextAuthOptions = {
       };
       return {
         ...session,
-        expires,
+        expires: expiresDate.toISOString(),
         user: enrichedUser
       };
     },

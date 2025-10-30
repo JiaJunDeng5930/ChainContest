@@ -149,8 +149,8 @@ export const normalizeError = (error: unknown): NormalizedHttpError => {
   }
 
   if (isDbError(error)) {
-    const status = DB_ERROR_STATUS[error.code];
-    const code = DB_ERROR_CODE[error.code];
+    const status = DB_ERROR_STATUS[error.code] ?? 500;
+    const code = DB_ERROR_CODE[error.code] ?? 'internal_error';
     const expose = status < 500;
     return {
       status,
