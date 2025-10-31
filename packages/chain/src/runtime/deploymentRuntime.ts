@@ -15,12 +15,20 @@ export interface DeploymentRuntime {
   readonly createWalletClient: (chain: Chain) => WalletClient;
 }
 
+const HARDHAT_DEFAULT_PRIVATE_KEY =
+  '0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80';
+
 const normalizePrivateKey = (raw?: string): string => {
   const key = raw ?? process.env.DEPLOYER_PRIVATE_KEY;
-  if (!key || key.trim().length === 0) {
-    throw new Error('Missing DEPLOYER_PRIVATE_KEY for deployment runtime.');
+  if (key && key.trim().length > 0) {
+    return key.startsWith('0x') ? key : `0x${key}`;
   }
-  return key.startsWith('0x') ? key : `0x${key}`;
+
+  if (process.env.NODE_ENV !== 'production') {
+    return HARDHAT_DEFAULT_PRIVATE_KEY;
+  }
+
+  throw new Error('Missing DEPLOYER_PRIVATE_KEY for deployment runtime.');
 };
 
 const defaultRpcMap = (): Record<number, readonly string[]> => {
