@@ -7,7 +7,7 @@ import { z } from 'zod';
 import { getEnv } from '@/lib/config/env';
 import { getAuthAdapter, SESSION_COOKIE, SESSION_MAX_AGE_SECONDS } from '@/lib/auth/config';
 import { initDatabase } from '@/lib/db/client';
-import { httpErrors } from '@/lib/http/errors';
+import { httpErrors, toErrorResponse } from '@/lib/http/errors';
 import { enforceRateLimit } from '@/lib/middleware/rateLimit';
 import { getRequestLogger } from '@/lib/observability/logger';
 import { siweNonceCookie } from '@/app/api/auth/siwe/start/route';
@@ -242,7 +242,10 @@ export async function POST(request: NextRequest): Promise<Response> {
       }
     }
 
-    throw error;
+    const normalized = toErrorResponse(error);
+    const response = NextResponse.json(normalized.body, { status: normalized.status });
+    Object.entries(normalized.headers).forEach(([key, value]) => response.headers.set(key, value));
+    return response;
   }
 }
 
