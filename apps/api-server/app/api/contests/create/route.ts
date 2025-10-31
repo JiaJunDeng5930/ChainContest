@@ -7,6 +7,7 @@ import { httpErrors, HttpError, toErrorResponse } from '@/lib/http/errors';
 import { enforceRateLimit } from '@/lib/middleware/rateLimit';
 import { deployContest } from '@/lib/contests/deploymentService';
 import type { ContestCreationRequestRecord, ContestDeploymentArtifactRecord } from '@chaincontest/db';
+import { applyCorsHeaders, handleCorsPreflight } from '@/lib/http/cors';
 
 const getClientIp = (request: NextRequest): string | null => {
   return request.headers.get('x-forwarded-for') ?? request.ip ?? null;
@@ -138,20 +139,25 @@ export const POST = async (request: NextRequest): Promise<Response> => {
 
     const response = NextResponse.json(body, { status: 201 });
     response.headers.set('Cache-Control', 'no-store');
+    applyCorsHeaders(response, request);
     return response;
   } catch (error) {
     if (error instanceof SessionNotFoundError) {
       const normalized = toErrorResponse(httpErrors.unauthorized('No active session'));
       const response = NextResponse.json(normalized.body, { status: normalized.status });
       Object.entries(normalized.headers).forEach(([key, value]) => response.headers.set(key, value));
+      applyCorsHeaders(response, request);
       return response;
     }
 
     const normalized = toErrorResponse(error);
     const response = NextResponse.json(normalized.body, { status: normalized.status });
     Object.entries(normalized.headers).forEach(([key, value]) => response.headers.set(key, value));
+    applyCorsHeaders(response, request);
     return response;
   }
 };
 
 export const runtime = 'nodejs';
+
+export const OPTIONS = (request: NextRequest): Response => handleCorsPreflight(request);
