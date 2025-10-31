@@ -53,7 +53,12 @@ const DEFAULT_OPTIONS: Pick<ApiRequestInit, "credentials" | "parseResponse"> = {
 };
 
 const resolveBrowserBaseUrl = (): string => {
-  return "";
+  if (typeof window === "undefined") {
+    return "";
+  }
+
+  const apiBaseUrl = (window as typeof window & { __CHAINCONTEST_API_BASE_URL?: string }).__CHAINCONTEST_API_BASE_URL;
+  return typeof apiBaseUrl === "string" ? apiBaseUrl : "";
 };
 
 const getDefaultBaseUrl = (): string => {
