@@ -59,6 +59,10 @@ export async function GET(request: NextRequest): Promise<Response> {
     }
 
     const expiresAt = normalizeExpires(sessionRecord.session);
+    if (expiresAt.getTime() <= Date.now()) {
+      await adapter.deleteSession?.(sessionToken);
+      throw httpErrors.unauthorized('Session expired');
+    }
     const { walletAddress, addressChecksum } = adaptUser(sessionRecord.user);
     const needsRefresh = expiresAt.getTime() - Date.now() <= SESSION_RENEW_THRESHOLD_MS;
 
