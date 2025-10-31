@@ -250,6 +250,7 @@ export default function CreateContestForm() {
       settlementWindow: "3600",
       maxParticipants: "1000",
       topK: "10",
+      initialPrizeAmount: "0",
       payoutSchedule: "6000,3000,1000"
     }
   });

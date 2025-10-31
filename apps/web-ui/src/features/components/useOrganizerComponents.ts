@@ -1,6 +1,7 @@
 'use client';
 
 import { useQuery, type UseQueryResult } from "@tanstack/react-query";
+import { apiClient, ApiError } from "../../lib/api/client";
 
 export interface OrganizerComponentQuery {
   type?: "vault_implementation" | "price_source";
@@ -59,21 +60,23 @@ const buildRequestUrl = (query: OrganizerComponentQuery): string => {
 
 const fetchOrganizerComponents = async (query: OrganizerComponentQuery): Promise<OrganizerComponentList> => {
   const endpoint = buildRequestUrl(query);
-  const response = await fetch(endpoint, {
-    method: "GET",
-    headers: {
-      "Accept": "application/json"
+
+  try {
+    return await apiClient.get<OrganizerComponentList>(endpoint);
+  } catch (error) {
+    if (error instanceof ApiError) {
+      const body = (error.body && typeof error.body === "object" ? error.body : {}) as {
+        message?: unknown;
+      };
+      const message =
+        typeof body.message === "string"
+          ? body.message
+          : error.statusText || `Request failed with status ${error.status}`;
+      throw new Error(message);
     }
-  });
 
-  if (!response.ok) {
-    const errorBody = (await response.json().catch(() => ({ message: response.statusText }))) as Record<string, unknown>;
-    const message = typeof errorBody.message === "string" ? errorBody.message : response.statusText;
-    throw new Error(message);
+    throw error;
   }
-
-  const payload = (await response.json()) as OrganizerComponentList;
-  return payload;
 };
 
 export const useOrganizerComponents = (

@@ -1,6 +1,7 @@
 import type { NextRequest } from 'next/server';
 import { NextResponse } from 'next/server';
 import { requireSession, SessionNotFoundError } from '@/lib/auth/session';
+import { initDatabase } from '@/lib/db/client';
 import { httpErrors, toErrorResponse } from '@/lib/http/errors';
 import { listOrganizerComponents } from '@/lib/organizer/components/list';
 
@@ -27,6 +28,7 @@ const parseQuery = (request: NextRequest) => {
 export const GET = async (request: NextRequest): Promise<Response> => {
   try {
     const session = await requireSession();
+    await initDatabase();
     const filters = parseQuery(request);
 
     const result = await listOrganizerComponents({

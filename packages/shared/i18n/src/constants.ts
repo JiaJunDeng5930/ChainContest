@@ -32,6 +32,12 @@ export const CHAIN_METADATA = {
     shortNameKey: "chains.1.shortName",
     nativeCurrencySymbol: "ETH"
   },
+  31337: {
+    id: 31337,
+    nameKey: "chains.31337.name",
+    shortNameKey: "chains.31337.shortName",
+    nativeCurrencySymbol: "ETH"
+  },
   11155111: {
     id: 11155111,
     nameKey: "chains.11155111.name",
