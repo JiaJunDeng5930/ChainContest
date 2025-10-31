@@ -4,6 +4,7 @@ import { z } from 'zod';
 import { requireSession, SessionNotFoundError } from '@/lib/auth/session';
 import { httpErrors, HttpError, toErrorResponse } from '@/lib/http/errors';
 import { deployOrganizerComponent } from '@/lib/organizer/components/deploy';
+import { applyCorsHeaders } from '@/lib/http/cors';
 
 const requestSchema = z.object({
   networkId: z.union([
@@ -69,18 +70,21 @@ export const POST = async (request: NextRequest): Promise<Response> => {
 
     const response = NextResponse.json(responseBody, { status: 202 });
     response.headers.set('Cache-Control', 'no-store');
+    applyCorsHeaders(response, request);
     return response;
   } catch (error) {
     if (error instanceof SessionNotFoundError) {
       const normalized = toErrorResponse(httpErrors.unauthorized('No active session'));
       const response = NextResponse.json(normalized.body, { status: normalized.status });
       response.headers.set('Cache-Control', 'no-store');
+      applyCorsHeaders(response, request);
       return response;
     }
 
     const normalized = toErrorResponse(error);
     const response = NextResponse.json(normalized.body, { status: normalized.status });
     response.headers.set('Cache-Control', 'no-store');
+    applyCorsHeaders(response, request);
     return response;
   }
 };

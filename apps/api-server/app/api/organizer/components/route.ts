@@ -4,6 +4,7 @@ import { requireSession, SessionNotFoundError } from '@/lib/auth/session';
 import { initDatabase } from '@/lib/db/client';
 import { httpErrors, toErrorResponse } from '@/lib/http/errors';
 import { listOrganizerComponents } from '@/lib/organizer/components/list';
+import { applyCorsHeaders } from '@/lib/http/cors';
 
 const parseQuery = (request: NextRequest) => {
   const params = request.nextUrl.searchParams;
@@ -42,18 +43,21 @@ export const GET = async (request: NextRequest): Promise<Response> => {
 
     const response = NextResponse.json(result, { status: 200 });
     response.headers.set('Cache-Control', 'no-store');
+    applyCorsHeaders(response, request);
     return response;
   } catch (error) {
     if (error instanceof SessionNotFoundError) {
       const normalized = toErrorResponse(httpErrors.unauthorized('No active session'));
       const response = NextResponse.json(normalized.body, { status: normalized.status });
       response.headers.set('Cache-Control', 'no-store');
+      applyCorsHeaders(response, request);
       return response;
     }
 
     const normalized = toErrorResponse(error);
     const response = NextResponse.json(normalized.body, { status: normalized.status });
     response.headers.set('Cache-Control', 'no-store');
+    applyCorsHeaders(response, request);
     return response;
   }
 };
