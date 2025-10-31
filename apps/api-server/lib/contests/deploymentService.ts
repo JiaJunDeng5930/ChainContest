@@ -233,46 +233,56 @@ export const deployContest = async (
       payload: chainPayload
     });
 
-    if (receipt.status !== 'confirmed' || !receipt.artifact) {
+    let artifactRecord: ContestDeploymentArtifactRecord | null = null;
+
+    if (receipt.artifact) {
+      const artifactMetadata = {
+        ...(receipt.artifact.metadata ?? {}),
+        contestBytes32: parsedPayload.data.contestId
+      };
+
+      artifactRecord = (await database.recordContestDeploymentArtifact({
+        requestId: creation.request.requestId,
+        contestId: null,
+        networkId: receipt.artifact.networkId,
+        contestAddress: receipt.artifact.contestAddress,
+        vaultFactoryAddress: receipt.artifact.vaultFactoryAddress,
+        registrarAddress: receipt.artifact.registrarAddress,
+        treasuryAddress: receipt.artifact.treasuryAddress,
+        settlementAddress: receipt.artifact.settlementAddress,
+        rewardsAddress: receipt.artifact.rewardsAddress,
+        transactionHash: receipt.artifact.transactionHash ?? null,
+        confirmedAt: receipt.artifact.confirmedAt ? new Date(receipt.artifact.confirmedAt) : null,
+        metadata: artifactMetadata
+      })) as ContestDeploymentArtifactRecord;
+    }
+
+    const nextStatus =
+      receipt.status === 'confirmed'
+        ? 'confirmed'
+        : receipt.status === 'failed'
+          ? 'failed'
+          : 'deploying';
+
+    if (nextStatus === 'failed') {
       throw httpErrors.conflict('Contest deployment did not complete successfully', {
         detail: {
           status: receipt.status,
-          hasArtifact: Boolean(receipt.artifact)
+          reason: receipt.reason ?? null
         }
       });
     }
 
-    let artifactRecord: ContestDeploymentArtifactRecord | null = null;
-    const artifactMetadata = {
-      ...(receipt.artifact.metadata ?? {}),
-      contestBytes32: parsedPayload.data.contestId
-    };
-
-    artifactRecord = (await database.recordContestDeploymentArtifact({
-      requestId: creation.request.requestId,
-      contestId: null,
-      networkId: receipt.artifact.networkId,
-      contestAddress: receipt.artifact.contestAddress,
-      vaultFactoryAddress: receipt.artifact.vaultFactoryAddress,
-      registrarAddress: receipt.artifact.registrarAddress,
-      treasuryAddress: receipt.artifact.treasuryAddress,
-      settlementAddress: receipt.artifact.settlementAddress,
-      rewardsAddress: receipt.artifact.rewardsAddress,
-      transactionHash: receipt.artifact.transactionHash ?? null,
-      confirmedAt: receipt.artifact.confirmedAt ? new Date(receipt.artifact.confirmedAt) : null,
-      metadata: artifactMetadata
-    })) as ContestDeploymentArtifactRecord;
-
     const updated = (await database.updateContestCreationRequestStatus({
       requestId: creation.request.requestId,
-      status: 'confirmed',
+      status: nextStatus === 'deploying' ? receipt.status : nextStatus,
       transactionHash: receipt.artifact?.transactionHash ?? null,
       confirmedAt: receipt.artifact?.confirmedAt ? new Date(receipt.artifact.confirmedAt) : null,
       failureReason: null
     })) as ContestCreationRequestRecord;
 
     logContestDeployment({
-      status: 'confirmed',
+      status: nextStatus === 'deploying' ? receipt.status : nextStatus,
       networkId: input.networkId,
       organizer: organizerAddress,
       requestId: creation.request.requestId,
