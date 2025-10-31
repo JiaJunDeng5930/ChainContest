@@ -18,6 +18,7 @@ export const GET = async (request: NextRequest): Promise<Response> => {
     if (!runtimeConfig) {
       const response = new NextResponse(null, { status: 204 });
       response.headers.set('Cache-Control', 'no-store');
+      applyCorsHeaders(response, request);
       return response;
     }
 
