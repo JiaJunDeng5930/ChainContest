@@ -5,6 +5,7 @@ import { enforceRateLimit } from '@/lib/middleware/rateLimit';
 import { getRequestLogger } from '@/lib/observability/logger';
 import { invalidateSession, requireSession, SessionNotFoundError } from '@/lib/auth/session';
 import { SESSION_COOKIE } from '@/lib/auth/config';
+import { applyCorsHeaders, handleCorsPreflight } from '@/lib/http/cors';
 
 const getClientIp = (request: NextRequest): string | null => {
   return request.headers.get('x-forwarded-for') ?? request.ip ?? null;
@@ -48,6 +49,7 @@ export async function POST(request: NextRequest): Promise<Response> {
     const response = new NextResponse(null, { status: 204 });
     response.headers.set('Cache-Control', 'no-store');
     clearSessionCookie(response);
+    applyCorsHeaders(response, request);
 
     logger.info({ logout: true }, 'Session terminated');
 
@@ -57,8 +59,11 @@ export async function POST(request: NextRequest): Promise<Response> {
     const response = NextResponse.json(normalized.body, { status: normalized.status });
     normalized.headers && Object.entries(normalized.headers).forEach(([key, value]) => response.headers.set(key, value));
     response.headers.set('Cache-Control', 'no-store');
+    applyCorsHeaders(response, request);
     return response;
   }
 }
 
 export const runtime = 'nodejs';
+
+export const OPTIONS = (request: NextRequest): Response => handleCorsPreflight(request);

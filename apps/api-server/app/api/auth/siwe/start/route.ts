@@ -7,6 +7,7 @@ import { HttpError, toErrorResponse } from '@/lib/http/errors';
 import { enforceRateLimit } from '@/lib/middleware/rateLimit';
 import { getRequestLogger } from '@/lib/observability/logger';
 import { SESSION_COOKIE } from '@/lib/auth/config';
+import { applyCorsHeaders, handleCorsPreflight } from '@/lib/http/cors';
 
 const NONCE_COOKIE = 'cc_siwe_nonce';
 const NONCE_TTL_MS = 5 * 60 * 1000;
@@ -73,11 +74,13 @@ export async function POST(request: NextRequest): Promise<Response> {
       'Issued SIWE nonce'
     );
 
+    applyCorsHeaders(response, request);
     return response;
   } catch (error) {
     const normalized = toErrorResponse(error);
     const response = NextResponse.json(normalized.body, { status: normalized.status });
     normalized.headers && Object.entries(normalized.headers).forEach(([key, value]) => response.headers.set(key, value));
+    applyCorsHeaders(response, request);
     return response;
   }
 }
@@ -85,3 +88,5 @@ export async function POST(request: NextRequest): Promise<Response> {
 export const runtime = 'nodejs';
 
 export const siweNonceCookie = NONCE_COOKIE;
+
+export const OPTIONS = (request: NextRequest): Response => handleCorsPreflight(request);
