@@ -25,20 +25,29 @@ const sessionCookieName = isProduction
   : SESSION_COOKIE_BASE_NAME;
 
 let resolvedAdapter: Adapter | null = null;
+let adapterPromise: Promise<Adapter> | null = null;
 
-const adapterPromise: Promise<Adapter> = (async () => {
+const createAdapter = async (): Promise<Adapter> => {
   await initDatabase();
   const adapter = PostgresAdapter(getPool());
   resolvedAdapter = adapter;
   return adapter;
-})();
+};
 
 export const getAuthAdapter = async (): Promise<Adapter> => {
   if (resolvedAdapter) {
     return resolvedAdapter;
   }
-  resolvedAdapter = await adapterPromise;
-  return resolvedAdapter;
+  if (!adapterPromise) {
+    adapterPromise = createAdapter().catch((error) => {
+      adapterPromise = null;
+      throw error;
+    });
+  }
+
+  const adapter = await adapterPromise;
+  resolvedAdapter = adapter;
+  return adapter;
 };
 
 const resolveDomain = (): string | undefined => {
