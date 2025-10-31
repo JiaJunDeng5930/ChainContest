@@ -162,7 +162,7 @@ export const registerOrganizerComponentRecord = async (
       contractAddress: normalizedAddress,
       transactionHash: params.transactionHash?.toLowerCase() ?? existing.transactionHash,
       status,
-      failureReason: params.failureReason ?? existing.failureReason,
+      failureReason: params.failureReason === undefined ? existing.failureReason : params.failureReason,
       confirmedAt: params.confirmedAt ?? existing.confirmedAt,
       config: normalizedConfig,
       updatedAt: new Date()
