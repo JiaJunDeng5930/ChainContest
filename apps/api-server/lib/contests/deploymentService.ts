@@ -243,9 +243,14 @@ export const deployContest = async (
     }
 
     let artifactRecord: ContestDeploymentArtifactRecord | null = null;
+    const artifactMetadata = {
+      ...(receipt.artifact.metadata ?? {}),
+      contestBytes32: parsedPayload.data.contestId
+    };
+
     artifactRecord = (await database.recordContestDeploymentArtifact({
       requestId: creation.request.requestId,
-      contestId: parsedPayload.data.contestId,
+      contestId: null,
       networkId: receipt.artifact.networkId,
       contestAddress: receipt.artifact.contestAddress,
       vaultFactoryAddress: receipt.artifact.vaultFactoryAddress,
@@ -255,7 +260,7 @@ export const deployContest = async (
       rewardsAddress: receipt.artifact.rewardsAddress,
       transactionHash: receipt.artifact.transactionHash ?? null,
       confirmedAt: receipt.artifact.confirmedAt ? new Date(receipt.artifact.confirmedAt) : null,
-      metadata: receipt.artifact.metadata ?? {}
+      metadata: artifactMetadata
     })) as ContestDeploymentArtifactRecord;
 
     const updated = (await database.updateContestCreationRequestStatus({
