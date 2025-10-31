@@ -291,7 +291,7 @@ export const deployContest = async (
       priceSourceComponentId: parsedPayload.data.priceSourceComponentId,
       contestAddress: artifactRecord?.contestAddress ?? null,
       vaultFactoryAddress: artifactRecord?.vaultFactoryAddress ?? null,
-      transactionHash: receipt.artifact.transactionHash ?? null,
+      transactionHash: receipt.artifact?.transactionHash ?? null,
       durationMs: Date.now() - startedAt,
       metadata: {
         receiptMetadata: receipt.metadata ?? {},
