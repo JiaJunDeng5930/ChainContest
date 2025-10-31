@@ -4,7 +4,7 @@ import { requireSession, SessionNotFoundError } from '@/lib/auth/session';
 import { initDatabase } from '@/lib/db/client';
 import { httpErrors, toErrorResponse } from '@/lib/http/errors';
 import { listOrganizerComponents } from '@/lib/organizer/components/list';
-import { applyCorsHeaders } from '@/lib/http/cors';
+import { applyCorsHeaders, handleCorsPreflight } from '@/lib/http/cors';
 
 const parseQuery = (request: NextRequest) => {
   const params = request.nextUrl.searchParams;
@@ -63,3 +63,5 @@ export const GET = async (request: NextRequest): Promise<Response> => {
 };
 
 export const runtime = 'nodejs';
+
+export const OPTIONS = (request: NextRequest): Response => handleCorsPreflight(request);

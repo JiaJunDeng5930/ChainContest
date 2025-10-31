@@ -3,7 +3,7 @@ import { NextResponse } from 'next/server';
 import { requireSession, SessionNotFoundError } from '@/lib/auth/session';
 import { loadRuntimeConfig } from '@/lib/runtime/runtimeConfig';
 import { toErrorResponse } from '@/lib/http/errors';
-import { applyCorsHeaders } from '@/lib/http/cors';
+import { applyCorsHeaders, handleCorsPreflight } from '@/lib/http/cors';
 
 export const GET = async (request: NextRequest): Promise<Response> => {
   try {
@@ -38,3 +38,5 @@ export const GET = async (request: NextRequest): Promise<Response> => {
 };
 
 export const runtime = 'nodejs';
+
+export const OPTIONS = (request: NextRequest): Response => handleCorsPreflight(request);

@@ -5,7 +5,7 @@ import { initDatabase } from '@/lib/db/client';
 import { SESSION_COOKIE, SESSION_RENEW_THRESHOLD_MS } from '@/lib/auth/config';
 import { httpErrors, toErrorResponse } from '@/lib/http/errors';
 import { getAuthAdapter } from '@/lib/auth/config';
-import { applyCorsHeaders } from '@/lib/http/cors';
+import { applyCorsHeaders, handleCorsPreflight } from '@/lib/http/cors';
 
 const adaptUser = (user: AdapterUser): { walletAddress: string; addressChecksum: string } => {
   const name = typeof user.name === 'string' ? user.name : null;
@@ -80,3 +80,5 @@ export async function GET(request: NextRequest): Promise<Response> {
 }
 
 export const runtime = 'nodejs';
+
+export const OPTIONS = (request: NextRequest): Response => handleCorsPreflight(request);

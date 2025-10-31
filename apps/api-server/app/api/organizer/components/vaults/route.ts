@@ -4,7 +4,7 @@ import { z } from 'zod';
 import { requireSession, SessionNotFoundError } from '@/lib/auth/session';
 import { httpErrors, HttpError, toErrorResponse } from '@/lib/http/errors';
 import { deployOrganizerComponent } from '@/lib/organizer/components/deploy';
-import { applyCorsHeaders } from '@/lib/http/cors';
+import { applyCorsHeaders, handleCorsPreflight } from '@/lib/http/cors';
 
 const requestSchema = z.object({
   networkId: z.union([
@@ -90,3 +90,5 @@ export const POST = async (request: NextRequest): Promise<Response> => {
 };
 
 export const runtime = 'nodejs';
+
+export const OPTIONS = (request: NextRequest): Response => handleCorsPreflight(request);
