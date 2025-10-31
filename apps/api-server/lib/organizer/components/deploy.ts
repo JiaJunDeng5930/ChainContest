@@ -1,6 +1,6 @@
 import { z } from 'zod';
 import { httpErrors } from '@/lib/http/errors';
-import { database } from '@/lib/db/client';
+import { database, initDatabase } from '@/lib/db/client';
 import { getCreationGateway } from '@/lib/chain/creationGateway';
 import { logComponentDeployment } from '@/lib/observability/logger';
 import type { OrganizerComponentRecord } from '@chaincontest/db';
@@ -115,6 +115,7 @@ export const deployOrganizerComponent = async (
     });
   }
 
+  await initDatabase();
   const gateway = getCreationGateway();
   const registerInput = toRegisterInput(parsed.data);
 
