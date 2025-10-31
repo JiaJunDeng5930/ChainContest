@@ -22,7 +22,8 @@ const rawEnvSchema = z.object({
     .enum(['fatal', 'error', 'warn', 'info', 'debug', 'trace', 'silent'])
     .optional()
     .default('info'),
-  CHAIN_RPC_PUBLIC_URL: z.string().url().optional()
+  CHAIN_RPC_PUBLIC_URL: z.string().url().optional(),
+  API_ALLOWED_ORIGINS: z.string().optional()
 });
 
 export type RawEnv = z.infer<typeof rawEnvSchema>;
@@ -49,9 +50,44 @@ export interface AppEnv {
   readonly logging: {
     readonly level: RawEnv['LOG_LEVEL'];
   };
+  readonly http: {
+    readonly allowedOrigins: readonly string[];
+  };
 }
 
 let cachedEnv: AppEnv | null = null;
+
+const DEFAULT_DEVELOPMENT_ORIGINS = Object.freeze(['http://localhost:43000', 'http://127.0.0.1:43000']);
+
+const resolveAllowedOrigins = (raw: RawEnv): string[] => {
+  const configured = raw.API_ALLOWED_ORIGINS
+    ? raw.API_ALLOWED_ORIGINS.split(',').map((value) => value.trim()).filter((value) => value.length > 0)
+    : [];
+
+  const fallback = raw.NODE_ENV === 'production' ? [] : [...DEFAULT_DEVELOPMENT_ORIGINS];
+  const candidates = configured.length > 0 ? configured : fallback;
+
+  const origins = new Set<string>();
+
+  for (const candidate of candidates) {
+    try {
+      const parsed = new URL(candidate);
+      origins.add(parsed.origin);
+    } catch {
+      throw new Error(`Invalid URL in API_ALLOWED_ORIGINS: "${candidate}"`);
+    }
+  }
+
+  if (raw.NEXTAUTH_URL) {
+    try {
+      origins.add(new URL(raw.NEXTAUTH_URL).origin);
+    } catch {
+      // NEXTAUTH_URL 已通过 zod 校验为 URL，这里仅为安全兜底
+    }
+  }
+
+  return [...origins];
+};
 
 const normaliseEnv = (raw: RawEnv): AppEnv => ({
   nodeEnv: raw.NODE_ENV,
@@ -74,6 +110,9 @@ const normaliseEnv = (raw: RawEnv): AppEnv => ({
   },
   logging: {
     level: raw.LOG_LEVEL ?? 'info'
+  },
+  http: {
+    allowedOrigins: resolveAllowedOrigins(raw)
   }
 });
 
@@ -97,7 +136,8 @@ export const loadEnv = (input: NodeJS.ProcessEnv = process.env): AppEnv => {
     RATE_LIMIT_WINDOW: input.RATE_LIMIT_WINDOW,
     RATE_LIMIT_MAX: input.RATE_LIMIT_MAX,
     LOG_LEVEL: input.LOG_LEVEL,
-    CHAIN_RPC_PUBLIC_URL: input.CHAIN_RPC_PUBLIC_URL
+    CHAIN_RPC_PUBLIC_URL: input.CHAIN_RPC_PUBLIC_URL,
+    API_ALLOWED_ORIGINS: input.API_ALLOWED_ORIGINS
   });
 
   if (!parsed.success) {

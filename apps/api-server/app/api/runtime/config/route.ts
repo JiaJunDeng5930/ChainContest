@@ -3,17 +3,7 @@ import { NextResponse } from 'next/server';
 import { requireSession, SessionNotFoundError } from '@/lib/auth/session';
 import { loadRuntimeConfig } from '@/lib/runtime/runtimeConfig';
 import { toErrorResponse } from '@/lib/http/errors';
-
-const applyCorsHeaders = (response: NextResponse, request: NextRequest): void => {
-  const origin = request.headers.get('origin');
-  if (origin) {
-    response.headers.set('Access-Control-Allow-Origin', origin);
-    response.headers.set('Access-Control-Allow-Credentials', 'true');
-    response.headers.append('Vary', 'Origin');
-  } else {
-    response.headers.set('Access-Control-Allow-Origin', '*');
-  }
-};
+import { applyCorsHeaders } from '@/lib/http/cors';
 
 export const GET = async (request: NextRequest): Promise<Response> => {
   try {

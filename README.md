@@ -90,6 +90,7 @@ pnpm --filter @chaincontest/dev-console dev
 | `FORK_RPC_URL`              | Hardhat 本地分叉数据源 | 未设置         | `https://mainnet.infura.io/v3/<key>`         |
 | `REPORT_GAS`                | 是否启用 Gas Reporter  | `false`        | `true`                                       |
 | `CHAIN_RPC_PUBLIC_URL`      | 浏览器可访问的 RPC 地址 | 空（回退 primary） | `http://127.0.0.1:48545`                      |
+| `API_ALLOWED_ORIGINS`       | 允许共享会话响应的前端来源（逗号分隔） | `http://localhost:43000,http://127.0.0.1:43000`（开发） | `https://app.chaincontest.xyz`                |
 | `NEXT_PUBLIC_AUTH_DOMAIN`   | 前端签名使用的 SIWE 域 | 空（必填）     | `localhost:44000`                            |
 | `VITE_CHAIN_ID`             | 前端目标链 ID          | `11155111`     | `31337`（本地）                              |
 | `VITE_PRIMARY_RPC`          | 前端首选 RPC           | 空（必填）     | `https://sepolia.infura.io/v3/<key>`         |

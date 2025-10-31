@@ -5,17 +5,7 @@ import { initDatabase } from '@/lib/db/client';
 import { SESSION_COOKIE, SESSION_RENEW_THRESHOLD_MS } from '@/lib/auth/config';
 import { httpErrors, toErrorResponse } from '@/lib/http/errors';
 import { getAuthAdapter } from '@/lib/auth/config';
-
-const applyCorsHeaders = (response: NextResponse, request: NextRequest): void => {
-  const origin = request.headers.get('origin');
-  if (origin) {
-    response.headers.set('Access-Control-Allow-Origin', origin);
-    response.headers.set('Access-Control-Allow-Credentials', 'true');
-    response.headers.append('Vary', 'Origin');
-  } else {
-    response.headers.set('Access-Control-Allow-Origin', '*');
-  }
-};
+import { applyCorsHeaders } from '@/lib/http/cors';
 
 const adaptUser = (user: AdapterUser): { walletAddress: string; addressChecksum: string } => {
   const name = typeof user.name === 'string' ? user.name : null;
