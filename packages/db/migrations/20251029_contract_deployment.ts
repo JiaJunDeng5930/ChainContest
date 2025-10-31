@@ -1,4 +1,5 @@
 import { sql } from 'drizzle-orm';
+import crypto from 'node:crypto';
 import type { MigrationExecutor } from 'drizzle-orm/node-postgres/migrator';
 
 const createOrganizerComponents = sql`
@@ -44,7 +45,7 @@ const migrateOrganizerContracts = sql`
     network_id,
     contract_type,
     address,
-    md5(metadata::text),
+    '',
     metadata,
     'confirmed',
     created_at,
@@ -52,6 +53,30 @@ const migrateOrganizerContracts = sql`
   FROM organizer_contracts
   ON CONFLICT DO NOTHING;
 `;
+
+const stableStringify = (value: unknown): string => {
+  if (value === null || typeof value !== 'object') {
+    return JSON.stringify(value);
+  }
+
+  if (Array.isArray(value)) {
+    return `[${value.map((entry) => stableStringify(entry)).join(',')}]`;
+  }
+
+  const entries = Object.entries(value as Record<string, unknown>).sort(([left], [right]) =>
+    left.localeCompare(right)
+  );
+
+  return `{${entries
+    .map(([key, entry]) => `${JSON.stringify(key)}:${stableStringify(entry)}`)
+    .join(',')}}`;
+};
+
+const computeConfigHash = (config: unknown): string => {
+  const digest = crypto.createHash('sha256');
+  digest.update(stableStringify(config));
+  return digest.digest('hex');
+};
 
 const dropOrganizerContractsTable = sql`DROP TABLE IF EXISTS organizer_contracts;`;
 
@@ -185,6 +210,23 @@ export const up: MigrationExecutor = async (db) => {
   await db.execute(createOrganizerComponents);
   await db.execute(createOrganizerComponentIndexes);
   await db.execute(migrateOrganizerContracts);
+
+  const migratedComponents = await db.execute(
+    sql<{ id: string; config: unknown }>`
+      SELECT id, config
+      FROM organizer_components
+      WHERE config_hash = ''
+    `
+  );
+
+  for (const row of migratedComponents.rows ?? []) {
+    const normalizedHash = computeConfigHash(row.config ?? {});
+    await db.execute(sql`
+      UPDATE organizer_components
+      SET config_hash = ${normalizedHash}, updated_at = now()
+      WHERE id = ${row.id}
+    `);
+  }
   await db.execute(dropOrganizerContractsTable);
 
   await db.execute(createContestCreationAugments);
