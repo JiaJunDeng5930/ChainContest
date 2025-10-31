@@ -245,7 +245,7 @@ export const deployContest = async (
     let artifactRecord: ContestDeploymentArtifactRecord | null = null;
     artifactRecord = (await database.recordContestDeploymentArtifact({
       requestId: creation.request.requestId,
-      contestId: null,
+      contestId: parsedPayload.data.contestId,
       networkId: receipt.artifact.networkId,
       contestAddress: receipt.artifact.contestAddress,
       vaultFactoryAddress: receipt.artifact.vaultFactoryAddress,
