@@ -60,7 +60,11 @@ export async function GET(request: NextRequest): Promise<Response> {
 
     const expiresAt = normalizeExpires(sessionRecord.session);
     if (expiresAt.getTime() <= Date.now()) {
-      await adapter.deleteSession?.(sessionToken);
+      try {
+        await adapter.deleteSession?.(sessionToken);
+      } catch (cleanupError) {
+        // best-effort cleanup; log via normalized path below
+      }
       throw httpErrors.unauthorized('Session expired');
     }
     const { walletAddress, addressChecksum } = adaptUser(sessionRecord.user);
