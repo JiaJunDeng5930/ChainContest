@@ -155,6 +155,9 @@ export const registerOrganizerComponentRecord = async (
     };
   }
 
+  const nextFailureReason =
+    params.failureReason === undefined ? existing.failureReason ?? {} : params.failureReason ?? {};
+
   const [updated] = await db
     .update(organizerComponents)
     .set({
@@ -162,10 +165,7 @@ export const registerOrganizerComponentRecord = async (
       contractAddress: normalizedAddress,
       transactionHash: params.transactionHash?.toLowerCase() ?? existing.transactionHash,
       status,
-      failureReason:
-        params.failureReason === undefined
-          ? existing.failureReason
-          : params.failureReason ?? existing.failureReason ?? {},
+      failureReason: nextFailureReason,
       confirmedAt: params.confirmedAt ?? existing.confirmedAt,
       config: normalizedConfig,
       updatedAt: new Date()
