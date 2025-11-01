@@ -142,18 +142,40 @@ const fetchRuntimeConfigFromDatabase = async (): Promise<RuntimeConfigRecord | n
 };
 
 export const loadRuntimeConfig = async (): Promise<RuntimeConfig | null> => {
+  const overrides = buildOverrides();
   const base = await fetchRuntimeConfigFromDatabase();
-  if (!base) {
+
+  if (base) {
+    const merged = {
+      ...base,
+      ...overrides,
+      contracts: overrides.contracts ?? base.contracts
+    } satisfies RuntimeConfigRecord;
+
+    return normaliseRuntimeConfig(merged);
+  }
+
+  const fallbackContracts = overrides.contracts;
+  if (!fallbackContracts) {
     return null;
   }
 
-  const overrides = buildOverrides();
+  const env = getEnv();
+  const rpcUrl = overrides.rpcUrl ?? env.chain.publicRpc ?? env.chain.primaryRpc;
+  const chainId = overrides.chainId;
+  const devPort = overrides.devPort;
 
-  const merged = {
-    ...base,
-    ...overrides,
-    contracts: overrides.contracts ?? base.contracts
+  if (!rpcUrl || chainId === undefined || devPort === undefined) {
+    return null;
+  }
+
+  const fallback = {
+    rpcUrl,
+    chainId,
+    devPort,
+    defaultAccount: overrides.defaultAccount,
+    contracts: fallbackContracts
   } satisfies RuntimeConfigRecord;
 
-  return normaliseRuntimeConfig(merged);
+  return normaliseRuntimeConfig(fallback);
 };

@@ -44,13 +44,20 @@ const paginationSchema = z
 
 const contestItemSelectorSchema = z
   .object({
+    contestId: z.string().uuid().optional(),
     internalId: z.string().min(1).optional(),
     chainId: z.number().int().optional(),
     contractAddress: z.string().regex(/^0x[a-fA-F0-9]{40}$/).optional()
   })
-  .refine((value) => Boolean(value.internalId) || (value.chainId && value.contractAddress), {
-    message: 'Contest selector must provide internalId or chainId + contractAddress'
-  })
+  .refine(
+    (value) =>
+      Boolean(value.contestId) ||
+      Boolean(value.internalId) ||
+      (value.chainId && value.contractAddress),
+    {
+      message: 'Contest selector must provide contestId, internalId, or chainId + contractAddress'
+    }
+  )
   .refine((value) =>
     !value.chainId || supportedChainIds.includes(value.chainId as (typeof supportedChainIds)[number])
   , {

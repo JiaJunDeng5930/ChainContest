@@ -267,24 +267,26 @@ export default function CreateContestForm() {
     return Number.isInteger(parsed) ? parsed : undefined;
   }, [networkIdValue]);
 
+  const queryNetworkId = normalizedNetworkId ?? requiredChainId ?? undefined;
+
   const vaultQueryInput = useMemo(
     () => ({
       type: "vault_implementation" as const,
       statuses: ["confirmed"] as Array<"pending" | "confirmed" | "failed">,
-      networkId: normalizedNetworkId,
+      networkId: queryNetworkId,
       pageSize: 50
     }),
-    [normalizedNetworkId]
+    [queryNetworkId]
   );
 
   const priceSourceQueryInput = useMemo(
     () => ({
       type: "price_source" as const,
       statuses: ["confirmed"] as Array<"pending" | "confirmed" | "failed">,
-      networkId: normalizedNetworkId,
+      networkId: queryNetworkId,
       pageSize: 50
     }),
-    [normalizedNetworkId]
+    [queryNetworkId]
   );
 
   const vaultComponents = useOrganizerComponents(vaultQueryInput);

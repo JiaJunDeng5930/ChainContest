@@ -64,6 +64,7 @@ function combineWithAnd(predicates: SQL[]): SQL | null {
 }
 
 export interface ContestItemSelector {
+  contestId?: string;
   internalId?: string;
   chainId?: number;
   contractAddress?: string;
@@ -469,12 +470,29 @@ function normalisePagination(options?: PaginationOptions): { pageSize: number; c
   return { pageSize, cursor };
 }
 
+const UUID_PATTERN =
+  /^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-5][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}$/;
+
+function isUuid(value: string): boolean {
+  return UUID_PATTERN.test(value);
+}
+
 function buildContestConditions(selector: ContestSelector): SQL[] {
   const conditions: SQL[] = [];
 
   if (selector.items && selector.items.length > 0) {
     const itemConditions: SQL[] = [];
     for (const item of selector.items) {
+      if (item.contestId) {
+        if (!isUuid(item.contestId)) {
+          throw new DbError(DbErrorCode.INPUT_INVALID, 'Invalid contest selector item', {
+            detail: { reason: 'contest_id_invalid', context: { contestId: item.contestId } }
+          });
+        }
+        itemConditions.push(eq(contests.id, item.contestId));
+        continue;
+      }
+
       if (item.internalId) {
         itemConditions.push(eq(contests.internalKey, item.internalId));
         continue;

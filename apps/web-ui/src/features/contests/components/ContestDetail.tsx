@@ -1,6 +1,6 @@
 "use client";
 
-import { QUERY_KEYS } from "@chaincontest/shared-i18n";
+import { QUERY_KEYS, type ContestPhase } from "@chaincontest/shared-i18n";
 import { useQuery, type UseQueryResult } from "@tanstack/react-query";
 import { useLocale, useTranslations } from "next-intl";
 
@@ -82,8 +82,26 @@ export function ContestDetail({ contestId }: ContestDetailProps) {
     );
   }
 
+  const normalisePhase = (phase: string): ContestPhase => {
+    switch (phase) {
+      case "registered":
+        return "registration";
+      case "sealed":
+        return "settled";
+      case "registration":
+      case "active":
+      case "settled":
+      case "closed":
+        return phase;
+      default:
+        return "registration";
+    }
+  };
+
+  const normalizedPhase = normalisePhase(contest.phase);
+
   const chainLabel = getChainLabel(contest.chainId, t);
-  const phaseLabel = getPhaseLabel(contest.phase, t);
+  const phaseLabel = getPhaseLabel(normalizedPhase, t);
   const prizeLabel = formatPrizeAmount({
     value: contest.prizePool.currentBalance,
     chainId: contest.chainId,
@@ -199,16 +217,16 @@ export function ContestDetail({ contestId }: ContestDetailProps) {
         </header>
       </section>
 
-      {contest.phase === "registration" ? (
-        <RegistrationPanel contestId={contest.contestId} contest={contest} />
+      {normalizedPhase === "registration" ? (
+        <RegistrationPanel contestId={contestId} contest={contest} />
       ) : null}
 
-      {contest.phase === "settled" || contest.phase === "closed" ? (
-        <RewardClaimPanel contestId={contest.contestId} contest={contest} />
+      {normalizedPhase === "settled" || normalizedPhase === "closed" ? (
+        <RewardClaimPanel contestId={contestId} contest={contest} />
       ) : null}
 
-      {contest.phase === "active" || contest.phase === "settled" || contest.phase === "closed" ? (
-        <PostgamePanel contestId={contest.contestId} contest={contest} />
+      {normalizedPhase === "active" || normalizedPhase === "settled" || normalizedPhase === "closed" ? (
+        <PostgamePanel contestId={contestId} contest={contest} />
       ) : null}
 
       <section className="space-y-4 rounded-xl border border-slate-800/60 bg-slate-900/40 p-6">

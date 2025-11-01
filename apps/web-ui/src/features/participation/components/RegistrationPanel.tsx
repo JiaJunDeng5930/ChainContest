@@ -22,6 +22,7 @@ import {
   type DisplayApproval,
   type DisplayCall
 } from "./ActionArtifacts";
+import useSession from "../../auth/hooks/useSession";
 
 type RegistrationPanelProps = {
   contestId: string;
@@ -166,6 +167,7 @@ export default function RegistrationPanel({ contestId, contest }: RegistrationPa
   const locale = useLocale();
   const dateFormatter = useContestDateTimeFormatter(locale);
   const gate = useNetworkGateState();
+  const session = useSession();
   const queryClient = useQueryClient();
 
   const [planDisplay, setPlanDisplay] = useState<PlanDisplay | null>(null);
@@ -174,7 +176,7 @@ export default function RegistrationPanel({ contestId, contest }: RegistrationPa
 
   const isRegistrationPhase = contest.phase === "registration";
   const isCapacityFull = contest.registrationCapacity.isFull;
-  const participantAddress = gate.address ?? null;
+  const participantAddress = gate.address ?? session.data?.walletAddress ?? null;
 
   const statusLabel = useCallback(
     (status: string) => {

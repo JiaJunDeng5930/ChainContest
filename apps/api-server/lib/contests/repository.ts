@@ -198,6 +198,17 @@ const mapLeaderboard = (aggregate: ContestAggregate): ContestLeaderboardSnapshot
   };
 };
 
+const normalisePhase = (status: string): string => {
+  switch (status) {
+    case 'registered':
+      return 'registration';
+    case 'sealed':
+      return 'settled';
+    default:
+      return status;
+  }
+};
+
 const mapContestAggregate = (aggregate: ContestAggregate): ContestSnapshot => {
   const { contest } = aggregate;
   if (!contest) {
@@ -215,7 +226,7 @@ const mapContestAggregate = (aggregate: ContestAggregate): ContestSnapshot => {
   return {
     contestId: ensureString(contest.contestId ?? contest.internalKey ?? contest.contractAddress, 'contest.contestId'),
     chainId: toNumber(contest.chainId, 'contest.chainId'),
-    phase: ensureString(contest.status, 'contest.status'),
+    phase: normalisePhase(ensureString(contest.status, 'contest.status')),
     timeline,
     prizePool,
     registrationCapacity,
@@ -278,9 +289,16 @@ export const getContest = async (contestId: string): Promise<ContestSnapshot> =>
     throw httpErrors.badRequest('Contest id is required');
   }
 
+  const normalizedContestId = contestId.trim();
+
+  const selectorItems = [
+    { contestId: normalizedContestId },
+    { internalId: normalizedContestId }
+  ];
+
   const response = await queryContests({
     selector: {
-      items: [{ internalId: contestId }]
+      items: selectorItems
     },
     includes: {
       leaderboard: { mode: 'latest' }

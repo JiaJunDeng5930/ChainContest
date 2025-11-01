@@ -630,7 +630,10 @@ export const buildContestDefinition = async (
 
   const response = (await database.queryContests({
     selector: {
-      items: [{ internalId: contestId }]
+      items: [
+        { contestId },
+        { internalId: contestId }
+      ]
     },
     includes: {
       participants: true,
