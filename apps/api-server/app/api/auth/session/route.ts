@@ -11,7 +11,8 @@ const adaptUser = (user: AdapterUser): { walletAddress: string; addressChecksum:
   const name = typeof user.name === 'string' ? user.name : null;
   const email = typeof user.email === 'string' ? user.email : null;
 
-  const addressChecksum = name && name.length > 0 ? name : email?.split('@')[0]?.toUpperCase() ?? '';
+  const fallbackAddress = email?.split('@')[0] ?? '';
+  const addressChecksum = name && name.length > 0 ? name : fallbackAddress.startsWith('0x') ? fallbackAddress : fallbackAddress.toUpperCase();
   if (!addressChecksum) {
     throw httpErrors.internal('Session payload missing checksum');
   }
