@@ -29,8 +29,9 @@ export const GET = async (request: NextRequest): Promise<Response> => {
   } catch (error) {
     const normalized = toErrorResponse(error);
     const response = NextResponse.json(normalized.body, { status: normalized.status });
-    normalized.headers &&
+    if (normalized.headers) {
       Object.entries(normalized.headers).forEach(([key, value]) => response.headers.set(key, value));
+    }
     response.headers.set('Cache-Control', 'no-store');
     applyCorsHeaders(response, request);
     return response;

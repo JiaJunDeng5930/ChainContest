@@ -95,7 +95,9 @@ export const POST = async (
   } catch (error) {
     const normalized = toErrorResponse(error);
     const response = NextResponse.json(normalized.body, { status: normalized.status });
-    Object.entries(normalized.headers).forEach(([key, value]) => response.headers.set(key, value));
+    if (normalized.headers) {
+      Object.entries(normalized.headers).forEach(([key, value]) => response.headers.set(key, value));
+    }
     applyCorsHeaders(response, request);
     return response;
   }
