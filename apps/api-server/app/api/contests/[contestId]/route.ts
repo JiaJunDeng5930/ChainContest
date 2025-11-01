@@ -4,6 +4,7 @@ import { requireSession, SessionNotFoundError } from '@/lib/auth/session';
 import { getContest } from '@/lib/contests/repository';
 import { httpErrors, toErrorResponse } from '@/lib/http/errors';
 import { resolveContestId } from '@/lib/http/routeParams';
+import { applyCorsHeaders, handleCorsPreflight } from '@/lib/http/cors';
 
 const ensureSession = async (): Promise<void> => {
   try {
@@ -27,6 +28,7 @@ export const GET = async (
     const snapshot = await getContest(contestId);
     const response = NextResponse.json(snapshot, { status: 200 });
     response.headers.set('Cache-Control', 'no-store');
+    applyCorsHeaders(response, request);
     return response;
   } catch (error) {
     const normalized = toErrorResponse(error);
@@ -35,8 +37,11 @@ export const GET = async (
       Object.entries(normalized.headers).forEach(([key, value]) => response.headers.set(key, value));
     }
     response.headers.set('Cache-Control', 'no-store');
+    applyCorsHeaders(response, request);
     return response;
   }
 };
 
 export const runtime = 'nodejs';
+
+export const OPTIONS = (request: NextRequest): Response => handleCorsPreflight(request);

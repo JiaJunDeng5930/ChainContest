@@ -3,6 +3,7 @@ import { NextResponse } from 'next/server';
 import { requireSession, SessionNotFoundError } from '@/lib/auth/session';
 import { listContests } from '@/lib/contests/repository';
 import { httpErrors, toErrorResponse } from '@/lib/http/errors';
+import { applyCorsHeaders, handleCorsPreflight } from '@/lib/http/cors';
 
 const ensureSession = async (): Promise<void> => {
   try {
@@ -56,6 +57,7 @@ export const GET = async (request: NextRequest): Promise<Response> => {
 
     const response = NextResponse.json(result, { status: 200 });
     response.headers.set('Cache-Control', 'no-store');
+    applyCorsHeaders(response, request);
     return response;
   } catch (error) {
     const normalized = toErrorResponse(error);
@@ -64,8 +66,11 @@ export const GET = async (request: NextRequest): Promise<Response> => {
       Object.entries(normalized.headers).forEach(([key, value]) => response.headers.set(key, value));
     }
     response.headers.set('Cache-Control', 'no-store');
+    applyCorsHeaders(response, request);
     return response;
   }
 };
 
 export const runtime = 'nodejs';
+
+export const OPTIONS = (request: NextRequest): Response => handleCorsPreflight(request);

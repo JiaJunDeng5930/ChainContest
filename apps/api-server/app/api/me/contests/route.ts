@@ -3,6 +3,7 @@ import { NextResponse } from 'next/server';
 import { requireSession, SessionNotFoundError } from '@/lib/auth/session';
 import { initDatabase, database } from '@/lib/db/client';
 import { httpErrors, toErrorResponse } from '@/lib/http/errors';
+import { applyCorsHeaders, handleCorsPreflight } from '@/lib/http/cors';
 
 const parseInteger = (value: string | null, context: string): number | undefined => {
   if (!value) {
@@ -123,6 +124,7 @@ export const GET = async (request: NextRequest): Promise<Response> => {
         { status: 200 }
       );
       response.headers.set('Cache-Control', 'no-store');
+      applyCorsHeaders(response, request);
       return response;
     }
 
@@ -144,20 +146,25 @@ export const GET = async (request: NextRequest): Promise<Response> => {
       { status: 200 }
     );
     response.headers.set('Cache-Control', 'no-store');
+    applyCorsHeaders(response, request);
     return response;
   } catch (error) {
     if (error instanceof SessionNotFoundError) {
       const normalized = toErrorResponse(httpErrors.unauthorized('No active session'));
       const response = NextResponse.json(normalized.body, { status: normalized.status });
       Object.entries(normalized.headers).forEach(([key, value]) => response.headers.set(key, value));
+      applyCorsHeaders(response, request);
       return response;
     }
 
     const normalized = toErrorResponse(error);
     const response = NextResponse.json(normalized.body, { status: normalized.status });
     Object.entries(normalized.headers).forEach(([key, value]) => response.headers.set(key, value));
+    applyCorsHeaders(response, request);
     return response;
   }
 };
 
 export const runtime = 'nodejs';
+
+export const OPTIONS = (request: NextRequest): Response => handleCorsPreflight(request);
