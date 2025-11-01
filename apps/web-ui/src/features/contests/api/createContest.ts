@@ -1,4 +1,4 @@
-import { apiClient } from "../../../lib/api/client";
+import { apiClient, type JsonValue } from "../../../lib/api/client";
 
 export interface ContestDeploymentConfigPayload {
   entryAsset: string;
@@ -100,5 +100,5 @@ export interface ContestCreationRequest {
 export async function submitContestCreation(
   request: ContestCreationRequest
 ): Promise<ContestCreationAggregate> {
-  return apiClient.post<ContestCreationAggregate>("/api/contests/create", request);
+  return apiClient.post<ContestCreationAggregate>("/api/contests/create", request as unknown as JsonValue);
 }

@@ -1,6 +1,6 @@
 import { QueryClient } from "@tanstack/react-query";
 
-type JsonValue = Record<string, unknown> | unknown[] | string | number | boolean | null;
+export type JsonValue = Record<string, unknown> | unknown[] | string | number | boolean | null;
 
 export type ApiRequestInit = Omit<RequestInit, "body"> & {
   body?: JsonValue | FormData | URLSearchParams;

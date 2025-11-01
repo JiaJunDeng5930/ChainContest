@@ -26,7 +26,7 @@ export const useDeployContest = (
   return useMutation<ContestCreationAggregate, Error, DeployContestVariables>({
     mutationFn: submitContestCreation,
     ...options,
-    onSuccess: async (data, variables, context) => {
+    onSuccess: async (data, variables, context, mutation) => {
       await Promise.all([
         queryClient.invalidateQueries({ queryKey: ["contests"] }),
         queryClient.invalidateQueries({ queryKey: ["creator-contests"] }),
@@ -34,7 +34,7 @@ export const useDeployContest = (
       ]);
 
       if (options?.onSuccess) {
-        await options.onSuccess(data, variables, context);
+        await options.onSuccess(data, variables, context, mutation);
       }
     }
   });

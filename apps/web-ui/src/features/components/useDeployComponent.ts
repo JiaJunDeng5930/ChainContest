@@ -1,7 +1,7 @@
 'use client';
 
 import { useMutation, type UseMutationResult } from "@tanstack/react-query";
-import { apiClient, ApiError } from "../../lib/api/client";
+import { apiClient, ApiError, type JsonValue } from "../../lib/api/client";
 
 interface VaultComponentPayload {
   componentType: "vault_implementation";
@@ -45,7 +45,7 @@ const request = async (payload: DeployComponentPayload): Promise<DeployComponent
   const endpoint = resolveEndpoint(payload);
 
   try {
-    return await apiClient.post<DeployComponentResponse>(endpoint, payload);
+    return await apiClient.post<DeployComponentResponse>(endpoint, payload as unknown as JsonValue);
   } catch (error) {
     if (error instanceof ApiError) {
       const body = error.body as Record<string, unknown> | undefined;

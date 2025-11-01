@@ -270,7 +270,7 @@ export default function CreateContestForm() {
   const vaultQueryInput = useMemo(
     () => ({
       type: "vault_implementation" as const,
-      statuses: ["confirmed"] as const,
+      statuses: ["confirmed"] as Array<"pending" | "confirmed" | "failed">,
       networkId: normalizedNetworkId,
       pageSize: 50
     }),
@@ -280,7 +280,7 @@ export default function CreateContestForm() {
   const priceSourceQueryInput = useMemo(
     () => ({
       type: "price_source" as const,
-      statuses: ["confirmed"] as const,
+      statuses: ["confirmed"] as Array<"pending" | "confirmed" | "failed">,
       networkId: normalizedNetworkId,
       pageSize: 50
     }),
@@ -413,8 +413,14 @@ export default function CreateContestForm() {
     <div className="space-y-6">
       {deployContest.isError ? (
         <ErrorBanner
-          title={t("contests.create.error.title", { defaultMessage: "部署失败" })}
-          description={t("contests.create.error.description", { defaultMessage: "请稍后重试或查看日志。" })}
+          error={
+            deployContest.error ??
+            new Error(
+              t("contests.create.error.title", { defaultMessage: "部署失败" }) +
+                ": " +
+                t("contests.create.error.description", { defaultMessage: "请稍后重试或查看日志。" })
+            )
+          }
         />
       ) : null}
 
