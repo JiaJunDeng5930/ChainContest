@@ -1,6 +1,7 @@
 import type { AdapterSession, AdapterUser } from '@auth/core/adapters';
 import type { NextRequest } from 'next/server';
 import { NextResponse } from 'next/server';
+import { getAddress } from 'viem';
 import { initDatabase } from '@/lib/db/client';
 import { SESSION_COOKIE, SESSION_RENEW_THRESHOLD_MS } from '@/lib/auth/config';
 import { httpErrors, toErrorResponse } from '@/lib/http/errors';
@@ -12,9 +13,17 @@ const adaptUser = (user: AdapterUser): { walletAddress: string; addressChecksum:
   const email = typeof user.email === 'string' ? user.email : null;
 
   const fallbackAddress = email?.split('@')[0] ?? '';
-  const addressChecksum = name && name.length > 0 ? name : fallbackAddress.startsWith('0x') ? fallbackAddress : fallbackAddress.toUpperCase();
-  if (!addressChecksum) {
+  const candidate = name && name.length > 0 ? name : fallbackAddress;
+
+  if (!candidate || !candidate.startsWith('0x')) {
     throw httpErrors.internal('Session payload missing checksum');
+  }
+
+  let addressChecksum: string;
+  try {
+    addressChecksum = getAddress(candidate);
+  } catch {
+    throw httpErrors.internal('Session payload contained invalid checksum');
   }
 
   const walletAddress = addressChecksum.toLowerCase();
