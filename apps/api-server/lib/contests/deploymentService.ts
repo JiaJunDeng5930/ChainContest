@@ -257,14 +257,23 @@ export const deployContest = async (
       })) as ContestDeploymentArtifactRecord;
     }
 
-    const nextStatus =
-      receipt.status === 'confirmed'
-        ? 'confirmed'
-        : receipt.status === 'failed'
-          ? 'failed'
-          : 'deploying';
+    const persistedStatus = (() => {
+      switch (receipt.status) {
+        case 'confirmed':
+          return 'confirmed';
+        case 'failed':
+          return 'failed';
+        case 'noop':
+          return 'accepted';
+        case 'accepted':
+          return 'accepted';
+        case 'deploying':
+        default:
+          return 'deploying';
+      }
+    })();
 
-    if (nextStatus === 'failed') {
+    if (persistedStatus === 'failed') {
       throw httpErrors.conflict('Contest deployment did not complete successfully', {
         detail: {
           status: receipt.status,
@@ -275,14 +284,14 @@ export const deployContest = async (
 
     const updated = (await database.updateContestCreationRequestStatus({
       requestId: creation.request.requestId,
-      status: nextStatus === 'deploying' ? receipt.status : nextStatus,
+      status: persistedStatus,
       transactionHash: receipt.artifact?.transactionHash ?? null,
       confirmedAt: receipt.artifact?.confirmedAt ? new Date(receipt.artifact.confirmedAt) : null,
       failureReason: null
     })) as ContestCreationRequestRecord;
 
     logContestDeployment({
-      status: nextStatus === 'deploying' ? receipt.status : nextStatus,
+      status: persistedStatus,
       networkId: input.networkId,
       organizer: organizerAddress,
       requestId: creation.request.requestId,
