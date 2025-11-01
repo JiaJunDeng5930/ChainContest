@@ -7,6 +7,7 @@ import { withContestGateway } from '@/lib/chain/gateway';
 import { registrationPlanResponse } from '@/lib/http/responses';
 import { resolveContestId } from '@/lib/http/routeParams';
 import { HttpError, toErrorResponse } from '@/lib/http/errors';
+import { applyCorsHeaders, handleCorsPreflight } from '@/lib/http/cors';
 
 const addressSchema = z.string().regex(/^0x[a-fA-F0-9]{40}$/, 'Address must be a valid checksum address');
 
@@ -93,13 +94,18 @@ export const POST = async (
         })
     );
 
-    return registrationPlanResponse(plan);
+    const response = registrationPlanResponse(plan);
+    applyCorsHeaders(response, request);
+    return response;
   } catch (error) {
     const normalized = toErrorResponse(error);
     const response = NextResponse.json(normalized.body, { status: normalized.status });
     Object.entries(normalized.headers).forEach(([key, value]) => response.headers.set(key, value));
+    applyCorsHeaders(response, request);
     return response;
   }
 };
 
 export const runtime = 'nodejs';
+
+export const OPTIONS = (request: NextRequest): Response => handleCorsPreflight(request);

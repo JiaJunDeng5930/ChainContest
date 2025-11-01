@@ -1,3 +1,4 @@
+import { NextResponse } from 'next/server';
 import type {
   BlockAnchorShape,
   ExecutionCallShape,
@@ -107,8 +108,8 @@ const normalizeExecutionCall = (call: ExecutionCallShape | undefined) => {
   };
 };
 
-const jsonResponse = (payload: unknown, status = 200): Response => {
-  return Response.json(payload, {
+const jsonResponse = (payload: unknown, status = 200): NextResponse => {
+  return NextResponse.json(payload, {
     status,
     headers: {
       'Cache-Control': 'no-store'
@@ -116,7 +117,7 @@ const jsonResponse = (payload: unknown, status = 200): Response => {
   });
 };
 
-export const registrationPlanResponse = (plan: RegistrationPlan): Response => {
+export const registrationPlanResponse = (plan: RegistrationPlan): NextResponse => {
   return jsonResponse({
     status: plan.status,
     checks: normalizeChecks(plan.qualifications ?? []),
@@ -128,7 +129,7 @@ export const registrationPlanResponse = (plan: RegistrationPlan): Response => {
   });
 };
 
-export const rebalancePlanResponse = (plan: RebalancePlan): Response => {
+export const rebalancePlanResponse = (plan: RebalancePlan): NextResponse => {
   return jsonResponse({
     status: plan.status,
     checks: normalizeChecks(plan.policyChecks ?? []),
@@ -141,7 +142,7 @@ export const rebalancePlanResponse = (plan: RebalancePlan): Response => {
 
 export const registrationExecutionResponse = (
   result: RegistrationExecutionResult
-): Response => {
+): NextResponse => {
   return jsonResponse({
     status: result.status,
     transaction: normalizeExecutionCall(result.transaction),
@@ -153,7 +154,7 @@ export const registrationExecutionResponse = (
 
 export const rebalanceExecutionResponse = (
   result: RebalanceExecutionResult
-): Response => {
+): NextResponse => {
   return jsonResponse({
     status: result.status,
     transaction: normalizeExecutionCall(result.transaction),
@@ -163,7 +164,7 @@ export const rebalanceExecutionResponse = (
   });
 };
 
-export const settlementResponse = (result: SettlementResult): Response => {
+export const settlementResponse = (result: SettlementResult): NextResponse => {
   return jsonResponse({
     status: result.status,
     settlementCall: normalizeExecutionCall(result.settlementCall),
@@ -173,7 +174,7 @@ export const settlementResponse = (result: SettlementResult): Response => {
   });
 };
 
-export const rewardClaimResponse = (result: RewardClaimResult): Response => {
+export const rewardClaimResponse = (result: RewardClaimResult): NextResponse => {
   return jsonResponse({
     status: result.status,
     payout: result.payout ?? undefined,
@@ -183,7 +184,7 @@ export const rewardClaimResponse = (result: RewardClaimResult): Response => {
   });
 };
 
-export const redemptionResponse = (result: RedemptionResult): Response => {
+export const redemptionResponse = (result: RedemptionResult): NextResponse => {
   const legacy = result as RedemptionResult & { redemptionCall?: ExecutionCallShape };
   return jsonResponse({
     status: result.status,
