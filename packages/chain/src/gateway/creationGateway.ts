@@ -25,7 +25,7 @@ import {
   type ComponentDeploymentResult
 } from './componentDeployment.js';
 import { defaultDeploymentRuntime, type DeploymentRuntime } from '../runtime/deploymentRuntime.js';
-import { deployContestBundle } from './contestDeployment.js';
+import { deployContestBundle, type DeploymentTransactionReceipt } from './contestDeployment.js';
 import { wrapContestChainError } from '../errors/contestChainError.js';
 
 const ETH_CURRENCY = {
@@ -72,10 +72,11 @@ const nowIso = (clock?: () => Date): string => {
 };
 
 const serializeReceipt = (
-  receipt: { transactionHash: Hex; blockNumber: bigint; confirmedAt: string | null }
+  receipt: { transactionHash: Hex; blockNumber: bigint; blockHash: Hex; confirmedAt: string | null }
 ) => ({
   transactionHash: receipt.transactionHash,
   blockNumber: receipt.blockNumber.toString(),
+  blockHash: receipt.blockHash,
   confirmedAt: receipt.confirmedAt
 });
 
@@ -139,9 +140,9 @@ const deriveReceiptMetadata = (
   contestAddress: Address,
   vaultFactoryAddress: Address,
   bundle: {
-    contestDeployment: { transactionHash: Hex; blockNumber: bigint; confirmedAt: string | null };
-    vaultFactoryDeployment: { transactionHash: Hex; blockNumber: bigint; confirmedAt: string | null };
-    initialization: { transactionHash: Hex; blockNumber: bigint; confirmedAt: string | null };
+    contestDeployment: DeploymentTransactionReceipt;
+    vaultFactoryDeployment: DeploymentTransactionReceipt;
+    initialization: DeploymentTransactionReceipt;
   }
 ) => ({
   contestAddress,

@@ -11,7 +11,7 @@ import type { RpcEndpointManager, RpcEndpointSelection } from '../services/rpcEn
 import { HealthTracker } from '../services/healthTracker.js';
 import type { JobDispatcher } from '../services/jobDispatcher.js';
 import type { ReconciliationReport, ReconciliationReportService } from '../services/reconciliationReport.js';
-import type { ContestEventEnvelope } from '@chaincontest/chain';
+import type { ContestEventEnvelope, ContestEventType } from '@chaincontest/chain';
 
 export interface ReplayIngestionDependencies {
   config: AppConfig;
@@ -81,7 +81,8 @@ export const runReplayIngestion = async (
       await writer.writeBatch({ stream, batch, currentCursor: cursor, advanceCursor: false });
       totalEvents += batch.events.length;
       replayedEvents.push(...batch.events);
-      deploymentEvents += batch.events.filter((event) => event.type === 'deployment').length;
+      const deploymentType = 'deployment' as ContestEventType;
+      deploymentEvents += batch.events.filter((event) => event.type === deploymentType).length;
 
       const durationMs = performance.now() - startedAt;
 

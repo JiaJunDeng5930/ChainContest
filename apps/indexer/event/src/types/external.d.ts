@@ -4,7 +4,8 @@ declare module '@chaincontest/chain' {
     | 'rebalance'
     | 'settlement'
     | 'reward'
-    | 'redemption';
+    | 'redemption'
+    | 'deployment';
 
   export interface EventCursor {
     blockNumber: bigint;
@@ -244,6 +245,74 @@ declare module '@chaincontest/db' {
   export const writeContestDomain: (
     request: WriteContestDomainRequest,
   ) => Promise<WriteContestDomainResponse>;
+
+  export interface RecordContestDeploymentArtifactRequest {
+    requestId: string;
+    contestId: string | null;
+    networkId: number;
+    contestAddress: string | null;
+    vaultFactoryAddress: string | null;
+    registrarAddress: string | null;
+    treasuryAddress: string | null;
+    settlementAddress: string | null;
+    rewardsAddress: string | null;
+    transactionHash: string | null;
+    confirmedAt: Date | null;
+    metadata: Record<string, unknown>;
+  }
+
+  export interface RecordContestDeploymentArtifactResponse extends RecordContestDeploymentArtifactRequest {
+    artifactId: string;
+    createdAt: Date;
+    updatedAt: Date;
+  }
+
+  export interface UpdateContestCreationRequestStatusRequest {
+    requestId: string;
+    status: 'accepted' | 'deploying' | 'confirmed' | 'failed';
+    transactionHash: string | null;
+    confirmedAt: Date | null;
+    failureReason: Record<string, unknown> | null;
+  }
+
+  export interface UpdateContestCreationRequestStatusResponse {
+    request: Record<string, unknown>;
+    artifact: Record<string, unknown> | null;
+    status: 'accepted' | 'deploying' | 'confirmed' | 'failed';
+  }
+
+  export interface TrackedContestStream {
+    contestId: string;
+    chainId: number;
+    contractAddress: string;
+    registrarAddress: string;
+    treasuryAddress?: string | null;
+    settlementAddress?: string | null;
+    rewardsAddress?: string | null;
+    startBlock: bigint;
+    metadata: Record<string, unknown>;
+  }
+
+  export interface ParticipantLookupResult {
+    contestId: string;
+    walletAddress: string;
+    vaultReference: string | null;
+  }
+
+  export const recordContestDeploymentArtifact: (
+    request: RecordContestDeploymentArtifactRequest,
+  ) => Promise<RecordContestDeploymentArtifactResponse>;
+
+  export const updateContestCreationRequestStatus: (
+    request: UpdateContestCreationRequestStatusRequest,
+  ) => Promise<UpdateContestCreationRequestStatusResponse>;
+
+  export const listTrackedContests: () => Promise<TrackedContestStream[]>;
+
+  export const findParticipantByVaultReference: (
+    contestId: string,
+    vaultReference: string,
+  ) => Promise<ParticipantLookupResult | null>;
 }
 
 declare module '@chaincontest/shared-schemas' {

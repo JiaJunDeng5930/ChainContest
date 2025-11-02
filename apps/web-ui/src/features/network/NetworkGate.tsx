@@ -57,6 +57,9 @@ export function NetworkGate({ children }: NetworkGateProps) {
   const isSessionActive = session.status === "authenticated";
   const sessionAddress = session.data?.walletAddress ?? null;
   const effectiveAddress = address ?? sessionAddress ?? null;
+  const normalizedAddress = effectiveAddress && effectiveAddress.startsWith("0x")
+    ? (effectiveAddress as `0x${string}`)
+    : undefined;
 
   const contextValue = useMemo<NetworkGateState>(
     () => ({
@@ -67,10 +70,10 @@ export function NetworkGate({ children }: NetworkGateProps) {
       runtimeDegraded: runtimeQuery.isDegraded,
       sessionStatus: session.status,
       isSessionActive,
-      address: effectiveAddress ?? undefined
+      address: normalizedAddress
     }),
     [
-      effectiveAddress,
+      normalizedAddress,
       currentChainId,
       isSessionActive,
       isSupportedNetwork,

@@ -15,8 +15,11 @@ import { RpcEndpointManager } from '../services/rpcEndpointManager.js';
 import { HealthTracker } from '../services/healthTracker.js';
 import { JobDispatcher } from '../services/jobDispatcher.js';
 import { ReconciliationReportService } from '../services/reconciliationReport.js';
-import type { ContestChainGateway } from '@chaincontest/chain';
+import type { ContestChainGateway, ContestEventType } from '@chaincontest/chain';
 import { createDeploymentEventHandler } from '../pipelines/deploymentHandler.js';
+import { createRegistrationEventHandler } from '../pipelines/registrationHandler.js';
+import { createSettlementEventHandler } from '../pipelines/settlementHandler.js';
+import { createRewardEventHandler } from '../pipelines/rewardHandler.js';
 
 export interface BootstrapOptions {
   config?: AppConfig;
@@ -57,7 +60,7 @@ export const bootstrapContext = (options: BootstrapOptions = {}): AppContext => 
   const db = createDbClient({ config, logger, metricsHook: () => {} });
   const queue = createQueueClient({ config, logger });
   const http = createHttpServer({ config, logger, metrics });
-  const registry = new IngestionRegistry(config, logger);
+  const registry = new IngestionRegistry(config, logger, db);
   const rpc = new RpcEndpointManager({ config, logger, metrics });
   const health = new HealthTracker();
   const jobs = new JobDispatcher(queue, logger);
@@ -70,7 +73,10 @@ export const bootstrapContext = (options: BootstrapOptions = {}): AppContext => 
 
   const gateway = new ContestGatewayAdapter(contestGateway, logger, rpc);
   const writer = new IngestionWriter(db, logger);
-  writer.registerDomainHandler('deployment', createDeploymentEventHandler({ db, logger }));
+  writer.registerDomainHandler('deployment' as ContestEventType, createDeploymentEventHandler({ db, logger }));
+  writer.registerDomainHandler('registration', createRegistrationEventHandler({ db, logger }));
+  writer.registerDomainHandler('settlement', createSettlementEventHandler({ db, logger }));
+  writer.registerDomainHandler('reward', createRewardEventHandler({ db, logger }));
 
   http.setHealthEvaluator(() => Promise.resolve(aggregateHealth({ db, queue, health })));
   http.setStatusProvider(() => Promise.resolve(health.snapshot()));
@@ -92,8 +98,8 @@ export const bootstrapContext = (options: BootstrapOptions = {}): AppContext => 
   );
 
   const start = async (): Promise<void> => {
-    await registry.initialise();
     await db.init();
+    await registry.initialise();
     await queue.start();
     await http.start();
   };

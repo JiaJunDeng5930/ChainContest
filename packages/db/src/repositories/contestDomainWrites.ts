@@ -1,4 +1,4 @@
-import { and, desc, eq } from 'drizzle-orm';
+import { and, desc, eq, sql } from 'drizzle-orm';
 import { randomUUID } from 'node:crypto';
 import type { DrizzleDatabase, DrizzleTransaction } from '../adapters/connection.js';
 import { DbError, DbErrorCode } from '../instrumentation/metrics.js';
@@ -24,7 +24,9 @@ export type ContestDomainWriteAction =
   | 'register_participation'
   | 'write_leaders_version'
   | 'seal'
-  | 'append_reward_claim';
+  | 'append_reward_claim'
+  | 'update_phase'
+  | 'update_participant';
 
 export interface ContestDomainWriteParams {
   action: ContestDomainWriteAction;
@@ -40,6 +42,17 @@ export interface ContestDomainWriteResult {
 const CONTEST_STATUS_SET = new Set<ContestStatus>(
   contestStatusEnum.enumValues as readonly ContestStatus[]
 );
+
+const cloneJson = <T>(value: T): T => {
+  if (value === undefined || value === null) {
+    return value;
+  }
+  try {
+    return JSON.parse(JSON.stringify(value)) as T;
+  } catch {
+    return value;
+  }
+};
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
@@ -220,6 +233,42 @@ function assertRewardClaimPayload(payload: unknown): asserts payload is RewardCl
   }
 }
 
+function assertUpdatePhasePayload(payload: unknown): asserts payload is UpdatePhasePayload {
+  if (!isRecord(payload)) {
+    throw new DbError(DbErrorCode.INPUT_INVALID, 'update phase payload must be an object');
+  }
+
+  if (typeof payload.contestId !== 'string' || payload.contestId.trim().length === 0) {
+    throw new DbError(DbErrorCode.INPUT_INVALID, 'update phase payload requires contestId');
+  }
+
+  if (typeof payload.phase !== 'string' || payload.phase.trim().length === 0) {
+    throw new DbError(DbErrorCode.INPUT_INVALID, 'update phase payload requires phase');
+  }
+
+  if (payload.status !== undefined && typeof payload.status !== 'string') {
+    throw new DbError(DbErrorCode.INPUT_INVALID, 'update phase payload status must be string when provided');
+  }
+}
+
+function assertUpdateParticipantPayload(payload: unknown): asserts payload is UpdateParticipantPayload {
+  if (!isRecord(payload)) {
+    throw new DbError(DbErrorCode.INPUT_INVALID, 'update participant payload must be an object');
+  }
+
+  if (typeof payload.contestId !== 'string' || payload.contestId.trim().length === 0) {
+    throw new DbError(DbErrorCode.INPUT_INVALID, 'update participant payload requires contestId');
+  }
+
+  if (typeof payload.walletAddress !== 'string' || payload.walletAddress.trim().length === 0) {
+    throw new DbError(DbErrorCode.INPUT_INVALID, 'update participant payload requires walletAddress');
+  }
+
+  if (!isRecord(payload.updates)) {
+    throw new DbError(DbErrorCode.INPUT_INVALID, 'update participant payload requires updates object');
+  }
+}
+
 export type ContestDomainWriteExecutor = (
   tx: DrizzleTransaction<DbSchema>,
   params: ContestDomainWriteParams
@@ -246,6 +295,7 @@ export interface ParticipationPayload {
   contestId: string;
   walletAddress: string;
   vaultReference?: string | null;
+  vaultId?: string | null;
   amountWei: string | number | bigint;
   occurredAt: string | Date;
   event: {
@@ -278,6 +328,19 @@ export interface RewardClaimPayload {
     txHash: string;
     logIndex: number;
   };
+}
+
+export interface UpdatePhasePayload {
+  contestId: string;
+  phase: string;
+  status?: Extract<ContestStatus, 'registered' | 'active' | 'sealed' | 'settled'>;
+  sealedAt?: string | Date;
+}
+
+export interface UpdateParticipantPayload {
+  contestId: string;
+  walletAddress: string;
+  updates: Record<string, unknown>;
 }
 
 export interface CursorState {
@@ -357,6 +420,16 @@ export const writeContestDomain: ContestDomainWriteExecutor = async (tx, params)
       const payload = params.payload;
       assertRewardClaimPayload(payload);
       return appendRewardClaim(tx, payload, params.actorContext ?? null);
+    }
+    case 'update_phase': {
+      const payload = params.payload;
+      assertUpdatePhasePayload(payload);
+      return updateContestPhase(tx, payload, params.actorContext ?? null);
+    }
+    case 'update_participant': {
+      const payload = params.payload;
+      assertUpdateParticipantPayload(payload);
+      return updateParticipantMetadata(tx, payload, params.actorContext ?? null);
     }
     default:
       throw new DbError(DbErrorCode.INPUT_INVALID, `Unsupported contest domain action "${params.action}"`, {
@@ -564,6 +637,89 @@ async function registerParticipation(
 
   validateEventLocator(payload.event);
 
+  const applyMetadataUpdate = async (): Promise<void> => {
+    const [countRow] = await tx
+      .select({ value: sql<number>`count(*)` })
+      .from(participants)
+      .where(eq(participants.contestId, contestId));
+    const registeredCount = Number(countRow?.value ?? 0);
+
+    const contestRecord = await tx.query.contests.findFirst({
+      where: eq(contests.id, contestId)
+    });
+
+    if (!contestRecord) {
+      return;
+    }
+
+    const metadataSource = cloneJson(contestRecord.metadata ?? {});
+    const metadata = isRecord(metadataSource) ? metadataSource : {};
+
+    const updateCapacity = (candidate: unknown): Record<string, unknown> => {
+      const capacity = isRecord(candidate) ? { ...(candidate as Record<string, unknown>) } : {};
+      const readInteger = (input: unknown): number => {
+        if (typeof input === 'number' && Number.isFinite(input)) {
+          return Math.trunc(input);
+        }
+        if (typeof input === 'bigint') {
+          return Number(input);
+        }
+        if (typeof input === 'string' && input.trim().length > 0) {
+          const parsed = Number.parseInt(input, 10);
+          return Number.isFinite(parsed) ? parsed : 0;
+        }
+        return 0;
+      };
+
+      const maximum = readInteger(capacity.maximum);
+      capacity.maximum = maximum;
+      capacity.registered = registeredCount;
+      capacity.isFull = maximum > 0 ? registeredCount >= maximum : Boolean(capacity.isFull);
+      return capacity;
+    };
+
+    const participantKey = walletAddress;
+    const updateParticipantsMetadata = (container: unknown): Record<string, unknown> => {
+        const registry = isRecord(container) ? { ...(container as Record<string, unknown>) } : {};
+        const currentEntry = isRecord(registry[participantKey])
+          ? { ...(registry[participantKey] as Record<string, unknown>) }
+          : {};
+        currentEntry.address = walletAddress;
+        currentEntry.registered = true;
+        currentEntry.amount = amount;
+        currentEntry.lastRegisteredAt = occurredAt.toISOString();
+        if (payload.vaultReference) {
+          currentEntry.vaultReference = payload.vaultReference;
+        }
+        if (payload.vaultId) {
+          currentEntry.vaultId = payload.vaultId;
+        }
+        registry[participantKey] = currentEntry;
+        return registry;
+      };
+
+    metadata.registrationCapacity = updateCapacity(metadata.registrationCapacity);
+    metadata.participants = updateParticipantsMetadata(metadata.participants);
+
+    const gatewayDefinition = isRecord(metadata.chainGatewayDefinition)
+      ? { ...(metadata.chainGatewayDefinition as Record<string, unknown>) }
+      : null;
+
+    if (gatewayDefinition) {
+      gatewayDefinition.registrationCapacity = updateCapacity(gatewayDefinition.registrationCapacity);
+      gatewayDefinition.participants = updateParticipantsMetadata(gatewayDefinition.participants);
+      metadata.chainGatewayDefinition = gatewayDefinition;
+    }
+
+    await tx
+      .update(contests)
+      .set({
+        metadata,
+        updatedBy: actor
+      })
+      .where(eq(contests.id, contestId));
+  };
+
   try {
     await tx.insert(participants).values({
       id: randomUUID(),
@@ -576,9 +732,13 @@ async function registerParticipation(
       createdBy: actor,
       updatedBy: actor
     });
+
+    await applyMetadataUpdate();
+
     return { status: 'applied', contestId };
   } catch (error) {
     if (isUniqueViolation(error)) {
+      await applyMetadataUpdate();
       return { status: 'noop', contestId };
     }
     throw error;
@@ -722,6 +882,116 @@ async function appendRewardClaim(
     }
     throw error;
   }
+}
+
+async function updateContestPhase(
+  tx: DrizzleTransaction<DbSchema>,
+  payload: UpdatePhasePayload,
+  actorContext: Record<string, unknown> | null
+): Promise<ContestDomainWriteResult> {
+  const contestId = ensureUuid(payload.contestId, 'contestId');
+  const phase = payload.phase ?? '';
+  if (phase.length === 0) {
+    throw new DbError(DbErrorCode.INPUT_INVALID, 'update_phase payload requires phase', {
+      detail: { reason: 'phase_missing', context: { contestId } }
+    });
+  }
+
+  const contest = await tx.query.contests.findFirst({ where: eq(contests.id, contestId) });
+  if (!contest) {
+    throw new DbError(DbErrorCode.NOT_FOUND, `Contest ${contestId} not found`, {
+      detail: { reason: 'contest_not_found', context: { contestId } }
+    });
+  }
+
+  const actor = resolveActor(actorContext);
+  const metadataSource = cloneJson(contest.metadata ?? {});
+  const metadata = isRecord(metadataSource) ? metadataSource : {};
+
+  metadata.phase = phase;
+
+  const gateway = isRecord(metadata.chainGatewayDefinition)
+    ? { ...(metadata.chainGatewayDefinition as Record<string, unknown>) }
+    : {};
+  gateway.phase = phase;
+  metadata.chainGatewayDefinition = gateway;
+
+  const updates: Partial<typeof contests.$inferInsert> = {
+    metadata,
+    updatedBy: actor
+  };
+
+  if (payload.status && contest.status !== payload.status) {
+    updates.status = payload.status;
+  }
+
+  if (payload.sealedAt) {
+    const sealedAt = coerceDate(payload.sealedAt, 'sealedAt');
+    updates.sealedAt = sealedAt;
+  }
+
+  await tx
+    .update(contests)
+    .set(updates)
+    .where(eq(contests.id, contestId));
+
+  return { status: 'applied', contestId };
+}
+
+async function updateParticipantMetadata(
+  tx: DrizzleTransaction<DbSchema>,
+  payload: UpdateParticipantPayload,
+  actorContext: Record<string, unknown> | null
+): Promise<ContestDomainWriteResult> {
+  const contestId = ensureUuid(payload.contestId, 'contestId');
+  const walletAddress = normalizeAddress(payload.walletAddress);
+  const updatesPatch = payload.updates ?? {};
+
+  const contest = await tx.query.contests.findFirst({ where: eq(contests.id, contestId) });
+  if (!contest) {
+    throw new DbError(DbErrorCode.NOT_FOUND, `Contest ${contestId} not found`, {
+      detail: { reason: 'contest_not_found', context: { contestId } }
+    });
+  }
+
+  const actor = resolveActor(actorContext);
+  const metadataSource = cloneJson(contest.metadata ?? {});
+  const metadata = isRecord(metadataSource) ? metadataSource : {};
+
+  const participantKey = walletAddress;
+  const applyPatch = (container: unknown): Record<string, unknown> => {
+    const registry = isRecord(container) ? { ...(container as Record<string, unknown>) } : {};
+    let currentEntry: Record<string, unknown>;
+    if (isRecord(registry[participantKey])) {
+      currentEntry = { ...(registry[participantKey] as Record<string, unknown>) };
+    } else {
+      currentEntry = { address: walletAddress };
+    }
+    currentEntry.address = walletAddress;
+    Object.entries(updatesPatch).forEach(([key, value]) => {
+      currentEntry[key] = value;
+    });
+    registry[participantKey] = currentEntry;
+    return registry;
+  };
+
+  metadata.participants = applyPatch(metadata.participants);
+
+  const gateway = isRecord(metadata.chainGatewayDefinition)
+    ? { ...(metadata.chainGatewayDefinition as Record<string, unknown>) }
+    : {};
+  gateway.participants = applyPatch(gateway.participants);
+  metadata.chainGatewayDefinition = gateway;
+
+  await tx
+    .update(contests)
+    .set({
+      metadata,
+      updatedBy: actor
+    })
+    .where(eq(contests.id, contestId));
+
+  return { status: 'applied', contestId };
 }
 
 async function advanceCursor(

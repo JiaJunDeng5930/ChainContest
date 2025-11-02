@@ -1,4 +1,6 @@
 import { z } from 'zod';
+import { createPublicClient, erc20Abi, http } from 'viem';
+import type { PublicClient } from 'viem';
 import { getCreationGateway } from '@/lib/chain/creationGateway';
 import { database } from '@/lib/db/client';
 import { httpErrors } from '@/lib/http/errors';
@@ -10,6 +12,7 @@ import type {
 import type { ContestCreationReceipt } from '@chaincontest/chain';
 import { lowercaseAddress } from '@/lib/runtime/address';
 import { logContestDeployment } from '@/lib/observability/logger';
+import { getEnv } from '@/lib/config/env';
 
 const bigintSchema = z
   .union([z.string(), z.number(), z.bigint()])
@@ -54,6 +57,369 @@ const payloadSchema = z.object({
   payoutSchedule: z.array(z.number().int().nonnegative()).max(32),
   metadata: z.record(z.string(), z.unknown()).optional()
 });
+
+const createChainDescriptor = (networkId: number, rpcUrl: string) => ({
+  id: networkId,
+  name: `chain-${networkId}`,
+  network: `chain-${networkId}`,
+  nativeCurrency: {
+    name: 'Ether',
+    symbol: 'ETH',
+    decimals: 18
+  },
+  rpcUrls: {
+    default: { http: [rpcUrl] },
+    public: { http: [rpcUrl] }
+  }
+} as const);
+
+const createRpcClient = (networkId: number, rpcUrl: string): PublicClient =>
+  createPublicClient({
+    chain: createChainDescriptor(networkId, rpcUrl),
+    transport: http(rpcUrl)
+  });
+
+const toIsoString = (value: unknown): string | undefined => {
+  if (!value) {
+    return undefined;
+  }
+  if (value instanceof Date) {
+    return value.toISOString();
+  }
+  if (typeof value === 'number') {
+    const millis = Math.abs(value) < 1e12 ? value * 1000 : value;
+    const computed = new Date(millis);
+    return Number.isNaN(computed.getTime()) ? undefined : computed.toISOString();
+  }
+  if (typeof value === 'bigint') {
+    return new Date(Number(value) * 1000).toISOString();
+  }
+  if (typeof value === 'string') {
+    if (value.length === 0) {
+      return undefined;
+    }
+    const numeric = Number(value);
+    if (Number.isFinite(numeric)) {
+      const millis = Math.abs(numeric) < 1e12 ? numeric * 1000 : numeric;
+      const computed = new Date(millis);
+      if (!Number.isNaN(computed.getTime())) {
+        return computed.toISOString();
+      }
+    }
+    const parsed = new Date(value);
+    return Number.isNaN(parsed.getTime()) ? undefined : parsed.toISOString();
+  }
+  return undefined;
+};
+
+const secondsToIsoString = (value: bigint | number | string | null | undefined): string | undefined => {
+  if (value === null || value === undefined) {
+    return undefined;
+  }
+  try {
+    const seconds = typeof value === 'bigint' ? value : BigInt(value);
+    return new Date(Number(seconds) * 1000).toISOString();
+  } catch {
+    return undefined;
+  }
+};
+
+const sanitizeMetadata = (value: Record<string, unknown>): Record<string, unknown> =>
+  JSON.parse(JSON.stringify(value));
+
+const resolveTokenMetadata = async (
+  client: PublicClient,
+  tokenAddress: `0x${string}`
+): Promise<{ symbol?: string; decimals?: number }> => {
+  try {
+    const [symbol, decimals] = await Promise.all([
+      client.readContract({ address: tokenAddress, abi: erc20Abi, functionName: 'symbol' }).catch(() => undefined),
+      client.readContract({ address: tokenAddress, abi: erc20Abi, functionName: 'decimals' }).catch(() => undefined)
+    ]);
+
+    return {
+      symbol: typeof symbol === 'string' && symbol.length > 0 ? symbol : undefined,
+      decimals: typeof decimals === 'number' ? decimals : undefined
+    };
+  } catch {
+    return {};
+  }
+};
+
+const resolveBlockInfo = async (
+  client: PublicClient,
+  txHash: `0x${string}`
+): Promise<{ blockHash: string; blockNumber: string; timestamp?: string }> => {
+  const receipt = await client.getTransactionReceipt({ hash: txHash });
+  const block = await client.getBlock({ blockHash: receipt.blockHash });
+  return {
+    blockHash: receipt.blockHash,
+    blockNumber: receipt.blockNumber.toString(),
+    timestamp: block.timestamp ? new Date(Number(block.timestamp) * 1000).toISOString() : undefined
+  };
+};
+
+const buildRuntimeConfigSnapshot = (networkId: number): Record<string, unknown> | undefined => {
+  const rpcEnv = getEnv();
+  const rpcUrl = rpcEnv.chain.publicRpc ?? rpcEnv.chain.primaryRpc;
+  if (!rpcUrl) {
+    return undefined;
+  }
+
+  let contracts: unknown = undefined;
+  if (process.env.RUNTIME_CONTRACTS_JSON) {
+    try {
+      contracts = JSON.parse(process.env.RUNTIME_CONTRACTS_JSON);
+    } catch {
+      contracts = undefined;
+    }
+  }
+
+  if (!Array.isArray(contracts) || contracts.length === 0) {
+    return undefined;
+  }
+
+  const devPort = process.env.RUNTIME_DEV_PORT ? Number.parseInt(process.env.RUNTIME_DEV_PORT, 10) : undefined;
+  if (devPort !== undefined && !Number.isFinite(devPort)) {
+    return undefined;
+  }
+
+  return {
+    rpcUrl,
+    chainId: networkId,
+    devPort: devPort ?? 43000,
+    defaultAccount: process.env.RUNTIME_DEFAULT_ACCOUNT ?? undefined,
+    contracts
+  } satisfies Record<string, unknown>;
+};
+
+interface DomainRegistrationContext {
+  request: ContestCreationRequestRecord;
+  receipt: ContestCreationReceipt;
+  artifact: ContestDeploymentArtifactRecord | null;
+  payload: z.infer<typeof payloadSchema>;
+  networkId: number;
+}
+
+const registerContestInDomain = async (
+  context: DomainRegistrationContext
+): Promise<{ contestId: string | null; metadata: Record<string, unknown> } | null> => {
+  const { artifact, receipt, payload, networkId } = context;
+
+  if (!artifact || !artifact.contestAddress) {
+    return null;
+  }
+
+  const contestAddress = lowercaseAddress(artifact.contestAddress) as `0x${string}`;
+  const vaultFactoryAddress = artifact.vaultFactoryAddress
+    ? lowercaseAddress(artifact.vaultFactoryAddress)
+    : undefined;
+
+  const rpcEnv = getEnv();
+  const rpcUrl = rpcEnv.chain.publicRpc ?? rpcEnv.chain.primaryRpc;
+  if (!rpcUrl) {
+    throw httpErrors.internal('RPC endpoint is not configured for contest registration', {
+      detail: { networkId }
+    });
+  }
+
+  const client = createRpcClient(networkId, rpcUrl);
+
+  const registrationOpensAt = toIsoString(artifact.confirmedAt?.toISOString() ?? receipt.artifact?.confirmedAt) ?? new Date().toISOString();
+  const registrationClosesAt = secondsToIsoString(payload.timeline.registeringEnds);
+  if (!registrationClosesAt) {
+    throw httpErrors.internal('Contest registration close time missing', {
+      detail: { registeringEnds: String(payload.timeline.registeringEnds) }
+    });
+  }
+
+  const liveEndsAt = secondsToIsoString(payload.timeline.liveEnds);
+  const claimEndsAt = secondsToIsoString(payload.timeline.claimEnds);
+
+  const transactionsMetadata = (receipt.artifact?.metadata?.transactions
+    ?? (artifact.metadata?.transactions as Record<string, unknown> | undefined)) ?? {};
+  const initializationTx = (transactionsMetadata as Record<string, unknown>).initialize as Record<string, unknown> | undefined;
+
+  let blockHash = initializationTx?.blockHash as string | undefined;
+  let blockNumber = initializationTx?.blockNumber as string | undefined;
+  let derivedTimestamp = toIsoString(initializationTx?.confirmedAt) ?? registrationOpensAt;
+
+  const transactionHash = (receipt.artifact?.transactionHash ?? artifact.transactionHash) as `0x${string}` | null;
+
+  if ((!blockHash || !blockNumber) && transactionHash) {
+    try {
+      const blockInfo = await resolveBlockInfo(client, transactionHash);
+      blockHash = blockInfo.blockHash;
+      blockNumber = blockInfo.blockNumber;
+      derivedTimestamp = blockInfo.timestamp ?? derivedTimestamp;
+    } catch (error) {
+      throw httpErrors.internal('Unable to resolve contest deployment block info', {
+        detail: { transactionHash, cause: error instanceof Error ? error.message : String(error) }
+      });
+    }
+  }
+
+  if (!blockHash || !blockNumber) {
+    throw httpErrors.internal('Contest deployment is missing block metadata', {
+      detail: { transactionHash }
+    });
+  }
+
+  const entryAsset = lowercaseAddress(payload.config.entryAsset) as `0x${string}`;
+  const entryAmount = payload.config.entryAmount;
+  const entryFee = payload.config.entryFee;
+  const requiredAmount = (entryAmount + entryFee).toString();
+
+  const tokenMetadata = await resolveTokenMetadata(client, entryAsset);
+  const requirementSymbol = tokenMetadata.symbol ?? 'ETH';
+  const requirementDecimals = tokenMetadata.decimals ?? 18;
+
+  const runtimeConfig = buildRuntimeConfigSnapshot(networkId);
+
+  const chainGatewayDefinition = sanitizeMetadata({
+    contest: {
+      contestId: payload.contestId,
+      chainId: networkId,
+      gatewayVersion: 'creation-gateway/v1',
+      addresses: {
+        registrar: contestAddress,
+        vaultFactory: vaultFactoryAddress ?? null,
+        treasury: artifact.treasuryAddress ? lowercaseAddress(artifact.treasuryAddress) : contestAddress,
+        settlement: artifact.settlementAddress ? lowercaseAddress(artifact.settlementAddress) : contestAddress,
+        rewards: artifact.rewardsAddress ? lowercaseAddress(artifact.rewardsAddress) : contestAddress
+      }
+    },
+    phase: 'registering',
+    timeline: {
+      registrationOpensAt,
+      registrationClosesAt,
+      tradingOpensAt: registrationClosesAt,
+      tradingClosesAt: liveEndsAt,
+      rewardAvailableAt: claimEndsAt,
+      redemptionAvailableAt: claimEndsAt
+    },
+    prizePool: {
+      currentBalance: payload.initialPrizeAmount.toString(),
+      accumulatedInflow: payload.initialPrizeAmount.toString()
+    },
+    registrationCapacity: {
+      registered: 0,
+      maximum: payload.config.maxParticipants,
+      isFull: false
+    },
+    qualificationVerdict: {
+      result: 'pass'
+    },
+    derivedAt: {
+      blockNumber,
+      blockHash,
+      timestamp: derivedTimestamp
+    },
+    registration: {
+      window: {
+        opensAt: registrationOpensAt,
+        closesAt: registrationClosesAt
+      },
+      requirement: {
+        tokenAddress: entryAsset,
+        amount: requiredAmount,
+        spender: contestAddress,
+        symbol: requirementSymbol,
+        decimals: requirementDecimals,
+        reason: 'contest-entry'
+      },
+      template: {
+        call: {
+          to: contestAddress,
+          data: '0x1aa3a008',
+          value: '0'
+        },
+        estimatedFees: {
+          currency: 'ETH',
+          estimatedCost: '0'
+        }
+      },
+      approvals: [
+        {
+          tokenAddress: entryAsset,
+          spender: contestAddress,
+          amount: requiredAmount,
+          symbol: requirementSymbol,
+          decimals: requirementDecimals,
+          reason: 'contest-entry'
+        }
+      ]
+    },
+    participants: {},
+    events: { events: [] }
+  });
+
+  const metadata = sanitizeMetadata({
+    runtimeConfig: runtimeConfig ?? undefined,
+    prizePool: {
+      currentBalance: payload.initialPrizeAmount.toString(),
+      accumulatedInflow: payload.initialPrizeAmount.toString()
+    },
+    registrationCapacity: {
+      registered: 0,
+      maximum: payload.config.maxParticipants,
+      isFull: false
+    },
+    derivedAt: {
+      blockNumber,
+      blockHash,
+      timestamp: derivedTimestamp
+    },
+    timeline: {
+      registrationOpensAt,
+      registrationClosesAt
+    },
+    chainGatewayDefinition
+  });
+
+  const trackResult = (await database.writeContestDomain({
+    action: 'track',
+    payload: {
+      chainId: networkId,
+      contractAddress: contestAddress,
+      internalKey: payload.contestId,
+      status: 'registered',
+      timeWindow: {
+        start: registrationOpensAt,
+        end: claimEndsAt ?? registrationClosesAt
+      },
+      metadata
+    }
+  })) as { status: 'applied' | 'noop'; contestId?: string };
+
+  const contestId = trackResult.contestId ?? null;
+
+  return { contestId, metadata };
+};
+
+const lookupContestId = async (
+  contestInternalKey: string,
+  contractAddress: string,
+  _networkId: number
+): Promise<string | null> => {
+  const response = (await database.queryContests({
+    selector: {
+      items: [
+        { internalId: contestInternalKey },
+        { contestId: contestInternalKey },
+        { contractAddress }
+      ]
+    },
+    includes: undefined,
+    pagination: {
+      pageSize: 1,
+      cursor: null
+    }
+  })) as { items?: Array<{ contest?: { contestId?: string } }> };
+
+  const aggregate = response.items?.[0];
+  return aggregate?.contest?.contestId ?? null;
+};
 
 export interface ContestDeploymentServiceInput {
   userId: string;
@@ -290,28 +656,64 @@ export const deployContest = async (
       failureReason: null
     })) as ContestCreationRequestRecord;
 
+    const domainRegistration = await registerContestInDomain({
+      request: updated,
+      receipt,
+      artifact: artifactRecord,
+      payload: parsedPayload.data,
+      networkId: input.networkId
+    });
+
+    let resolvedContestId = domainRegistration?.contestId ?? null;
+    let updatedArtifactRecord = artifactRecord;
+
+    if (!resolvedContestId && artifactRecord?.contestAddress) {
+      resolvedContestId = await lookupContestId(parsedPayload.data.contestId, artifactRecord.contestAddress, input.networkId);
+    }
+
+    if (resolvedContestId && artifactRecord) {
+      updatedArtifactRecord = (await database.recordContestDeploymentArtifact({
+        requestId: creation.request.requestId,
+        contestId: resolvedContestId,
+        networkId: artifactRecord.networkId,
+        contestAddress: artifactRecord.contestAddress,
+        vaultFactoryAddress: artifactRecord.vaultFactoryAddress,
+        registrarAddress: artifactRecord.registrarAddress,
+        treasuryAddress: artifactRecord.treasuryAddress,
+        settlementAddress: artifactRecord.settlementAddress,
+        rewardsAddress: artifactRecord.rewardsAddress,
+        transactionHash: artifactRecord.transactionHash,
+        confirmedAt: artifactRecord.confirmedAt,
+        metadata: artifactRecord.metadata
+      })) as ContestDeploymentArtifactRecord;
+    }
+
+    const logStatus: 'pending' | 'confirmed' =
+      persistedStatus === 'confirmed' ? 'confirmed' : 'pending';
+
     logContestDeployment({
-      status: persistedStatus,
+      status: logStatus,
       networkId: input.networkId,
       organizer: organizerAddress,
       requestId: creation.request.requestId,
       contestId: parsedPayload.data.contestId,
       vaultComponentId: parsedPayload.data.vaultComponentId,
       priceSourceComponentId: parsedPayload.data.priceSourceComponentId,
-      contestAddress: artifactRecord?.contestAddress ?? null,
-      vaultFactoryAddress: artifactRecord?.vaultFactoryAddress ?? null,
+      contestAddress: updatedArtifactRecord?.contestAddress ?? null,
+      vaultFactoryAddress: updatedArtifactRecord?.vaultFactoryAddress ?? null,
       transactionHash: receipt.artifact?.transactionHash ?? null,
       durationMs: Date.now() - startedAt,
       metadata: {
         receiptMetadata: receipt.metadata ?? {},
-        ingestion: artifactRecord?.metadata ?? {}
+        ingestion: updatedArtifactRecord?.metadata ?? {},
+        domainRegistration
       },
       failureReason: null
     });
 
     return {
       request: updated,
-      artifact: artifactRecord ?? updated.artifact,
+      artifact: updatedArtifactRecord ?? updated.artifact,
       receipt
     };
   } catch (error) {

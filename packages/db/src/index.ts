@@ -1,4 +1,5 @@
 import type { Pool } from 'pg';
+import { and, eq } from 'drizzle-orm';
 import type { DatabasePool, DatabasePoolOptions } from './adapters/connection.js';
 import { createDatabasePool } from './adapters/connection.js';
 import {
@@ -8,6 +9,7 @@ import {
   validateSingleInput,
   type ValidatorRegistrationOptions
 } from './bootstrap/register-validators.js';
+import { participants } from './schema/index.js';
 import {
   registerMetricsHook,
   withMetrics,
@@ -106,6 +108,10 @@ import {
   normalizeDeploymentArtifact,
   type RecordContestDeploymentArtifactParams
 } from './repositories/contestDeploymentArtifacts.js';
+import {
+  listContestStreams as listContestStreamsRecord,
+  type ContestStreamRecord
+} from './repositories/contestStreams.js';
 import type { MilestoneExecutionRecord, MilestoneExecutionStatus } from './schema/milestoneExecution.js';
 import type { ReconciliationReportLedger, ReconciliationReportStatus } from './schema/reconciliationReport.js';
 import { dbSchema, type DbSchema } from './schema/index.js';
@@ -201,6 +207,24 @@ export interface ContestDeploymentArtifactRecord {
   metadata: Record<string, unknown>;
   createdAt: Date;
   updatedAt: Date;
+}
+
+export interface TrackedContestStream {
+  contestId: string;
+  chainId: number;
+  contractAddress: string;
+  registrarAddress: string;
+  treasuryAddress: string | null;
+  settlementAddress: string | null;
+  rewardsAddress: string | null;
+  startBlock: bigint;
+  metadata: Record<string, unknown>;
+}
+
+export interface ParticipantLookupResult {
+  contestId: string;
+  walletAddress: string;
+  vaultReference: string | null;
 }
 
 export interface ContestCreationRequestSummary {
@@ -657,6 +681,56 @@ export const recordContestDeploymentArtifact = async (
   return withMetrics('contestCreation.recordArtifact', operation);
 };
 
+export const listTrackedContests = async (): Promise<TrackedContestStream[]> => {
+  const database = ensurePool();
+
+  const operation = async (): Promise<TrackedContestStream[]> => {
+    const records = await listContestStreamsRecord(database.db);
+    return records
+      .map(mapContestStreamRecord)
+      .filter((stream): stream is TrackedContestStream => stream !== null);
+  };
+
+  return withMetrics('contestStreams.listTracked', operation);
+};
+
+export const findParticipantByVaultReference = async (
+  contestId: string,
+  vaultReference: string
+): Promise<ParticipantLookupResult | null> => {
+  const database = ensurePool();
+
+  const operation = async (): Promise<ParticipantLookupResult | null> => {
+    const rows = await database.db
+      .select({
+        contestId: participants.contestId,
+        walletAddress: participants.walletAddress,
+        vaultReference: participants.vaultReference
+      })
+      .from(participants)
+      .where(
+        and(
+          eq(participants.contestId, contestId),
+          eq(participants.vaultReference, vaultReference)
+        )
+      )
+      .limit(1);
+
+    if (rows.length === 0) {
+      return null;
+    }
+
+    const row = rows[0]!;
+    return {
+      contestId: row.contestId,
+      walletAddress: row.walletAddress,
+      vaultReference: row.vaultReference
+    };
+  };
+
+  return withMetrics('participants.lookupByVault', operation);
+};
+
 export const getReconciliationReportByReportId = async (
   reportId: string
 ): Promise<ReconciliationReportLedger | null> => {
@@ -703,6 +777,8 @@ export const db = {
   listContestCreationRequests,
   updateContestCreationRequestStatus,
   recordContestDeploymentArtifact,
+  listTrackedContests,
+  findParticipantByVaultReference,
   updateReconciliationReportStatus,
   getReconciliationReportByReportId,
   shutdown,
@@ -837,3 +913,76 @@ const mapContestRecord = (record: ContestRecord): ContestRecord => ({
   createdAt: record.createdAt,
   updatedAt: record.updatedAt
 });
+
+const mapContestStreamRecord = (record: ContestStreamRecord): TrackedContestStream | null => {
+  const metadata = record.metadata ?? {};
+  const gateway = ensureRecord(metadata.chainGatewayDefinition);
+  const contest = ensureRecord(gateway.contest);
+  const addresses = ensureRecord(contest.addresses ?? gateway.addresses);
+
+  const registrar =
+    selectAddress(addresses.registrar)
+    ?? selectAddress(record.contractAddress);
+
+  if (!registrar) {
+    return null;
+  }
+
+  const treasury = selectAddress(addresses.treasury);
+  const settlement = selectAddress(addresses.settlement);
+  const rewards = selectAddress(addresses.rewards);
+
+  const derived = ensureRecord(gateway.derivedAt ?? metadata.derivedAt);
+  const startBlock = parseBlockNumber(derived.blockNumber) ?? 0n;
+
+  return {
+    contestId: record.contestId,
+    chainId: record.chainId,
+    contractAddress: registrar,
+    registrarAddress: registrar,
+    treasuryAddress: treasury,
+    settlementAddress: settlement,
+    rewardsAddress: rewards,
+    startBlock,
+    metadata
+  };
+};
+
+const ensureRecord = (value: unknown): Record<string, unknown> =>
+  value && typeof value === 'object' && !Array.isArray(value) ? (value as Record<string, unknown>) : {};
+
+const selectAddress = (value: unknown): string | null => {
+  if (typeof value !== 'string') {
+    return null;
+  }
+
+  const candidate = value.trim();
+  if (!/^0x[0-9a-fA-F]{40}$/.test(candidate)) {
+    return null;
+  }
+
+  return candidate.toLowerCase();
+};
+
+const parseBlockNumber = (value: unknown): bigint | null => {
+  if (typeof value === 'bigint') {
+    return value >= 0n ? value : null;
+  }
+
+  if (typeof value === 'number' && Number.isFinite(value)) {
+    const normalized = Math.trunc(value);
+    return normalized >= 0 ? BigInt(normalized) : null;
+  }
+
+  if (typeof value === 'string' && value.trim().length > 0) {
+    const normalized = value.trim();
+    try {
+      const parsed = normalized.startsWith('0x') ? BigInt(normalized) : BigInt(normalized);
+      return parsed >= 0n ? parsed : null;
+    } catch {
+      return null;
+    }
+  }
+
+  return null;
+};

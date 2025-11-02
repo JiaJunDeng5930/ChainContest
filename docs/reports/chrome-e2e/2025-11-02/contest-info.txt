@@ -1,0 +1,25 @@
+Contest deployment (2025-11-02):
+- Request ID: 1a83d8f7-e15d-49c6-addb-a7bcd76cb73f
+- Contest DB ID: a185ca36-e295-4973-afef-450485485b70
+- Contest bytes32 ID: 0x3c71d903a12a18b8b75a51f40a18b474cf0b3b12bda4786845683e11e7391d91
+- Contest contract: 0x959922be3caee4b8cd9a407cc3ac1c251c2007b1
+- Vault component: 6f25946d-cb80-4ead-8fb3-6a92145651f5 (0x9a676e781a523b5d0c0e43731313a708cb607508)
+- Price source: 47c0c83a-bef1-419c-9dd0-85e1194cf0c0 (0x0b306bf915c4d645ff596e518faf3f9669b97016)
+- Entry asset: 0xCf7Ed3AccA5a467e9e704C703E8D87F634fB0Fc9
+- Swap pool: 0x5FC8d32690cc91D4c39d9d3abcBD16989F875707
+- Entry amount: 1,000,000
+- Entry fee: 50,000
+- Timeline (unix seconds): registeringEnds=1762073640, liveEnds=1762095300, claimEnds=1762106172
+Contest created at $(date -u +%Y-%m-%dT%H:%M:%SZ)
+Contest ID (uuid): 2d6d1a4b-cba3-45ba-a49a-c2f7f6e6070d
+Contest ID (bytes32): 0x92074f59b979e81955b0744967fb51396153dc8f7c7464c3d5211eb8fe8b6399
+Contest address: 0xf5059a5d33d5853360d16c683c16e67980206f36
+Vault factory address: 0x95401dc811bb5740090279ba06cfa8fcf6113778
+Vault component id: 7d5a4a62-92b7-4043-a377-66d68019f571 (addr 0xc6e7df5e7b4f2a278906862b61205850344d4e7d)
+Price source component id: 0466715c-f1bb-4ab9-bbe2-6de267297ed7 (addr 0x59b670e9fa9d0a427751af201d676719a970857b)
+Entry asset (USDC): 0x5fbdb2315678afecb367f032d93f642f64180aa3
+Swap pool: 0x9fe46736679d2d9a65f0992f2272de9f3c7fa6e0
+Entry amount: 1000000 (6 decimals)
+Entry fee: 50000 (6 decimals)
+Timeline: register closes 2025-11-02T14:30Z, live ends 2025-11-02T17:30Z, claim ends 2025-11-02T20:30Z
+Initial prize amount: 0

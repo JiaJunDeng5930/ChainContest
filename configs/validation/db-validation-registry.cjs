@@ -160,6 +160,7 @@ const contestDomainWriteSchema = z.discriminatedUnion('action', [
       contestId: z.string().uuid(),
       walletAddress: z.string().regex(/^0x[a-fA-F0-9]{40}$/),
       vaultReference: z.string().optional().nullable(),
+      vaultId: z.string().regex(/^0x[a-fA-F0-9]{64}$/).optional().nullable(),
       amountWei: numericLikeSchema,
       occurredAt: z.string().min(1),
       event: z.object({
@@ -194,6 +195,25 @@ const contestDomainWriteSchema = z.discriminatedUnion('action', [
       contestId: z.string().uuid(),
       sealedAt: z.string().min(1),
       status: z.enum(['sealed', 'settled']).optional()
+    }),
+    actorContext: actorContextSchema.optional()
+  }),
+  z.object({
+    action: z.literal('update_phase'),
+    payload: z.object({
+      contestId: z.string().uuid(),
+      phase: z.string().min(1),
+      status: z.enum(contestStatusValues).optional(),
+      sealedAt: z.string().min(1).optional()
+    }),
+    actorContext: actorContextSchema.optional()
+  }),
+  z.object({
+    action: z.literal('update_participant'),
+    payload: z.object({
+      contestId: z.string().uuid(),
+      walletAddress: z.string().regex(/^0x[a-fA-F0-9]{40}$/),
+      updates: z.record(z.string(), z.unknown())
     }),
     actorContext: actorContextSchema.optional()
   }),

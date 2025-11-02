@@ -39,6 +39,9 @@ describe('IngestionWriter', () => {
       readIngestionStatus: vi.fn(),
       writeIngestionEvent: writeIngestionEventMock,
       writeContestDomain: vi.fn(),
+      recordContestDeploymentArtifact: vi.fn(),
+      updateContestCreationRequestStatus: vi.fn(),
+      listTrackedContests: vi.fn().mockResolvedValue([]),
     } as unknown as DbClient;
 
     loggerDebug = vi.fn<LoggerDebugArgs, LoggerDebugResult>();

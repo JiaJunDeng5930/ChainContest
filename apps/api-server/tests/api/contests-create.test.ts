@@ -91,12 +91,38 @@ describe('POST /api/contests/create', () => {
       needsRefresh: false
     });
 
+    const contestPayload = {
+      contestId: '0xf4cd9d671530ab87c8ce033782ef664f0358769e1ecdbe720d447eab7c679182',
+      vaultComponentId: '511ddf08-b37c-49e6-9d83-61924818ad09',
+      priceSourceComponentId: 'b38808cb-5dd6-4825-aed8-72b0d1fb742c',
+      vaultImplementation: '0xb7f8bc63bbcad18155201308c8f3540b07f84f5e',
+      config: {
+        entryAsset: '0x70997970c51812dc3a010c7d01b50e0d17dc79c8',
+        entryAmount: '1000000000000000000',
+        entryFee: '1000000000000000',
+        priceSource: '0xa51c1fc2f0d1a1b8494ed1fe312d7c3a78ed91c0',
+        swapPool: '0x90f79bf6eb2c4f870365e785982e1f101e93b906',
+        priceToleranceBps: 50,
+        settlementWindow: 3600,
+        maxParticipants: 100,
+        topK: 10
+      },
+      timeline: {
+        registeringEnds: '1762021680',
+        liveEnds: '1762025280',
+        claimEnds: '1762028880'
+      },
+      initialPrizeAmount: '0',
+      payoutSchedule: [6000, 3000, 1000],
+      metadata: { title: 'Velocity Cup' }
+    } as const;
+
     const creationAggregate = {
       request: {
         requestId: 'req-1',
         userId: 'user-42',
         networkId: 10,
-        payload: { name: 'Velocity Cup' },
+        payload: expect.any(Object),
         createdAt: new Date('2025-10-24T00:00:00.000Z'),
         updatedAt: new Date('2025-10-24T00:00:00.000Z')
       },
@@ -111,23 +137,80 @@ describe('POST /api/contests/create', () => {
         requestId: 'req-1',
         contestId: null,
         networkId: 10,
+        contestAddress: '0xcf7ed3acca5a467e9e704c703e8d87f634fb0fc9',
         registrarAddress: '0x1111111111111111111111111111111111111111',
         treasuryAddress: '0x2222222222222222222222222222222222222222',
         settlementAddress: '0x3333333333333333333333333333333333333333',
         rewardsAddress: '0x4444444444444444444444444444444444444444',
-        metadata: { seedDigest: 'abc' },
+        transactionHash: '0x1234',
+        confirmedAt: new Date('2025-10-24T00:00:01.000Z'),
+        metadata: {
+          transactions: {
+            contest: {
+              blockHash: '0xblock1',
+              blockNumber: '1',
+              confirmedAt: '2025-10-24T00:00:00.000Z'
+            },
+            vaultFactory: {
+              blockHash: '0xblock2',
+              blockNumber: '2',
+              confirmedAt: '2025-10-24T00:00:00.500Z'
+            },
+            initialize: {
+              blockHash: '0xblock3',
+              blockNumber: '3',
+              confirmedAt: '2025-10-24T00:00:01.000Z'
+            }
+          },
+          chainGatewayDefinition: {
+            contest: {
+              contestId: contestPayload.contestId,
+              chainId: 10
+            }
+          }
+        },
         createdAt: new Date('2025-10-24T00:00:00.000Z'),
         updatedAt: new Date('2025-10-24T00:00:00.000Z')
       }
     };
 
     const createContestCreationRequest = vi.fn().mockResolvedValue(creationAggregate);
-    const recordContestDeploymentArtifact = vi.fn().mockResolvedValue(persistedAggregate.artifact);
-    const getContestCreationRequest = vi.fn().mockResolvedValue(persistedAggregate);
+    const recordContestDeploymentArtifact = vi
+      .fn()
+      .mockResolvedValueOnce(persistedAggregate.artifact)
+      .mockResolvedValueOnce({ ...persistedAggregate.artifact, contestId: 'contest-db-id' });
+    const updateContestCreationRequestStatus = vi.fn().mockResolvedValue(persistedAggregate);
+    const writeContestDomain = vi.fn().mockResolvedValue({ status: 'applied', contestId: 'contest-db-id' });
+    const getContestCreationRequest = vi.fn().mockResolvedValue({
+      ...persistedAggregate,
+      artifact: { ...persistedAggregate.artifact, contestId: 'contest-db-id' }
+    });
 
     vi.doMock('@/lib/auth/session', () => ({
       requireSession,
       SessionNotFoundError: class extends Error {}
+    }));
+
+    vi.doMock('viem', () => ({
+      createPublicClient: () => ({
+        readContract: vi.fn().mockResolvedValueOnce('ETH').mockResolvedValueOnce(18),
+        getTransactionReceipt: vi.fn().mockResolvedValue({
+          blockHash: '0xblock3',
+          blockNumber: 3n
+        }),
+        getBlock: vi.fn().mockResolvedValue({
+          timestamp: BigInt(1730000000)
+        })
+      }),
+      erc20Abi: [],
+      http: () => ({})
+    }));
+
+    const logContestDeployment = vi.fn();
+
+    vi.doMock('@/lib/observability/logger', () => ({
+      getLogger: () => ({ info: vi.fn(), warn: vi.fn(), error: vi.fn() }),
+      logContestDeployment
     }));
 
     vi.doMock('@/lib/db/client', () => ({
@@ -136,7 +219,36 @@ describe('POST /api/contests/create', () => {
         createContestCreationRequest,
         recordContestDeploymentArtifact,
         getContestCreationRequest,
-        queryCreatorContests: vi.fn()
+        queryCreatorContests: vi.fn(),
+        updateContestCreationRequestStatus,
+        writeContestDomain,
+        getOrganizerComponent: vi
+          .fn()
+          .mockImplementation(({ componentId }: { componentId: string }) => {
+            if (componentId === contestPayload.vaultComponentId) {
+              return {
+                id: contestPayload.vaultComponentId,
+                componentType: 'vault_implementation',
+                owner: '0xabc',
+                walletAddress: '0xabc',
+                contractAddress: contestPayload.vaultImplementation,
+                networkId: 10,
+                status: 'confirmed',
+                configHash: 'hash-vault'
+              };
+            }
+            return {
+              id: contestPayload.priceSourceComponentId,
+              componentType: 'price_source',
+              owner: '0xabc',
+              walletAddress: '0xabc',
+              contractAddress: contestPayload.config.priceSource,
+              networkId: 10,
+              status: 'confirmed',
+              configHash: 'hash-oracle'
+            };
+          }),
+        queryContests: vi.fn().mockResolvedValue({ items: [] })
       }
     }));
 
@@ -147,11 +259,22 @@ describe('POST /api/contests/create', () => {
       networkId: 10,
       artifact: {
         networkId: 10,
+        contestAddress: '0xcf7ed3acca5a467e9e704c703e8d87f634fb0fc9',
         registrarAddress: '0x1111111111111111111111111111111111111111',
         treasuryAddress: '0x2222222222222222222222222222222222222222',
         settlementAddress: '0x3333333333333333333333333333333333333333',
         rewardsAddress: '0x4444444444444444444444444444444444444444',
-        metadata: { seedDigest: 'abc' }
+        transactionHash: '0x1234',
+        confirmedAt: '2025-10-24T00:00:01.000Z',
+        metadata: {
+          transactions: {
+            initialize: {
+              blockHash: '0xblock3',
+              blockNumber: '3',
+              confirmedAt: '2025-10-24T00:00:01.000Z'
+            }
+          }
+        }
       },
       acceptedAt: '2025-10-24T00:00:00.000Z',
       metadata: { payloadSummary: 1 }
@@ -170,34 +293,40 @@ describe('POST /api/contests/create', () => {
         method: 'POST',
         body: {
           networkId: 10,
-          payload: { name: 'Velocity Cup' }
+          payload: contestPayload
         }
       })
     );
 
-    expect(response.status).toBe(201);
     const body = await response.json();
+    expect(response.status).toBe(201);
 
     expect(body.status).toBe('accepted');
     expect(body.request.requestId).toBe('req-1');
-    expect(body.artifact.registrarAddress).toBe('0x1111111111111111111111111111111111111111');
+    expect(body.artifact.contestAddress).toBe('0xcf7ed3acca5a467e9e704c703e8d87f634fb0fc9');
     expect(body.receipt.acceptedAt).toBe('2025-10-24T00:00:00.000Z');
 
-    expect(createContestCreationRequest).toHaveBeenCalledWith({
-      userId: 'user-42',
-      networkId: 10,
-      payload: { name: 'Velocity Cup' }
+    expect(createContestCreationRequest).toHaveBeenCalledWith(
+      expect.objectContaining({
+        userId: 'user-42',
+        networkId: 10,
+        payload: expect.objectContaining({ contestId: contestPayload.contestId })
+      })
+    );
+    expect(recordContestDeploymentArtifact).toHaveBeenCalledTimes(2);
+    expect(updateContestCreationRequestStatus).toHaveBeenCalledWith(
+      expect.objectContaining({
+        requestId: 'req-1',
+        status: 'accepted'
+      })
+    );
+    expect(writeContestDomain).toHaveBeenCalledWith({
+      action: 'track',
+      payload: expect.objectContaining({
+        chainId: 10,
+        contractAddress: '0xcf7ed3acca5a467e9e704c703e8d87f634fb0fc9',
+        internalKey: contestPayload.contestId
+      })
     });
-    expect(recordContestDeploymentArtifact).toHaveBeenCalledWith({
-      requestId: 'req-1',
-      networkId: 10,
-      contestId: null,
-      registrarAddress: '0x1111111111111111111111111111111111111111',
-      treasuryAddress: '0x2222222222222222222222222222222222222222',
-      settlementAddress: '0x3333333333333333333333333333333333333333',
-      rewardsAddress: '0x4444444444444444444444444444444444444444',
-      metadata: { seedDigest: 'abc' }
-    });
-    expect(getContestCreationRequest).toHaveBeenCalledWith('req-1');
   });
 });

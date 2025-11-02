@@ -42,6 +42,7 @@ export interface ContestDeploymentParams {
 export interface DeploymentTransactionReceipt {
   readonly transactionHash: Hex;
   readonly blockNumber: bigint;
+  readonly blockHash: Hex;
   readonly confirmedAt: string | null;
 }
 
@@ -85,6 +86,7 @@ const toDeploymentReceipt = async (
   return {
     transactionHash: hash,
     blockNumber: receipt.blockNumber,
+    blockHash: receipt.blockHash,
     confirmedAt: block.timestamp ? new Date(Number(block.timestamp) * 1000).toISOString() : null
   };
 };

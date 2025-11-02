@@ -1,3 +1,4 @@
+import { createPublicClient, erc20Abi, http, type PublicClient } from 'viem';
 import type {
   ContestDefinition,
   ContestIdentifier,
@@ -8,8 +9,10 @@ import type {
   ContestRedemptionConfigEntry,
   ContestEventEnvelopeShape
 } from '@chaincontest/chain';
+import type { ParticipantRecord } from '@chaincontest/db';
 import { httpErrors } from '@/lib/http/errors';
 import { database, initDatabase } from '@/lib/db/client';
+import { getEnv } from '@/lib/config/env';
 
 type UnknownRecord = Record<string, unknown>;
 type Address = `0x${string}`;
@@ -21,6 +24,7 @@ interface ContestAggregateRow {
     readonly chainId: number;
     readonly metadata?: unknown;
   };
+  readonly participants?: readonly ParticipantRecord[];
 }
 
 const ADDRESS_PATTERN = /^0x[a-fA-F0-9]{40}$/;
@@ -543,6 +547,280 @@ const parseEvents = (raw: unknown): ContestDefinition['events'] => {
   } satisfies ContestDefinition['events'];
 };
 
+const normalizeAddress = (value: unknown): Address | null => {
+  if (typeof value !== 'string') {
+    return null;
+  }
+  return ADDRESS_PATTERN.test(value) ? (value.toLowerCase() as Address) : null;
+};
+
+const createChainDescriptor = (networkId: number, rpcUrl: string) => ({
+  id: networkId,
+  name: `chain-${networkId}`,
+  network: `chain-${networkId}`,
+  nativeCurrency: {
+    name: 'Ether',
+    symbol: 'ETH',
+    decimals: 18
+  },
+  rpcUrls: {
+    default: { http: [rpcUrl] },
+    public: { http: [rpcUrl] }
+  }
+}) as const;
+
+const createRpcClient = (networkId: number, rpcUrl: string): PublicClient =>
+  createPublicClient({
+    chain: createChainDescriptor(networkId, rpcUrl),
+    transport: http(rpcUrl)
+  });
+
+const resolveRuntimeRpcUrl = (metadata: UnknownRecord): string | null => {
+  const select = (source: unknown): string | null => {
+    if (!source || typeof source !== 'object') {
+      return null;
+    }
+    const candidate = (source as UnknownRecord).rpcUrl;
+    return typeof candidate === 'string' && candidate.length > 0 ? candidate : null;
+  };
+
+  const direct = select(metadata.runtimeConfig);
+  if (direct) {
+    return direct;
+  }
+
+  const gateway = metadata.chainGatewayDefinition;
+  if (gateway && typeof gateway === 'object') {
+    const nested = select((gateway as UnknownRecord).runtimeConfig);
+    if (nested) {
+      return nested;
+    }
+  }
+
+  const env = getEnv();
+  if (env.chain.primaryRpc && env.chain.primaryRpc.length > 0) {
+    return env.chain.primaryRpc;
+  }
+  if (env.chain.publicRpc && env.chain.publicRpc.length > 0) {
+    return env.chain.publicRpc;
+  }
+  return null;
+};
+
+type MutableParticipantProfile = Omit<
+  ContestParticipantProfile,
+  'balances' | 'allowances' | 'registered'
+> & {
+  balances: Record<string, string>;
+  allowances: Record<string, Record<string, string>>;
+  registered: boolean;
+};
+
+const cloneAllowances = (
+  allowances: Readonly<Record<string, Readonly<Record<string, string>>>>
+): Record<string, Record<string, string>> => {
+  const output: Record<string, Record<string, string>> = {};
+  for (const [token, approvals] of Object.entries(allowances)) {
+    output[token] = { ...approvals };
+  }
+  return output;
+};
+
+const cloneParticipantProfiles = (
+  participants: Readonly<Record<string, ContestParticipantProfile>>
+): Record<string, MutableParticipantProfile> => {
+  const output: Record<string, MutableParticipantProfile> = {};
+  for (const [key, profile] of Object.entries(participants)) {
+    output[key] = {
+      ...profile,
+      balances: { ...profile.balances },
+      allowances: cloneAllowances(profile.allowances)
+    };
+  }
+  return output;
+};
+
+const createMutableParticipant = (address: Address): MutableParticipantProfile => ({
+  address,
+  balances: {},
+  allowances: {},
+  registered: false
+});
+
+const freezeAllowances = (
+  allowances: Record<string, Record<string, string>>
+): Readonly<Record<string, Readonly<Record<string, string>>>> => {
+  const entries = Object.entries(allowances).map(([token, approvals]) => [token, Object.freeze({ ...approvals })]);
+  return Object.freeze(Object.fromEntries(entries));
+};
+
+const freezeParticipantProfiles = (
+  participants: Record<string, MutableParticipantProfile>
+): ContestDefinition['participants'] => {
+  const entries = Object.entries(participants).map(([key, profile]) => {
+    const balances = Object.freeze({ ...profile.balances });
+    const allowances = freezeAllowances(profile.allowances);
+    const frozenProfile = Object.freeze({
+      ...profile,
+      balances,
+      allowances
+    }) as ContestParticipantProfile;
+    return [key, frozenProfile];
+  });
+  return Object.freeze(Object.fromEntries(entries));
+};
+
+const collectTokenTargets = (
+  definition: ContestDefinition
+): { tokens: Set<string>; allowances: Map<string, Set<string>> } => {
+  const tokens = new Set<string>();
+  const allowances = new Map<string, Set<string>>();
+
+  const addToken = (token?: Address) => {
+    if (token) {
+      tokens.add(token.toLowerCase());
+    }
+  };
+
+  const addAllowance = (token?: Address, spender?: Address) => {
+    if (!token || !spender) {
+      return;
+    }
+    const tokenKey = token.toLowerCase();
+    const spenderKey = spender.toLowerCase();
+    const existing = allowances.get(tokenKey) ?? new Set<string>();
+    existing.add(spenderKey);
+    allowances.set(tokenKey, existing);
+  };
+
+  const requirement = definition.registration.requirement;
+  addToken(requirement.tokenAddress);
+  addAllowance(requirement.tokenAddress, requirement.spender);
+
+  for (const approval of definition.registration.approvals ?? []) {
+    addToken(approval.tokenAddress as Address | undefined);
+    addAllowance(approval.tokenAddress as Address | undefined, approval.spender as Address | undefined);
+  }
+
+  return { tokens, allowances };
+};
+
+const hydrateParticipantProfile = async (
+  client: PublicClient,
+  tokens: Set<string>,
+  allowances: Map<string, Set<string>>,
+  address: Address,
+  profile: MutableParticipantProfile
+): Promise<void> => {
+  for (const token of tokens) {
+    const tokenAddress = token as Address;
+    try {
+      const balance = await client.readContract({
+        address: tokenAddress,
+        abi: erc20Abi,
+        functionName: 'balanceOf',
+        args: [address]
+      });
+      profile.balances[token] = typeof balance === 'bigint' ? balance.toString() : String(balance);
+    } catch {
+      profile.balances[token] = profile.balances[token] ?? '0';
+    }
+
+    const spenderSet = allowances.get(token);
+    if (!spenderSet || spenderSet.size === 0) {
+      continue;
+    }
+
+    const allowanceRecord = profile.allowances[token] ?? {};
+    for (const spender of spenderSet) {
+      try {
+        const allowanceValue = await client.readContract({
+          address: tokenAddress,
+          abi: erc20Abi,
+          functionName: 'allowance',
+          args: [address, spender as Address]
+        });
+        allowanceRecord[spender] =
+          typeof allowanceValue === 'bigint' ? allowanceValue.toString() : String(allowanceValue);
+      } catch {
+        allowanceRecord[spender] = allowanceRecord[spender] ?? '0';
+      }
+    }
+    profile.allowances[token] = allowanceRecord;
+  }
+};
+
+const enrichContestDefinition = async (
+  definition: ContestDefinition,
+  aggregate: ContestAggregateRow,
+  metadata: UnknownRecord,
+  participantAddress?: string
+): Promise<ContestDefinition> => {
+  const mutableParticipants = cloneParticipantProfiles(definition.participants);
+  const registeredAddresses = new Set<Address>();
+
+  for (const record of aggregate.participants ?? []) {
+    const normalized = normalizeAddress(record.walletAddress);
+    if (!normalized) {
+      continue;
+    }
+    const profile = mutableParticipants[normalized] ?? createMutableParticipant(normalized);
+    profile.registered = true;
+    mutableParticipants[normalized] = profile;
+    registeredAddresses.add(normalized);
+  }
+
+  let requestAddress: Address | null = null;
+  if (participantAddress) {
+    const normalized = normalizeAddress(participantAddress);
+    if (normalized) {
+      requestAddress = normalized;
+      if (!mutableParticipants[normalized]) {
+        mutableParticipants[normalized] = createMutableParticipant(normalized);
+      }
+    }
+  }
+
+  const { tokens, allowances } = collectTokenTargets(definition);
+  const rpcUrl = tokens.size > 0 ? resolveRuntimeRpcUrl(metadata) : null;
+
+  if (rpcUrl) {
+    try {
+      const client = createRpcClient(definition.contest.chainId, rpcUrl);
+      const targets = new Set<Address>(registeredAddresses);
+      if (requestAddress) {
+        targets.add(requestAddress);
+      }
+
+      await Promise.all(
+        Array.from(targets).map(async (address) => {
+          const profile = mutableParticipants[address];
+          if (profile) {
+            await hydrateParticipantProfile(client, tokens, allowances, address, profile);
+          }
+        })
+      );
+    } catch {
+      // ignore RPC failures, retain existing metadata
+    }
+  }
+
+  const registeredCount = registeredAddresses.size;
+  const updatedCapacity = Object.freeze({
+    ...definition.registrationCapacity,
+    registered: registeredCount,
+    isFull: registeredCount >= definition.registrationCapacity.maximum
+  });
+
+  const participants = freezeParticipantProfiles(mutableParticipants);
+
+  return Object.freeze({
+    ...definition,
+    registrationCapacity: updatedCapacity,
+    participants
+  });
+};
+
 const resolveDefinitionSource = (metadata: UnknownRecord): UnknownRecord => {
   const candidates = [
     metadata.chainGatewayDefinition,
@@ -655,8 +933,10 @@ export const buildContestDefinition = async (
 
   const metadata = (aggregate.contest.metadata ?? {}) as UnknownRecord;
   const definitionSource = resolveDefinitionSource(metadata);
-  return buildDefinition(definitionSource, {
+  const definition = buildDefinition(definitionSource, {
     contestId: aggregate.contest.contestId ?? contestId,
     chainId: aggregate.contest.chainId
   });
+
+  return enrichContestDefinition(definition, aggregate, metadata, request.participant);
 };

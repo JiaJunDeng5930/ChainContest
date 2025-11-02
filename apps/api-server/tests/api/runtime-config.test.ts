@@ -144,7 +144,7 @@ describe('GET /api/runtime/config', () => {
     expect(body.message).toBe('Config backend offline');
   });
 
-  it('returns 401 when no active session is found', async () => {
+  it('returns 204 when no active session is found', async () => {
     class SessionMissingError extends Error {}
 
     vi.doMock('@/lib/auth/session', () => ({
@@ -164,8 +164,7 @@ describe('GET /api/runtime/config', () => {
       })
     );
 
-    expect(response.status).toBe(401);
-    const body = (await response.json()) as NormalizedHttpError['body'];
-    expect(body.code).toBe('unauthorized');
+    expect(response.status).toBe(204);
+    expect(await response.text()).toBe('');
   });
 });

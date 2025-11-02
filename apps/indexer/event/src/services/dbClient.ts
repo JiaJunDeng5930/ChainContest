@@ -7,6 +7,8 @@ import {
   writeIngestionEvent,
   recordContestDeploymentArtifact,
   updateContestCreationRequestStatus,
+  listTrackedContests,
+  findParticipantByVaultReference,
   type DbError,
   type DbInitOptions,
   type MetricsHook,
@@ -20,6 +22,8 @@ import {
   type RecordContestDeploymentArtifactResponse,
   type UpdateContestCreationRequestStatusRequest,
   type UpdateContestCreationRequestStatusResponse,
+  type TrackedContestStream,
+  type ParticipantLookupResult,
 } from '@chaincontest/db';
 import type { AppConfig } from '../config/loadConfig.js';
 
@@ -42,6 +46,11 @@ export interface DbClient {
   updateContestCreationRequestStatus: (
     request: UpdateContestCreationRequestStatusRequest
   ) => Promise<UpdateContestCreationRequestStatusResponse>;
+  listTrackedContests: () => Promise<TrackedContestStream[]>;
+  findParticipantByVaultReference: (
+    contestId: string,
+    vaultReference: string
+  ) => Promise<ParticipantLookupResult | null>;
 }
 
 export class DbClientError extends Error {
@@ -132,6 +141,8 @@ export const createDbClient = (options: DbClientOptions): DbClient => {
     writeContestDomain,
     recordContestDeploymentArtifact,
     updateContestCreationRequestStatus,
+    listTrackedContests,
+    findParticipantByVaultReference,
   };
 };
 
