@@ -33,6 +33,9 @@ const participantCooldown = '0x0000000000000000000000000000000000000102';
 const router = '0x0000000000000000000000000000000000000200';
 const sellAsset = '0x0000000000000000000000000000000000000300';
 const buyAsset = '0x0000000000000000000000000000000000000400';
+const readyVault = '0x0000000000000000000000000000000000000500';
+const cooldownVault = '0x0000000000000000000000000000000000000501';
+const poolAddress = '0x0000000000000000000000000000000000000600';
 
 const baseDefinition: ContestDefinition = {
   contest: createContestIdentifier({
@@ -90,6 +93,9 @@ const baseDefinition: ContestDefinition = {
     slippageBps: 50,
     deadlineSeconds: 300,
     rollbackAdvice: 'Retry after refreshing price data',
+    baseAsset: sellAsset,
+    quoteAsset: buyAsset,
+    poolAddress,
   },
   participants: {
     [participantReady.toLowerCase()]: {
@@ -104,6 +110,7 @@ const baseDefinition: ContestDefinition = {
       },
       registered: true,
       lastRebalanceAt: '2025-10-19T10:00:00Z',
+      vaultReference: readyVault,
     },
     [participantCooldown.toLowerCase()]: {
       address: participantCooldown,
@@ -117,6 +124,7 @@ const baseDefinition: ContestDefinition = {
       },
       registered: true,
       lastRebalanceAt: '2025-10-19T11:40:00Z',
+      vaultReference: cooldownVault,
     },
   },
 };
@@ -171,6 +179,7 @@ describe('planPortfolioRebalance', () => {
     expect(plan.transaction?.route?.steps[0]).toContain(
       sellAsset.toLowerCase(),
     );
+    expect(plan.transaction?.to).toBe(readyVault.toLowerCase());
     expect(plan.policyChecks.every((check) => check.status === 'pass')).toBe(
       true,
     );
@@ -320,7 +329,7 @@ describe('planPortfolioRebalance', () => {
     });
 
     expect(result.status).toBe('executed');
-    expect(result.transaction?.to).toBe(router);
+    expect(result.transaction?.to).toBe(readyVault.toLowerCase());
   });
 
   it('returns noop execution when plan is blocked', async () => {

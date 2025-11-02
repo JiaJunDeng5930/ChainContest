@@ -414,7 +414,10 @@ const parseRebalanceConfig = (raw: unknown): ContestRebalanceConfig | undefined 
         reason: ensureOptionalString(approval.reason, `rebalance.approvals[${index}].reason`)
       };
     }),
-    defaultRoute: parseRouteDescriptor(source.defaultRoute, 'rebalance.defaultRoute')
+    defaultRoute: parseRouteDescriptor(source.defaultRoute, 'rebalance.defaultRoute'),
+    baseAsset: ensureAddress(source.baseAsset, 'rebalance.baseAsset'),
+    quoteAsset: ensureAddress(source.quoteAsset, 'rebalance.quoteAsset'),
+    poolAddress: source.poolAddress ? ensureAddress(source.poolAddress, 'rebalance.poolAddress') : undefined
   };
 };
 
@@ -496,6 +499,10 @@ const parseParticipants = (raw: unknown): Record<string, ContestParticipantProfi
       balances,
       allowances,
       registered: Boolean(participant.registered),
+      vaultReference: participant.vaultReference
+        ? ensureAddress(participant.vaultReference, `participants.${key}.vaultReference`)
+        : undefined,
+      vaultId: ensureHex(participant.vaultId, `participants.${key}.vaultId`),
       lastRebalanceAt: ensureOptionalString(participant.lastRebalanceAt, `participants.${key}.lastRebalanceAt`),
       cooldownEndsAt: ensureOptionalString(participant.cooldownEndsAt, `participants.${key}.cooldownEndsAt`),
       totalRebalanced: ensureOptionalString(participant.totalRebalanced, `participants.${key}.totalRebalanced`),

@@ -52,7 +52,7 @@ const contestDefinition: ContestDefinition = {
     }
   },
   rebalance: {
-    whitelist: [],
+    whitelist: ['0x0000000000000000000000000000000000000301', '0x0000000000000000000000000000000000000302'],
     maxTradeAmount: '1000',
     cooldownSeconds: 10,
     priceFreshnessSeconds: 60,
@@ -60,7 +60,10 @@ const contestDefinition: ContestDefinition = {
     spender: '0x00000000000000000000000000000000000000dd',
     router: '0x00000000000000000000000000000000000000ee',
     slippageBps: 30,
-    deadlineSeconds: 300
+    deadlineSeconds: 300,
+    baseAsset: '0x0000000000000000000000000000000000000301',
+    quoteAsset: '0x0000000000000000000000000000000000000302',
+    poolAddress: '0x0000000000000000000000000000000000000201'
   },
   participants: {}
 };
@@ -93,7 +96,7 @@ describe('POST /api/contests/[contestId]/execute/rebalance', () => {
     const executionResult: RebalanceExecutionResult = {
       status: 'executed',
       transaction: {
-        to: '0x00000000000000000000000000000000000000ee',
+        to: '0x0000000000000000000000000000000000000105',
         data: '0xfeedface',
         value: 0n,
         route: { steps: ['swap'] }
@@ -134,6 +137,7 @@ describe('POST /api/contests/[contestId]/execute/rebalance', () => {
     expect(response.status).toBe(200);
     const body = await response.json();
     expect(body.status).toBe('executed');
+    expect(body.transaction.to).toBe('0x0000000000000000000000000000000000000105');
     expect(body.transaction.route.steps).toEqual(['swap']);
   });
 });

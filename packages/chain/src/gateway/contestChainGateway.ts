@@ -294,6 +294,7 @@ class ContestChainGatewayImpl implements ContestChainGateway {
         intent: input.intent,
         blockTimestamp:
           definition.derivedAt.timestamp ?? new Date().toISOString(),
+        participant,
       });
 
       return createRebalancePlan({

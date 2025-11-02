@@ -1,25 +1,37 @@
-Contest deployment (2025-11-02):
-- Request ID: 1a83d8f7-e15d-49c6-addb-a7bcd76cb73f
-- Contest DB ID: a185ca36-e295-4973-afef-450485485b70
-- Contest bytes32 ID: 0x3c71d903a12a18b8b75a51f40a18b474cf0b3b12bda4786845683e11e7391d91
-- Contest contract: 0x959922be3caee4b8cd9a407cc3ac1c251c2007b1
-- Vault component: 6f25946d-cb80-4ead-8fb3-6a92145651f5 (0x9a676e781a523b5d0c0e43731313a708cb607508)
-- Price source: 47c0c83a-bef1-419c-9dd0-85e1194cf0c0 (0x0b306bf915c4d645ff596e518faf3f9669b97016)
-- Entry asset: 0xCf7Ed3AccA5a467e9e704C703E8D87F634fB0Fc9
-- Swap pool: 0x5FC8d32690cc91D4c39d9d3abcBD16989F875707
-- Entry amount: 1,000,000
-- Entry fee: 50,000
-- Timeline (unix seconds): registeringEnds=1762073640, liveEnds=1762095300, claimEnds=1762106172
-Contest created at $(date -u +%Y-%m-%dT%H:%M:%SZ)
-Contest ID (uuid): 2d6d1a4b-cba3-45ba-a49a-c2f7f6e6070d
-Contest ID (bytes32): 0x92074f59b979e81955b0744967fb51396153dc8f7c7464c3d5211eb8fe8b6399
-Contest address: 0xf5059a5d33d5853360d16c683c16e67980206f36
-Vault factory address: 0x95401dc811bb5740090279ba06cfa8fcf6113778
-Vault component id: 7d5a4a62-92b7-4043-a377-66d68019f571 (addr 0xc6e7df5e7b4f2a278906862b61205850344d4e7d)
-Price source component id: 0466715c-f1bb-4ab9-bbe2-6de267297ed7 (addr 0x59b670e9fa9d0a427751af201d676719a970857b)
-Entry asset (USDC): 0x5fbdb2315678afecb367f032d93f642f64180aa3
-Swap pool: 0x9fe46736679d2d9a65f0992f2272de9f3c7fa6e0
-Entry amount: 1000000 (6 decimals)
-Entry fee: 50000 (6 decimals)
-Timeline: register closes 2025-11-02T14:30Z, live ends 2025-11-02T17:30Z, claim ends 2025-11-02T20:30Z
-Initial prize amount: 0
+Contest deployment snapshot (2025-11-02):
+- Contest DB ID: 98afb535-9f4f-44d8-9aa3-53a1541c54c4
+- Contest bytes32 ID: 0x0545b454132230abb96081fa059213c6d96124aa4d10a45f12f5943325e56887
+- Contest contract: 0xc9a43158891282a2b1475592d5719c001986aaec
+- Vault factory: 0x1c85638e118b37167e9298c2268758e058ddfda0
+- Request ID: 4753b3ef-0552-48a4-bfd0-8d0de2fe654e
+- Vault component: d015a5ae-b4da-4011-bb3a-8f01fe4b5240 (implementation deployed at contest creation)
+- Price source component: 527647ab-29b3-4c26-8e1b-d3a7da48781c (price oracle 0x46b142dd1e924fab83ecc3c08e4d46e82f005e0e)
+- Entry asset (USDC): 0x36b58f5c1969b7b6591d752ea6f5486d069010ab (6 decimals)
+- Swap pool: 0x0355b7b8cb128fa5692729ab3aaa199c1753f726
+- Entry amount: 1,000,000,000 (1,000 USDC with 6 decimals)
+- Entry fee: 100,000,000 (100 USDC with 6 decimals)
+- Timeline (UTC): register closes 2025-11-04T00:00:00Z, live closes 2025-11-04T02:00:00Z, reward/redemption available 2025-11-04T06:00:00Z
+
+On-chain lifecycle (Hardhat localhost 31337):
+- Participant wallet: 0x70997970c51812dc3a010c7d01b50e0d17dc79c8
+- Participant vault ID: 0x4adcfc06334cf3ea30df6e73ee3f523f8e781c89f722907dd606a3e73f68bbd6
+- Vault settled nav: 1,000,000,000 (event block #117 tx 0x29fcef2f4351b6c7ccca5b341a21773188f500c090000df684b612db03aea36b)
+- Contest frozen at block #116 (tx 0x1c3825871e0f68413e5018571a2d59a0e779d4755e0ef97336893ee92067a26b)
+- Contest sealed at block #119 (tx 0xd1250e92419c7bf936ba68f84e0a63de8f673408daac1773abb6cd7bc4a888c2)
+- Reward claimed: 60,000,000 (0.06 USDC) at block #120 (tx 0x5581f9443cbcc1a2a836856bd8743fd67240eb255e920eaa7b9016b1e2d871d6)
+- Principal redemption is blocked for winner vaults per contract rules
+
+Screenshots captured:
+- step5-registration-executed.png — Registration execution via API/UI
+- step6-contest-registered.png — Contest visible in organizer dashboard
+- step7-rebalance-plan.png — Rebalance plan showing encoded swap
+- step8-rebalance-executed.png — Rebalance transaction status
+- step9-reward-plan.png — Reward claim plan indicating prior execution
+- step10-settlement-status.png — Settlement status "NO ACTION" after manual ingest
+- step11-redemption-plan.png — Redemption plan blocked for winning vault
+
+Important hashes:
+- Freeze tx: 0x1c3825871e0f68413e5018571a2d59a0e779d4755e0ef97336893ee92067a26b
+- Settle tx: 0x29fcef2f4351b6c7ccca5b341a21773188f500c090000df684b612db03aea36b
+- Seal tx: 0xd1250e92419c7bf936ba68f84e0a63de8f673408daac1773abb6cd7bc4a888c2
+- Reward claim tx: 0x5581f9443cbcc1a2a836856bd8743fd67240eb255e920eaa7b9016b1e2d871d6

@@ -35,6 +35,8 @@ export interface ContestParticipantProfile {
   readonly balances: Readonly<Record<string, string>>;
   readonly allowances: Readonly<Record<string, Readonly<Record<string, string>>>>;
   readonly registered: boolean;
+  readonly vaultReference?: Address;
+  readonly vaultId?: `0x${string}`;
   readonly lastRebalanceAt?: string;
   readonly cooldownEndsAt?: string;
   readonly totalRebalanced?: string;
@@ -61,6 +63,9 @@ export interface ContestRebalanceConfig {
   readonly rollbackAdvice?: string;
   readonly approvals?: readonly TokenApprovalRequestShape[];
   readonly defaultRoute?: RouteDescriptorShape;
+  readonly baseAsset: Address;
+  readonly quoteAsset: Address;
+  readonly poolAddress?: Address;
 }
 
 export interface ContestSettlementConfig {

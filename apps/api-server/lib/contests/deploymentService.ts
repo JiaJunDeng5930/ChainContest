@@ -276,6 +276,66 @@ const registerContestInDomain = async (
 
   const runtimeConfig = buildRuntimeConfigSnapshot(networkId);
 
+  const [vaultComponent, priceSourceComponent] = await Promise.all([
+    database.getOrganizerComponent({
+      userId: context.request.request.userId,
+      componentId: payload.vaultComponentId
+    }) as Promise<OrganizerComponentRecord | null>,
+    database.getOrganizerComponent({
+      userId: context.request.request.userId,
+      componentId: payload.priceSourceComponentId
+    }) as Promise<OrganizerComponentRecord | null>
+  ]);
+
+  const vaultConfig = vaultComponent?.config ?? {};
+  const priceSourceConfig = priceSourceComponent?.config ?? {};
+
+  const configuredBaseAsset =
+    typeof vaultConfig.baseAsset === 'string' ? (lowercaseAddress(vaultConfig.baseAsset) as `0x${string}`) : entryAsset;
+  const configuredQuoteAsset =
+    typeof vaultConfig.quoteAsset === 'string' ? (lowercaseAddress(vaultConfig.quoteAsset) as `0x${string}`) : entryAsset;
+  const configuredPoolAddress =
+    typeof priceSourceConfig.poolAddress === 'string'
+      ? (lowercaseAddress(priceSourceConfig.poolAddress) as `0x${string}`)
+      : undefined;
+  const configuredTwapSeconds = (() => {
+    const raw = priceSourceConfig.twapSeconds;
+    if (typeof raw === 'number' && Number.isFinite(raw)) {
+      return raw;
+    }
+    if (typeof raw === 'string' && raw.trim().length > 0) {
+      const parsed = Number.parseInt(raw, 10);
+      return Number.isFinite(parsed) ? parsed : 0;
+    }
+    return 0;
+  })();
+
+  const rebalanceWhitelist = Array.from(
+    new Set<string>([entryAsset, configuredQuoteAsset].map((value) => value.toLowerCase()))
+  );
+
+  const rebalanceMetadata = sanitizeMetadata({
+    whitelist: rebalanceWhitelist,
+    maxTradeAmount: (payload.config.entryAmount * 10n).toString(),
+    cooldownSeconds: 0,
+    priceFreshnessSeconds: configuredTwapSeconds,
+    lastPriceUpdatedAt: derivedTimestamp,
+    spender: contestAddress,
+    router: contestAddress,
+    slippageBps: 100,
+    deadlineSeconds: 900,
+    rollbackAdvice: 'Rebalance temporarily unavailable. Please retry after refreshing price data.',
+    approvals: [] as Array<Record<string, unknown>>,
+    defaultRoute: {
+      steps: [`${entryAsset.toLowerCase()}->${configuredQuoteAsset.toLowerCase()}`],
+      minimumOutput: '0',
+      maximumSlippageBps: 100
+    },
+    baseAsset: configuredBaseAsset,
+    quoteAsset: configuredQuoteAsset,
+    poolAddress: configuredPoolAddress ?? undefined
+  });
+
   const chainGatewayDefinition = sanitizeMetadata({
     contest: {
       contestId: payload.contestId,
@@ -290,23 +350,24 @@ const registerContestInDomain = async (
       }
     },
     phase: 'registering',
-    timeline: {
-      registrationOpensAt,
-      registrationClosesAt,
-      tradingOpensAt: registrationClosesAt,
-      tradingClosesAt: liveEndsAt,
-      rewardAvailableAt: claimEndsAt,
-      redemptionAvailableAt: claimEndsAt
-    },
-    prizePool: {
-      currentBalance: payload.initialPrizeAmount.toString(),
-      accumulatedInflow: payload.initialPrizeAmount.toString()
-    },
-    registrationCapacity: {
-      registered: 0,
-      maximum: payload.config.maxParticipants,
-      isFull: false
-    },
+      timeline: {
+        registrationOpensAt,
+        registrationClosesAt,
+        tradingOpensAt: registrationClosesAt,
+        tradingClosesAt: liveEndsAt,
+        rewardAvailableAt: claimEndsAt,
+        redemptionAvailableAt: claimEndsAt
+      },
+      prizePool: {
+        currentBalance: payload.initialPrizeAmount.toString(),
+        accumulatedInflow: payload.initialPrizeAmount.toString()
+      },
+      rebalance: rebalanceMetadata,
+      registrationCapacity: {
+        registered: 0,
+        maximum: payload.config.maxParticipants,
+        isFull: false
+      },
     qualificationVerdict: {
       result: 'pass'
     },
@@ -360,6 +421,7 @@ const registerContestInDomain = async (
       currentBalance: payload.initialPrizeAmount.toString(),
       accumulatedInflow: payload.initialPrizeAmount.toString()
     },
+    rebalance: rebalanceMetadata,
     registrationCapacity: {
       registered: 0,
       maximum: payload.config.maxParticipants,

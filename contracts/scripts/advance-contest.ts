@@ -12,14 +12,18 @@ async function main() {
     throw new Error("Participant address is required");
   }
 
-  const [defaultSigner, , participantSigner] = await ethers.getSigners();
+  const [defaultSigner] = await ethers.getSigners();
+  const participantSigner = await ethers.getSigner(participantAddress);
 
   const contest = await ethers.getContractAt("Contest", contestAddress, defaultSigner);
 
   const timeline = await contest.getTimeline();
   const targetTimestamp = Number(timeline.claimEnds) + 120;
+  const latestBlock = await ethers.provider.getBlock("latest");
+  const currentTimestamp = latestBlock ? Number(latestBlock.timestamp) : Math.floor(Date.now() / 1000);
+  const nextTimestamp = Math.max(targetTimestamp, currentTimestamp + 1);
 
-  await ethers.provider.send("evm_setNextBlockTimestamp", [targetTimestamp]);
+  await ethers.provider.send("evm_setNextBlockTimestamp", [nextTimestamp]);
   await ethers.provider.send("evm_mine", []);
 
   await (await contest.syncState()).wait();
@@ -52,6 +56,12 @@ async function main() {
   const claimReceipt = await claimTx.wait();
   if (!claimReceipt?.status) {
     throw new Error("claim transaction failed");
+  }
+
+  const exitTx = await participantContest.exit();
+  const exitReceipt = await exitTx.wait();
+  if (!exitReceipt?.status) {
+    throw new Error("exit transaction failed");
   }
 
   console.log("Contest advanced to sealed state and reward claimed successfully.");
