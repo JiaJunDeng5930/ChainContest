@@ -669,13 +669,16 @@ export const deployContest = async (
         contestBytes32: parsedPayload.data.contestId
       };
 
+      const registrarAddress =
+        receipt.artifact.registrarAddress ?? receipt.artifact.contestAddress ?? null;
+
       artifactRecord = (await database.recordContestDeploymentArtifact({
         requestId: creation.request.requestId,
         contestId: null,
         networkId: receipt.artifact.networkId,
         contestAddress: receipt.artifact.contestAddress,
         vaultFactoryAddress: receipt.artifact.vaultFactoryAddress,
-        registrarAddress: receipt.artifact.registrarAddress,
+        registrarAddress,
         treasuryAddress: receipt.artifact.treasuryAddress,
         settlementAddress: receipt.artifact.settlementAddress,
         rewardsAddress: receipt.artifact.rewardsAddress,
@@ -734,13 +737,19 @@ export const deployContest = async (
     }
 
     if (resolvedContestId && artifactRecord) {
+      const registrarAddress =
+        updatedArtifactRecord?.registrarAddress ??
+        updatedArtifactRecord?.contestAddress ??
+        artifactRecord.contestAddress ??
+        null;
+
       updatedArtifactRecord = (await database.recordContestDeploymentArtifact({
         requestId: creation.request.requestId,
         contestId: resolvedContestId,
         networkId: artifactRecord.networkId,
         contestAddress: artifactRecord.contestAddress,
         vaultFactoryAddress: artifactRecord.vaultFactoryAddress,
-        registrarAddress: artifactRecord.registrarAddress,
+        registrarAddress,
         treasuryAddress: artifactRecord.treasuryAddress,
         settlementAddress: artifactRecord.settlementAddress,
         rewardsAddress: artifactRecord.rewardsAddress,
