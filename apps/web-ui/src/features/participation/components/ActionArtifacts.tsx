@@ -1,5 +1,6 @@
 "use client";
 
+import type { ReactNode } from "react";
 import type { BlockAnchor, ActionPayout } from "../api/types";
 import { truncateIdentifier } from "../../contests/utils/format";
 
@@ -123,7 +124,8 @@ export type DisplayCall = {
 export function ApprovalsList({
   approvals,
   emptyLabel,
-  labels
+  labels,
+  renderAction
 }: {
   approvals: DisplayApproval[];
   emptyLabel: string;
@@ -133,6 +135,7 @@ export function ApprovalsList({
     amount: string;
     reason: string;
   };
+  renderAction?: (approval: DisplayApproval) => ReactNode;
 }) {
   if (!approvals.length) {
     return <p className="text-xs text-slate-400">{emptyLabel}</p>;
@@ -153,6 +156,7 @@ export function ApprovalsList({
             {approval.symbol ? ` ${approval.symbol}` : ""}
           </p>
           {approval.reason ? <p className="mt-1 text-slate-400">{labels.reason}: {approval.reason}</p> : null}
+          {renderAction ? <div className="mt-3">{renderAction(approval)}</div> : null}
         </li>
       ))}
     </ul>

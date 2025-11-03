@@ -37,6 +37,7 @@ import {
   type DisplayCheck,
   type DisplayCall
 } from "./ActionArtifacts";
+import { useWalletTransactions } from "../hooks/useWalletTransactions";
 
 type PostgamePanelProps = {
   contestId: string;
@@ -53,6 +54,7 @@ type SettlementDisplay = {
   detail?: SettlementResult["detail"];
   rejectionReasonMessage?: string | null;
   anchor: BlockAnchor;
+  transactionHash?: string | null;
 };
 
 type PrincipalDisplay = {
@@ -61,6 +63,7 @@ type PrincipalDisplay = {
   claimCall?: DisplayCall | null;
   reasonMessage?: string | null;
   anchor: BlockAnchor;
+  transactionHash?: string | null;
 };
 
 type RebalancePlanDisplay = {
@@ -78,6 +81,7 @@ type RebalanceExecutionDisplay = {
   rollbackAdvice?: RebalanceExecutionResult["rollbackAdvice"];
   reasonMessage?: string | null;
   anchor: BlockAnchor;
+  transactionHash?: string | null;
 };
 
 export default function PostgamePanel({ contestId, contest }: PostgamePanelProps) {
@@ -178,6 +182,7 @@ function SettlementSection({
 }: SectionBaseProps) {
   const [result, setResult] = useState<SettlementDisplay | null>(null);
   const [lastError, setLastError] = useState<unknown>(null);
+  const { sendExecutionCall, walletReady } = useWalletTransactions();
 
   const isEligiblePhase = contest.phase === "active" || contest.phase === "settled";
 
@@ -188,6 +193,9 @@ function SettlementSection({
     if (!gate.isSupportedNetwork) {
       return t("participation.messages.unsupportedNetwork");
     }
+    if (!gate.isWalletConnected) {
+      return t("participation.messages.walletRequired");
+    }
     if (!isEligiblePhase) {
       return t("participation.messages.settlementPhaseOnly");
     }
@@ -195,14 +203,21 @@ function SettlementSection({
       return t("participation.messages.walletRequired");
     }
     return null;
-  }, [gate.isSessionActive, gate.isSupportedNetwork, isEligiblePhase, participantAddress, t]);
+  }, [gate.isSessionActive, gate.isSupportedNetwork, gate.isWalletConnected, isEligiblePhase, participantAddress, t]);
 
   const mutation = useMutation({
-    mutationFn: async () =>
-      executeSettlement(contestId, {
+    mutationFn: async () => {
+      const payload = await executeSettlement(contestId, {
         caller: participantAddress ?? ""
-      } satisfies SettlementInput),
-    onSuccess: async (payload: SettlementResult) => {
+      } satisfies SettlementInput);
+      let transactionHash: string | null = null;
+      if (payload.status === "applied" && payload.settlementCall) {
+        const execution = await sendExecutionCall(payload.settlementCall);
+        transactionHash = execution.hash;
+      }
+      return { payload, transactionHash };
+    },
+    onSuccess: async ({ payload, transactionHash }) => {
       trackInteraction({
         action: "settlement-execute",
         stage: "success",
@@ -224,7 +239,8 @@ function SettlementSection({
           blockNumber: "-",
           blockHash: undefined,
           timestamp: "-"
-        }
+        },
+        transactionHash: transactionHash ?? null
       });
       setLastError(null);
       await queryClient.invalidateQueries({
@@ -279,7 +295,7 @@ function SettlementSection({
       <button
         type="button"
         onClick={() => void handleExecute()}
-        disabled={Boolean(disableReason) || mutation.isPending}
+        disabled={Boolean(disableReason) || mutation.isPending || !walletReady}
         className="w-full rounded border border-emerald-500/50 bg-emerald-600/20 px-4 py-2 text-sm font-semibold text-emerald-100 transition hover:border-emerald-300 hover:text-emerald-50 disabled:cursor-not-allowed disabled:opacity-60 sm:w-auto"
       >
         {mutation.isPending ? t("participation.actions.executing") : t("participation.postgame.settlement.execute")}
@@ -332,6 +348,11 @@ function SettlementSection({
                 {result.rejectionReasonMessage ?? t("participation.labels.reasonFallback")}
               </p>
             ) : null}
+            {result.transactionHash ? (
+              <p className="text-xs text-emerald-300">
+                Tx: {result.transactionHash.slice(0, 10)}…{result.transactionHash.slice(-6)}
+              </p>
+            ) : null}
           </>
         ) : (
           <p className="text-sm text-slate-400">{t("participation.messages.executionPlaceholder")}</p>
@@ -354,6 +375,7 @@ function PrincipalSection({
   const [planDisplay, setPlanDisplay] = useState<PrincipalDisplay | null>(null);
   const [executionDisplay, setExecutionDisplay] = useState<PrincipalDisplay | null>(null);
   const [lastError, setLastError] = useState<unknown>(null);
+  const { sendExecutionCall, walletReady } = useWalletTransactions();
 
   const isEligiblePhase = contest.phase === "settled" || contest.phase === "closed";
 
@@ -364,6 +386,9 @@ function PrincipalSection({
     if (!gate.isSupportedNetwork) {
       return t("participation.messages.unsupportedNetwork");
     }
+    if (!gate.isWalletConnected) {
+      return t("participation.messages.walletRequired");
+    }
     if (!isEligiblePhase) {
       return t("participation.messages.redemptionPhaseOnly");
     }
@@ -371,7 +396,7 @@ function PrincipalSection({
       return t("participation.messages.walletRequired");
     }
     return null;
-  }, [gate.isSessionActive, gate.isSupportedNetwork, isEligiblePhase, participantAddress, t]);
+  }, [gate.isSessionActive, gate.isSupportedNetwork, gate.isWalletConnected, isEligiblePhase, participantAddress, t]);
 
   const toInput = (): PrincipalRedemptionInput => {
     if (!participantAddress) {
@@ -426,8 +451,16 @@ function PrincipalSection({
   });
 
   const executeMutation = useMutation({
-    mutationFn: async () => executePrincipalRedemption(contestId, toInput()),
-    onSuccess: async (result) => {
+    mutationFn: async () => {
+      const result = await executePrincipalRedemption(contestId, toInput());
+      let transactionHash: string | null = null;
+      if (result.claimCall) {
+        const execution = await sendExecutionCall(result.claimCall);
+        transactionHash = execution.hash;
+      }
+      return { result, transactionHash };
+    },
+    onSuccess: async ({ result, transactionHash }) => {
       trackInteraction({
         action: "principal-execute",
         stage: "success",
@@ -450,7 +483,8 @@ function PrincipalSection({
           blockNumber: "-",
           blockHash: undefined,
           timestamp: "-"
-        }
+        },
+        transactionHash: transactionHash ?? null
       });
       setLastError(null);
       await queryClient.invalidateQueries({
@@ -501,8 +535,11 @@ function PrincipalSection({
     if (planDisplay.status.toLowerCase() === "blocked") {
       return false;
     }
+    if (planDisplay.claimCall && !walletReady) {
+      return false;
+    }
     return planDisplay.claimCall != null || planDisplay.payout != null;
-  }, [planDisplay]);
+  }, [planDisplay, walletReady]);
 
   return (
     <div className="space-y-4 rounded border border-slate-800/60 bg-slate-900/40 p-5">
@@ -662,6 +699,16 @@ function PrincipalSection({
                   {executionDisplay.reasonMessage ?? t("participation.labels.reasonFallback")}
                 </p>
               ) : null}
+              {executionDisplay.transactionHash ? (
+                <p className="text-xs text-emerald-300">
+                  Tx: {executionDisplay.transactionHash.slice(0, 10)}…{executionDisplay.transactionHash.slice(-6)}
+                </p>
+              ) : null}
+              {executionDisplay.transactionHash ? (
+                <p className="text-xs text-emerald-300">
+                  Tx: {executionDisplay.transactionHash.slice(0, 10)}…{executionDisplay.transactionHash.slice(-6)}
+                </p>
+              ) : null}
             </>
           ) : (
             <p className="text-sm text-slate-400">{t("participation.messages.executionPlaceholder")}</p>
@@ -692,6 +739,7 @@ function RebalanceSection({
   const [planDisplay, setPlanDisplay] = useState<RebalancePlanDisplay | null>(null);
   const [executionDisplay, setExecutionDisplay] = useState<RebalanceExecutionDisplay | null>(null);
   const [lastError, setLastError] = useState<unknown>(null);
+  const { sendExecutionCall, walletReady } = useWalletTransactions();
 
   const isEligiblePhase = contest.phase === "active";
 
@@ -701,6 +749,9 @@ function RebalanceSection({
     }
     if (!gate.isSupportedNetwork) {
       return t("participation.messages.unsupportedNetwork");
+    }
+    if (!gate.isWalletConnected) {
+      return t("participation.messages.walletRequired");
     }
     if (!isEligiblePhase) {
       return t("participation.messages.rebalancePhaseOnly");
@@ -712,7 +763,7 @@ function RebalanceSection({
       return t("participation.messages.rebalanceIntentIncomplete");
     }
     return null;
-  }, [gate.isSessionActive, gate.isSupportedNetwork, isEligiblePhase, participantAddress, intent.amount, intent.buyAsset, intent.sellAsset, t]);
+  }, [gate.isSessionActive, gate.isSupportedNetwork, gate.isWalletConnected, isEligiblePhase, participantAddress, intent.amount, intent.buyAsset, intent.sellAsset, t]);
 
   const toInput = (): RebalanceInput => {
     if (!participantAddress) {
@@ -775,8 +826,16 @@ function RebalanceSection({
   });
 
   const executeMutation = useMutation({
-    mutationFn: async () => executeRebalance(contestId, toInput()),
-    onSuccess: async (result) => {
+    mutationFn: async () => {
+      const result = await executeRebalance(contestId, toInput());
+      let transactionHash: string | null = null;
+      if (result.transaction) {
+        const execution = await sendExecutionCall(result.transaction);
+        transactionHash = execution.hash;
+      }
+      return { result, transactionHash };
+    },
+    onSuccess: async ({ result, transactionHash }) => {
       trackInteraction({
         action: "rebalance-execute",
         stage: "success",
@@ -799,7 +858,8 @@ function RebalanceSection({
           blockNumber: "-",
           blockHash: undefined,
           timestamp: "-"
-        }
+        },
+        transactionHash: transactionHash ?? null
       });
       setLastError(null);
       await queryClient.invalidateQueries({
@@ -858,8 +918,11 @@ function RebalanceSection({
     if (planDisplay.status.toLowerCase() === "blocked") {
       return false;
     }
+    if (!walletReady) {
+      return false;
+    }
     return planDisplay.transaction != null;
-  }, [planDisplay]);
+  }, [planDisplay, walletReady]);
 
   return (
     <div className="space-y-4 rounded border border-slate-800/60 bg-slate-900/40 p-5">

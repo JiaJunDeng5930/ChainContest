@@ -249,6 +249,8 @@
   "participation.messages.executionPlaceholder": "Execute the action to view the latest chain result.",
   "participation.actions.generatePlan": "Generate Plan",
   "participation.actions.generating": "Generating…",
+  "participation.actions.approve": "Approve",
+  "participation.actions.approving": "Approving…",
   "participation.actions.execute": "Execute",
   "participation.actions.executing": "Executing…",
   "participation.labels.blockNumber": "Block Number",

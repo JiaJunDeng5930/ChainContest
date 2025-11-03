@@ -249,6 +249,8 @@
   "participation.messages.executionPlaceholder": "执行后将展示最新链上结果。",
   "participation.actions.generatePlan": "生成计划",
   "participation.actions.generating": "正在生成…",
+  "participation.actions.approve": "授权",
+  "participation.actions.approving": "正在授权…",
   "participation.actions.execute": "执行",
   "participation.actions.executing": "正在执行…",
   "participation.labels.blockNumber": "区块高度",

@@ -23,6 +23,7 @@ import {
   PayoutDetails,
   type DisplayCall
 } from "./ActionArtifacts";
+import { useWalletTransactions } from "../hooks/useWalletTransactions";
 
 type RewardClaimPanelProps = {
   contestId: string;
@@ -43,6 +44,7 @@ type RewardExecutionDisplay = {
   claimCall?: DisplayCall | null;
   reasonMessage?: string | null;
   anchor: BlockAnchor;
+  transactionHash?: string | null;
 };
 
 export default function RewardClaimPanel({ contestId, contest }: RewardClaimPanelProps) {
@@ -55,6 +57,7 @@ export default function RewardClaimPanel({ contestId, contest }: RewardClaimPane
   const [planDisplay, setPlanDisplay] = useState<RewardPlanDisplay | null>(null);
   const [executionDisplay, setExecutionDisplay] = useState<RewardExecutionDisplay | null>(null);
   const [lastError, setLastError] = useState<unknown>(null);
+  const { sendExecutionCall, walletReady } = useWalletTransactions();
 
   const participantAddress = gate.address ?? null;
   const isEligiblePhase = contest.phase === "settled" || contest.phase === "closed";
@@ -118,6 +121,9 @@ const formatCall = (call: RewardClaimResult["claimCall"] | null | undefined): Di
     if (!gate.isSupportedNetwork) {
       return t("participation.messages.unsupportedNetwork");
     }
+    if (!gate.isWalletConnected) {
+      return t("participation.messages.walletRequired");
+    }
     if (!isEligiblePhase) {
       return t("participation.messages.rewardPhaseOnly");
     }
@@ -125,7 +131,7 @@ const formatCall = (call: RewardClaimResult["claimCall"] | null | undefined): Di
       return t("participation.messages.walletRequired");
     }
     return null;
-  }, [gate.isSessionActive, gate.isSupportedNetwork, isEligiblePhase, participantAddress, t]);
+  }, [gate.isSessionActive, gate.isSupportedNetwork, gate.isWalletConnected, isEligiblePhase, participantAddress, t]);
 
   const toInput = (): RewardClaimInput => {
     if (!participantAddress) {
@@ -180,8 +186,16 @@ const formatCall = (call: RewardClaimResult["claimCall"] | null | undefined): Di
   });
 
   const executeMutation = useMutation({
-    mutationFn: async () => executeRewardClaim(contestId, toInput()),
-    onSuccess: async (result) => {
+    mutationFn: async () => {
+      const result = await executeRewardClaim(contestId, toInput());
+      let transactionHash: string | null = null;
+      if (result.claimCall) {
+        const execution = await sendExecutionCall(result.claimCall);
+        transactionHash = execution.hash;
+      }
+      return { result, transactionHash };
+    },
+    onSuccess: async ({ result, transactionHash }) => {
       trackInteraction({
         action: "reward-execute",
         stage: "success",
@@ -204,7 +218,8 @@ const formatCall = (call: RewardClaimResult["claimCall"] | null | undefined): Di
           blockNumber: "-",
           blockHash: undefined,
           timestamp: "-"
-        }
+        },
+        transactionHash: transactionHash ?? null
       });
       setLastError(null);
       await queryClient.invalidateQueries({
@@ -255,8 +270,11 @@ const formatCall = (call: RewardClaimResult["claimCall"] | null | undefined): Di
     if (planDisplay.status.toLowerCase() === "blocked") {
       return false;
     }
+    if (planDisplay.claimCall && !walletReady) {
+      return false;
+    }
     return planDisplay.claimCall != null || planDisplay.payout != null;
-  }, [planDisplay]);
+  }, [planDisplay, walletReady]);
 
   return (
     <section className="space-y-4 rounded-xl border border-slate-800/60 bg-slate-900/40 p-6">
@@ -415,11 +433,16 @@ const formatCall = (call: RewardClaimResult["claimCall"] | null | undefined): Di
                   />
                 </div>
               </div>
-              {executionDisplay.reasonMessage ? (
-                <p className="rounded border border-amber-400/40 bg-amber-500/10 p-2 text-xs text-amber-100">
-                  {executionDisplay.reasonMessage ?? t("participation.labels.reasonFallback")}
-                </p>
-              ) : null}
+            {executionDisplay.reasonMessage ? (
+              <p className="rounded border border-amber-400/40 bg-amber-500/10 p-2 text-xs text-amber-100">
+                {executionDisplay.reasonMessage ?? t("participation.labels.reasonFallback")}
+              </p>
+            ) : null}
+            {executionDisplay.transactionHash ? (
+              <p className="text-xs text-emerald-300">
+                Tx: {executionDisplay.transactionHash.slice(0, 10)}…{executionDisplay.transactionHash.slice(-6)}
+              </p>
+            ) : null}
             </>
           ) : (
             <p className="text-sm text-slate-400">{t("participation.messages.executionPlaceholder")}</p>

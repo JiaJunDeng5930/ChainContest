@@ -23,6 +23,7 @@ import {
   type DisplayCall
 } from "./ActionArtifacts";
 import useSession from "../../auth/hooks/useSession";
+import { useWalletTransactions } from "../hooks/useWalletTransactions";
 
 type RegistrationPanelProps = {
   contestId: string;
@@ -48,7 +49,17 @@ type ExecutionDisplay = {
   approvals: DisplayApproval[];
   reasonMessage?: string | null;
   anchor: BlockAnchor;
+  transactionHash?: string | null;
 };
+
+type ApprovalStatus = {
+  status: "idle" | "pending" | "success" | "error";
+  transactionHash?: string | null;
+  errorMessage?: string | null;
+};
+
+const approvalKeyFor = (approval: DisplayApproval): string =>
+  `${approval.tokenAddress.toLowerCase()}-${approval.spender.toLowerCase()}`;
 
 function formatChecks(checks: unknown): DisplayCheck[] {
   if (!Array.isArray(checks)) {
@@ -169,10 +180,12 @@ export default function RegistrationPanel({ contestId, contest }: RegistrationPa
   const gate = useNetworkGateState();
   const session = useSession();
   const queryClient = useQueryClient();
+  const { approveToken, sendExecutionCall, walletReady } = useWalletTransactions();
 
   const [planDisplay, setPlanDisplay] = useState<PlanDisplay | null>(null);
   const [executionDisplay, setExecutionDisplay] = useState<ExecutionDisplay | null>(null);
   const [lastError, setLastError] = useState<unknown>(null);
+  const [approvalStates, setApprovalStates] = useState<Record<string, ApprovalStatus>>({});
 
   const isRegistrationPhase = contest.phase === "registration";
   const isCapacityFull = contest.registrationCapacity.isFull;
@@ -211,6 +224,9 @@ export default function RegistrationPanel({ contestId, contest }: RegistrationPa
     if (!gate.isSupportedNetwork) {
       return t("participation.messages.unsupportedNetwork");
     }
+    if (!gate.isWalletConnected) {
+      return t("participation.messages.walletRequired");
+    }
     if (!isRegistrationPhase) {
       return t("participation.messages.registrationPhaseOnly");
     }
@@ -221,7 +237,15 @@ export default function RegistrationPanel({ contestId, contest }: RegistrationPa
       return t("participation.messages.walletRequired");
     }
     return null;
-  }, [gate.isSessionActive, gate.isSupportedNetwork, isRegistrationPhase, isCapacityFull, participantAddress, t]);
+  }, [
+    gate.isSessionActive,
+    gate.isSupportedNetwork,
+    gate.isWalletConnected,
+    isRegistrationPhase,
+    isCapacityFull,
+    participantAddress,
+    t
+  ]);
 
   const planMutation = useMutation({
     mutationFn: async () => {
@@ -233,6 +257,15 @@ export default function RegistrationPanel({ contestId, contest }: RegistrationPa
       });
     },
     onSuccess: (result) => {
+      const formattedChecks = formatChecks(result.checks);
+      const formattedApprovals = formatApprovals(result.requiredApprovals);
+      const formattedTransaction = formatCall(result.transaction);
+      const formattedAnchor = formatAnchor(result.derivedAt) ?? {
+        blockNumber: "-",
+        blockHash: undefined,
+        timestamp: "-"
+      };
+
       trackInteraction({
         action: "registration-plan",
         stage: "success",
@@ -248,16 +281,20 @@ export default function RegistrationPanel({ contestId, contest }: RegistrationPa
       });
       setPlanDisplay({
         status: result.status,
-        checks: formatChecks(result.checks),
-        approvals: formatApprovals(result.requiredApprovals),
-        transaction: formatCall(result.transaction),
+        checks: formattedChecks,
+        approvals: formattedApprovals,
+        transaction: formattedTransaction,
         estimatedFeesLabel: formatEstimatedFees(result.estimatedFees),
         rejectionReasonMessage: result.rejectionReason?.message ?? null,
-        anchor: formatAnchor(result.derivedAt) ?? {
-          blockNumber: "-",
-          blockHash: undefined,
-          timestamp: "-"
-        }
+        anchor: formattedAnchor
+      });
+      setApprovalStates((previous) => {
+        const next: Record<string, ApprovalStatus> = {};
+        formattedApprovals.forEach((approval) => {
+          const key = approvalKeyFor(approval);
+          next[key] = previous[key] ?? { status: "idle", transactionHash: null, errorMessage: null };
+        });
+        return next;
       });
       setExecutionDisplay(null);
       setLastError(null);
@@ -280,11 +317,28 @@ export default function RegistrationPanel({ contestId, contest }: RegistrationPa
       if (!participantAddress) {
         throw new Error(t("participation.messages.walletRequired"));
       }
-      return executeRegistration(contestId, {
+      const result = await executeRegistration(contestId, {
         participant: participantAddress
       });
+      let transactionHash: string | null = null;
+      if (result.status.toLowerCase() === "executed" && result.transaction) {
+        const execution = await sendExecutionCall(result.transaction);
+        transactionHash = execution.hash;
+      }
+      return {
+        result,
+        transactionHash
+      };
     },
-    onSuccess: async (result) => {
+    onSuccess: async ({ result, transactionHash }) => {
+      const formattedTransaction = formatCall(result.transaction);
+      const formattedApprovals = formatApprovals(result.requiredApprovals);
+      const formattedAnchor = formatAnchor(result.derivedAt) ?? {
+        blockNumber: "-",
+        blockHash: undefined,
+        timestamp: "-"
+      };
+
       trackInteraction({
         action: "registration-execute",
         stage: "success",
@@ -294,22 +348,19 @@ export default function RegistrationPanel({ contestId, contest }: RegistrationPa
         status: result.status,
         anchor: result.derivedAt ?? null,
         metadata: {
-          approvals: Array.isArray(result.requiredApprovals) ? result.requiredApprovals.length : 0
+          approvals: formattedApprovals.length
         }
       });
       setExecutionDisplay({
         status: result.status,
-        transaction: formatCall(result.transaction),
-        approvals: formatApprovals(result.requiredApprovals),
+        transaction: formattedTransaction,
+        approvals: formattedApprovals,
         reasonMessage:
           typeof result.reason === "string"
             ? result.reason
             : result.reason?.message ?? null,
-        anchor: formatAnchor(result.derivedAt) ?? {
-          blockNumber: "-",
-          blockHash: undefined,
-          timestamp: "-"
-        }
+        anchor: formattedAnchor,
+        transactionHash: transactionHash ?? null
       });
       setLastError(null);
       await queryClient.invalidateQueries({
@@ -360,8 +411,90 @@ export default function RegistrationPanel({ contestId, contest }: RegistrationPa
     if (planDisplay.status.toLowerCase() === "blocked") {
       return false;
     }
+    if (!walletReady) {
+      return false;
+    }
     return Boolean(planDisplay.transaction);
-  }, [planDisplay]);
+  }, [planDisplay, walletReady]);
+
+  const handleApprove = useCallback(
+    async (approval: DisplayApproval) => {
+      const key = approvalKeyFor(approval);
+      setApprovalStates((previous) => ({
+        ...previous,
+        [key]: {
+          status: "pending",
+          transactionHash: previous[key]?.transactionHash ?? null,
+          errorMessage: null
+        }
+      }));
+      try {
+        const execution = await approveToken({
+          tokenAddress: approval.tokenAddress,
+          spender: approval.spender,
+          amount: approval.amount,
+          symbol: approval.symbol,
+          decimals: approval.decimals,
+          reason: approval.reason ?? undefined
+        });
+        setApprovalStates((previous) => ({
+          ...previous,
+          [key]: {
+            status: "success",
+            transactionHash: execution.hash,
+            errorMessage: null
+          }
+        }));
+        await planMutation.mutateAsync();
+      } catch (error) {
+        setApprovalStates((previous) => ({
+          ...previous,
+          [key]: {
+            status: "error",
+            transactionHash: previous[key]?.transactionHash ?? null,
+            errorMessage: error instanceof Error ? error.message : String(error)
+          }
+        }));
+        setLastError(error);
+      }
+    },
+    [approveToken, planMutation]
+  );
+
+  const renderApprovalAction = useCallback(
+    (approval: DisplayApproval) => {
+      const key = approvalKeyFor(approval);
+      const state = approvalStates[key] ?? { status: "idle", transactionHash: null, errorMessage: null };
+      const isPending = state.status === "pending";
+      return (
+        <div className="space-y-1">
+          <button
+            type="button"
+            onClick={() => void handleApprove(approval)}
+            disabled={
+              Boolean(disableReason) ||
+              planMutation.isPending ||
+              executeMutation.isPending ||
+              isPending ||
+              !walletReady
+            }
+            className="rounded border border-slate-600 bg-slate-800 px-3 py-1 text-[0.7rem] font-semibold text-slate-100 transition hover:border-slate-400 hover:text-slate-50 disabled:cursor-not-allowed disabled:opacity-60"
+          >
+            {isPending ? t("participation.actions.approving") : t("participation.actions.approve")}
+          </button>
+          {state.status === "success" && state.transactionHash ? (
+            <p className="text-[0.65rem] text-emerald-300">
+              Tx: {state.transactionHash.slice(0, 10)}…{state.transactionHash.slice(-6)}
+            </p>
+          ) : null}
+          {state.status === "error" && state.errorMessage ? (
+            <p className="text-[0.65rem] text-rose-300">{state.errorMessage}</p>
+          ) : null}
+        </div>
+      );
+    },
+    [approvalStates, disableReason, executeMutation.isPending, handleApprove, planMutation.isPending, t, walletReady]
+  );
 
   return (
     <section className="space-y-4 rounded-xl border border-slate-800/60 bg-slate-900/40 p-6">
@@ -445,6 +578,7 @@ export default function RegistrationPanel({ contestId, contest }: RegistrationPa
                       amount: t("participation.labels.amount"),
                       reason: t("participation.labels.reason")
                     }}
+                    renderAction={renderApprovalAction}
                   />
                 </div>
               </div>
@@ -543,6 +677,11 @@ export default function RegistrationPanel({ contestId, contest }: RegistrationPa
               {executionDisplay.reasonMessage ? (
                 <p className="rounded border border-amber-400/40 bg-amber-500/10 p-2 text-xs text-amber-100">
                   {executionDisplay.reasonMessage ?? t("participation.labels.reasonFallback")}
+                </p>
+              ) : null}
+              {executionDisplay.transactionHash ? (
+                <p className="text-xs text-emerald-300">
+                  Tx: {executionDisplay.transactionHash.slice(0, 10)}…{executionDisplay.transactionHash.slice(-6)}
                 </p>
               ) : null}
             </>
