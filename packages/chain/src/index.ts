@@ -9,3 +9,4 @@ export * from './runtime/deploymentRuntime.js';
 export * from './gateway/types.js';
 export * from './gateway/artifacts.js';
 export * from './gateway/contestDeployment.js';
+export * from './lifecycle/contestLifecycle.js';

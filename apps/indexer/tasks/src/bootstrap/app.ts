@@ -5,6 +5,7 @@ import {
   getMilestoneExecutionByIdempotencyKey,
   getMilestoneExecutionByEvent,
   getReconciliationReportByReportId,
+  listTrackedContests,
   updateMilestoneExecutionStatus,
   updateReconciliationReportStatus,
   upsertMilestoneExecution,
@@ -47,6 +48,8 @@ import { registerStatusRoutes } from '../http/routes/statusRoute.js';
 import { registerMilestoneRetryRoute } from '../http/routes/milestoneRetryRoute.js';
 import { registerMilestoneModeRoute } from '../http/routes/milestoneModeRoute.js';
 import { registerReportStatusRoute } from '../http/routes/reportStatusRoute.js';
+import { createDeploymentRuntime } from '@chaincontest/chain';
+import { ContestLifecycleOrchestrator } from '../services/lifecycleOrchestrator.js';
 
 export interface AppBootstrapOptions {
   config?: TasksConfig;
@@ -132,6 +135,17 @@ export const createApp = (options: AppBootstrapOptions = {}): TasksApplication =
         return Promise.resolve();
       }
     }
+  });
+
+  const lifecycleLogger = logger.child({ component: 'contest-lifecycle' });
+  const lifecycleRuntime = createDeploymentRuntime();
+  const lifecycleOrchestrator = new ContestLifecycleOrchestrator({
+    logger: lifecycleLogger,
+    runtime: lifecycleRuntime,
+    db: {
+      listTrackedContests
+    },
+    pollIntervalMs: config.lifecycle.pollIntervalMs
   });
 
   let milestoneWorkerRegistered = false;
@@ -239,6 +253,7 @@ export const createApp = (options: AppBootstrapOptions = {}): TasksApplication =
       await ensureMilestoneWorker(application);
       await ensureReconciliationWorker(application);
       await http.start();
+      lifecycleOrchestrator.start();
 
       started = true;
       logger.info('indexer tasks application started');
@@ -248,6 +263,7 @@ export const createApp = (options: AppBootstrapOptions = {}): TasksApplication =
         return;
       }
 
+      lifecycleOrchestrator.stop();
       await http.stop();
       await shutdownQueue();
       await shutdownDatabaseConnection(logger);

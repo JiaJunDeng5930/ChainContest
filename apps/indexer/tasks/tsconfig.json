@@ -19,7 +19,10 @@
       "node"
     ],
     "noEmitOnError": true,
-    "skipLibCheck": true
+    "skipLibCheck": true,
+    "paths": {
+      "@chaincontest/db": ["../../packages/db/src/index.ts"]
+    }
   },
   "include": [
     "src"

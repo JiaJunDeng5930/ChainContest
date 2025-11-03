@@ -70,6 +70,11 @@ const envSchema = z.object({
     .int()
     .min(1_000)
     .default(30_000),
+  INDEXER_TASKS_LIFECYCLE_INTERVAL_MS: z.coerce
+    .number({ invalid_type_error: 'INDEXER_TASKS_LIFECYCLE_INTERVAL_MS must be a number' })
+    .int()
+    .min(1_000)
+    .default(5_000),
   INDEXER_TASKS_DISABLE_NOTIFICATIONS: booleanFlagSchema.optional()
 }).superRefine((env, context) => {
   const token = env.INDEXER_TASKS_ADMIN_TOKEN?.trim();
@@ -116,6 +121,9 @@ const configSchema = envSchema.transform((env) => {
     },
     timeouts: {
       gracefulShutdownMs: env.INDEXER_TASKS_SHUTDOWN_TIMEOUT_MS
+    },
+    lifecycle: {
+      pollIntervalMs: env.INDEXER_TASKS_LIFECYCLE_INTERVAL_MS
     },
     features: {
       notificationsEnabled: !(env.INDEXER_TASKS_DISABLE_NOTIFICATIONS ?? false)
