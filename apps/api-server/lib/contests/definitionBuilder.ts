@@ -349,17 +349,31 @@ const parseRegistrationApprovals = (raw: unknown): ContestDefinition['registrati
   if (!Array.isArray(raw)) {
     return undefined;
   }
-  return raw.map((entry, index) => {
+  const seen = new Set<string>();
+  const approvals: NonNullable<ContestDefinition['registration']['approvals']> = [];
+
+  raw.forEach((entry, index) => {
     const source = ensureObject(entry, `registration.approvals[${index}]`);
-    return {
-      tokenAddress: ensureAddress(source.tokenAddress, `registration.approvals[${index}].tokenAddress`),
-      spender: ensureAddress(source.spender, `registration.approvals[${index}].spender`),
+    const tokenAddress = ensureAddress(source.tokenAddress, `registration.approvals[${index}].tokenAddress`);
+    const spender = ensureAddress(source.spender, `registration.approvals[${index}].spender`);
+    const key = `${tokenAddress.toLowerCase()}:${spender.toLowerCase()}`;
+
+    if (seen.has(key)) {
+      return;
+    }
+    seen.add(key);
+
+    approvals.push({
+      tokenAddress,
+      spender,
       amount: ensureString(source.amount, `registration.approvals[${index}].amount`),
       symbol: ensureOptionalString(source.symbol, `registration.approvals[${index}].symbol`),
       decimals: source.decimals === undefined ? undefined : toNumber(source.decimals, `registration.approvals[${index}].decimals`),
       reason: ensureOptionalString(source.reason, `registration.approvals[${index}].reason`)
-    };
+    });
   });
+
+  return approvals;
 };
 
 const parseRegistrationWindow = (
