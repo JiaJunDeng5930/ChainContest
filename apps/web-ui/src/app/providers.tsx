@@ -9,7 +9,7 @@ import { NextIntlClientProvider, type AbstractIntlMessages } from "next-intl";
 import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
 import { WagmiProvider } from "wagmi";
 import { http } from "wagmi";
-import { mainnet, sepolia } from "wagmi/chains";
+import { hardhat, mainnet, sepolia } from "wagmi/chains";
 
 import { createQueryClient } from "../lib/api/client";
 
@@ -20,7 +20,7 @@ type ProvidersProps = {
 };
 
 const APP_NAME = "ChainContest";
-const SUPPORTED_CHAINS = [mainnet, sepolia] as const;
+const SUPPORTED_CHAINS = [mainnet, sepolia, hardhat] as const;
 
 const transports = SUPPORTED_CHAINS.reduce<
   Record<
@@ -29,6 +29,14 @@ const transports = SUPPORTED_CHAINS.reduce<
   >
 >(
   (acc, chain) => {
+    if (chain.id === hardhat.id) {
+      const rpcOverride =
+        process.env.NEXT_PUBLIC_HARDHAT_RPC_URL ??
+        process.env.HARDHAT_RPC_URL ??
+        "http://hardhat-node:8545";
+      acc[chain.id] = http(rpcOverride);
+      return acc;
+    }
     acc[chain.id] = http();
     return acc;
   },
