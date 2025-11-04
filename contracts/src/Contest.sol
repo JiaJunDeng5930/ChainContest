@@ -875,10 +875,6 @@ contract Contest is Ownable2Step, Pausable, ReentrancyGuard {
         if (!vaultSettled[vaultId]) {
             revert ContestSettlementPending();
         }
-        if (rewardClaimed[vaultId]) {
-            revert ContestRewardAlreadyClaimed(vaultId);
-        }
-
         address vaultAddress = vaultAddresses[vaultId];
         IVault vault = IVault(vaultAddress);
         if (vault.withdrawn()) {
@@ -886,11 +882,14 @@ contract Contest is Ownable2Step, Pausable, ReentrancyGuard {
         }
 
         (, , uint16 rank) = vault.score();
-        if (rank != 0) {
+        bool isWinner = rank != 0 && rank <= config.topK;
+        if (isWinner && !rewardClaimed[vaultId]) {
+            revert ContestNotEligibleForReward(vaultId);
+        }
+        if (!isWinner && rank != 0) {
             revert ContestNotEligibleForReward(vaultId);
         }
 
-        rewardClaimed[vaultId] = true;
         uint256 baseBal = vault.baseBalance();
         uint256 quoteBal = vault.quoteBalance();
         vault.withdraw(msg.sender, baseBal, quoteBal);
@@ -1013,12 +1012,7 @@ contract Contest is Ownable2Step, Pausable, ReentrancyGuard {
 
         config.entryAsset.safeTransfer(recipient, prizeShare);
 
-        uint256 baseBal = vault.baseBalance();
-        uint256 quoteBal = vault.quoteBalance();
-        vault.withdraw(recipient, baseBal, quoteBal);
-
         emit RewardClaimed(contestId, vaultId, prizeShare);
-        emit VaultExited(contestId, vaultId, baseBal, quoteBal);
         return prizeShare;
     }
 }

@@ -779,7 +779,7 @@ event RewardClaimed(bytes32 contestId, bytes32 vaultId, uint256 amount)
 
 **事件说明：** 参赛者领取奖金时记录发放金额。
 
-**补充信息：** `_claim` 成功执行后发出，同时标记 Vault 已领奖。
+**补充信息：** `_claim` 仅负责发放奖金并标记领奖状态，不会自动提取 Vault 资产。
 
 #### 参数
 
@@ -801,7 +801,7 @@ event VaultExited(bytes32 contestId, bytes32 vaultId, uint256 baseReturned, uint
 
 **事件说明：** 参赛者退出并取回 Vault 内剩余资产。
 
-**补充信息：** 既可由领奖流程触发，也可在密封阶段主动退出。
+**补充信息：** 仅由 `exit` 触发；获奖者需先领取奖金，再调用退出以赎回本金。
 
 #### 参数
 
@@ -813,7 +813,7 @@ event VaultExited(bytes32 contestId, bytes32 vaultId, uint256 baseReturned, uint
 | quoteReturned | uint256 | 退回的报价资产数量。 |
 
 #### 示例
-领奖完成后自动触发，或用户调用 `exit`。
+用户在密封阶段主动调用 `exit` 触发。
 
 <a id="contest-error-contest-already-initialized"></a>
 ### 错误 ContestAlreadyInitialized
@@ -1531,13 +1531,12 @@ function exit() external
 
 **功能概述：** 在密封阶段提取 Vault 余额以完成退出。
 
-**开发说明：** 限制仅参赛者本人调用，且需 Vault 已结算且未领奖。
+**开发说明：** 限制仅参赛者本人调用，需 Vault 已结算；若参赛者为获奖者必须先完成领奖。
 
 #### 可能抛出的错误
 ContestInvalidState 当前状态不是 Sealed。
 ContestParticipantUnknown 未登记参赛者。
 ContestSettlementPending Vault 尚未结算。
-ContestRewardAlreadyClaimed Vault 已领奖。
 ContestUnknownVault Vault 地址缺失。
 ContestWithdrawalUnavailable Vault 已提空资产。
 ContestNotEligibleForReward 排名仍在奖励名次内。

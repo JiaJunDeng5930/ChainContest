@@ -458,7 +458,16 @@ describe("Contest prize pool claims", () => {
     expect(await contest.prizePool()).to.equal(0n);
     expect(await contest.totalPrizePool()).to.equal(prizeBefore);
     const balanceAfter = await usdc.balanceOf(participant.address);
-    expect(balanceAfter - balanceBefore).to.equal(prizeBefore + ENTRY_AMOUNT);
+    expect(balanceAfter - balanceBefore).to.equal(prizeBefore);
+
+    const exitTx = contest.connect(participant).exit();
+    await expect(exitTx)
+      .to.emit(contest, "VaultExited")
+      .withArgs(contestId, vaultId, ENTRY_AMOUNT, 0);
+    await exitTx;
+
+    const finalBalance = await usdc.balanceOf(participant.address);
+    expect(finalBalance - balanceAfter).to.equal(ENTRY_AMOUNT);
   });
 
   it("reverts when prize pool is insufficient", async () => {
