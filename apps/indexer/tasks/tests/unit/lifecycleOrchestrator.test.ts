@@ -12,6 +12,7 @@ vi.mock('@chaincontest/chain', () => ({
   readVaultScore: vi.fn(),
   sealContest: vi.fn(),
   settleContestParticipant: vi.fn(),
+  syncContestState: vi.fn(),
   updateContestLeaders: vi.fn()
 }));
 
@@ -61,6 +62,35 @@ const waitForTick = async (): Promise<void> =>
 describe('ContestLifecycleOrchestrator', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+  });
+
+  it('syncs contest state when registering window elapsed', async () => {
+    chainMocks.readContestState.mockResolvedValue({
+      state: 'registering',
+      participantCount: 0,
+      settledCount: 0,
+      leaderboardVersion: 0
+    });
+    chainMocks.readContestTimeline.mockResolvedValue({
+      registeringEnds: new Date(Date.now() - 30_000),
+      liveEnds: new Date(Date.now() + 60_000),
+      claimEnds: new Date(Date.now() + 120_000)
+    });
+
+    const orchestrator = new ContestLifecycleOrchestrator({
+      logger: pino({ level: 'silent' }),
+      runtime: buildRuntime(),
+      db: {
+        listTrackedContests: async () => [contestStream]
+      },
+      pollIntervalMs: 10
+    });
+
+    orchestrator.start();
+    await waitForTick();
+    orchestrator.stop();
+
+    expect(chainMocks.syncContestState).toHaveBeenCalledTimes(1);
   });
 
   it('freezes contest when live window elapsed', async () => {

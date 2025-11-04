@@ -8,6 +8,7 @@ import {
   readContestTimeline,
   readContestTopK,
   readVaultScore,
+  syncContestState,
   sealContest,
   settleContestParticipant,
   updateContestLeaders
@@ -189,6 +190,15 @@ export class ContestLifecycleOrchestrator {
     }
 
     const now = new Date();
+    if (state.state === 'registering' && now >= timeline.registeringEnds) {
+      await syncContestState(this.runtime, reference);
+      this.logger.info(
+        { contestId: stream.contestId, chainId: stream.chainId },
+        'contest state synced to live phase automatically'
+      );
+      return;
+    }
+
     if (state.state === 'live' && now >= timeline.liveEnds) {
       await freezeContest(this.runtime, reference);
       this.logger.info(
