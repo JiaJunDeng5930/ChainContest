@@ -17,6 +17,7 @@ import {
   type RebalanceExecutionResult,
   type ContestEventBatch,
   type LifecycleSnapshot,
+  type TokenApprovalRequestShape,
 } from './domainModels.js';
 import {
   createContestChainError,
@@ -71,8 +72,8 @@ const resolveParticipantProfile = (
     registered: false,
   };
 
-const buildRegistrationApprovals = (definition: ContestDefinition) => {
-  const base = {
+const buildRegistrationApprovals = (definition: ContestDefinition): TokenApprovalRequestShape[] => {
+  const base: TokenApprovalRequestShape = {
     tokenAddress: definition.registration.requirement.tokenAddress,
     spender: definition.registration.requirement.spender,
     amount: definition.registration.requirement.amount,
@@ -80,10 +81,20 @@ const buildRegistrationApprovals = (definition: ContestDefinition) => {
     decimals: definition.registration.requirement.decimals,
     reason:
       definition.registration.requirement.reason ?? 'registration-entry-requirement',
-  } as const;
+  };
 
-  const extras = definition.registration.approvals ?? [];
-  return [base, ...extras];
+  const approvals: TokenApprovalRequestShape[] = [base, ...(definition.registration.approvals ?? [])];
+  const unique: TokenApprovalRequestShape[] = [];
+  const seen = new Set<string>();
+  for (const approval of approvals) {
+    const key = `${approval.tokenAddress?.toLowerCase() ?? ''}:${approval.spender?.toLowerCase() ?? ''}`;
+    if (!seen.has(key)) {
+      unique.push(approval);
+      seen.add(key);
+    }
+  }
+
+  return unique;
 };
 
 class ContestChainGatewayImpl implements ContestChainGateway {

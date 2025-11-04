@@ -59,7 +59,7 @@ export interface ContestReference {
 const executeTransaction = async (
   runtime: DeploymentRuntime,
   reference: ContestReference,
-  functionName: 'freeze' | 'seal',
+  functionName: 'freeze' | 'seal' | 'syncState',
 ): Promise<Hash> => {
   const { chain, publicClient } = getChainClients(runtime, reference.chainId);
   const walletClient = runtime.createWalletClient(chain);
@@ -80,6 +80,11 @@ export const freezeContest = (
   runtime: DeploymentRuntime,
   reference: ContestReference
 ): Promise<Hash> => executeTransaction(runtime, reference, 'freeze');
+
+export const syncContestState = (
+  runtime: DeploymentRuntime,
+  reference: ContestReference
+): Promise<Hash> => executeTransaction(runtime, reference, 'syncState');
 
 export const sealContest = (
   runtime: DeploymentRuntime,

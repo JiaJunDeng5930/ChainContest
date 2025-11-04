@@ -292,6 +292,45 @@ describe('planParticipantRegistration', () => {
     );
     expect(windowCheck?.passed).toBe(true);
   });
+
+  it('deduplicates registration approvals by token and spender', async () => {
+    const definition = buildDefinition((next) => {
+      next.registration.approvals = [
+        {
+          tokenAddress: entryToken,
+          spender,
+          amount: '0',
+          reason: 'duplicate-one',
+          symbol: 'ETH',
+          decimals: 18,
+        },
+        {
+          tokenAddress: entryToken,
+          spender: spender.toUpperCase(),
+          amount: '0',
+          reason: 'duplicate-two',
+          symbol: 'ETH',
+          decimals: 18,
+        },
+      ];
+    });
+    const gateway = createGateway(definition);
+
+    const result = await gateway.planParticipantRegistration({
+      contest: definition.contest,
+      participant: participantB,
+    });
+
+    expect(result.requiredApprovals).toHaveLength(1);
+    expect(
+      new Set(
+        result.requiredApprovals.map(
+          (approval) =>
+            `${approval.tokenAddress?.toLowerCase()}:${approval.spender?.toLowerCase()}`,
+        ),
+      ).size,
+    ).toBe(1);
+  });
 });
 
 describe('describeContestLifecycle', () => {
