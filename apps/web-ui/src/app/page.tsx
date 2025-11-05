@@ -1,9 +1,22 @@
 "use client";
 
 import Link from "next/link";
+import { useMemo } from "react";
+import type { ReactNode } from "react";
+import { useQuery } from "@tanstack/react-query";
 
 import WalletConnectButton from "../features/auth/components/WalletConnectButton";
 import useSession from "../features/auth/hooks/useSession";
+import {
+  fetchCreatorContests,
+  type CreatorContestListResponse,
+  type CreatorContestRecord
+} from "../features/contests/api/creatorContests";
+import {
+  fetchParticipationHistory,
+  type UserContestListResponse,
+  type UserContestRecord
+} from "../features/participation/api/history";
 
 export default function HomePage() {
   const session = useSession();
@@ -16,16 +29,20 @@ export default function HomePage() {
     return <UnauthenticatedLanding />;
   }
 
-  return <AuthenticatedWelcome address={session.data.addressChecksum ?? session.data.address ?? ""} />;
+  return <AuthenticatedDashboard address={session.data.addressChecksum ?? session.data.address ?? ""} />;
 }
 
-function LoadingState() {
+type LoadingStateProps = {
+  message?: string;
+};
+
+function LoadingState({ message = "加载中…" }: LoadingStateProps) {
   return (
     <main className="flex min-h-[60vh] items-center justify-center bg-slate-950">
       <div className="rounded-lg bg-slate-900 px-6 py-4 text-slate-200 shadow-lg shadow-slate-900/40">
         <div className="flex items-center gap-3">
           <span className="h-3 w-3 animate-ping rounded-full bg-emerald-400" />
-          <span className="text-sm font-medium tracking-wide">加载中…</span>
+          <span className="text-sm font-medium tracking-wide">{message}</span>
         </div>
       </div>
     </main>
@@ -141,19 +158,79 @@ function UnauthenticatedLanding() {
   );
 }
 
-type AuthenticatedWelcomeProps = {
-  address?: string | null;
+type AuthenticatedDashboardProps = {
+  address: string;
 };
 
-function AuthenticatedWelcome({ address }: AuthenticatedWelcomeProps) {
+function AuthenticatedDashboard({ address }: AuthenticatedDashboardProps) {
+  const createdQuery = useQuery<CreatorContestListResponse>({
+    queryKey: ["home", "creator-contests"],
+    queryFn: () => fetchCreatorContests({ pageSize: 5 }),
+    staleTime: 30_000,
+    refetchOnWindowFocus: false
+  });
+
+  const participationQuery = useQuery<UserContestListResponse>({
+    queryKey: ["home", "participation-history"],
+    queryFn: () => fetchParticipationHistory({ pageSize: 5 }),
+    staleTime: 30_000,
+    refetchOnWindowFocus: false
+  });
+
+  const createdRecords = createdQuery.data?.items ?? [];
+  const participationRecords = participationQuery.data?.items ?? [];
+
+  const stats = useMemo(() => {
+    const createdCount = createdRecords.length;
+    const activeCreations = createdRecords.filter((record) =>
+      isActiveContestStatus(record.contest?.status ?? record.status)
+    ).length;
+
+    const participationCount = participationRecords.length;
+    const activeParticipations = participationRecords.filter((record) =>
+      isActiveContestStatus(record.contest.phase)
+    ).length;
+    const rewardClaimCount = participationRecords.reduce((total, record) => total + record.rewardClaims.length, 0);
+
+    return [
+      {
+        label: "已创建竞赛",
+        value: createdCount,
+        detail: activeCreations > 0 ? `${activeCreations} 场进行中` : "暂无进行中的竞赛"
+      },
+      {
+        label: "参与记录",
+        value: participationCount,
+        detail: activeParticipations > 0 ? `${activeParticipations} 场正在进行` : "等待下一场开赛"
+      },
+      {
+        label: "已领奖励",
+        value: rewardClaimCount,
+        detail: rewardClaimCount > 0 ? "恭喜，你已经赢得奖励！" : "快去参赛赢取奖励吧"
+      }
+    ];
+  }, [createdRecords, participationRecords]);
+
   return (
     <main className="flex flex-col gap-12 bg-slate-950 pb-20 text-slate-100">
       <section className="bg-gradient-to-br from-slate-900 via-slate-950 to-slate-950 py-16">
         <div className="container mx-auto flex max-w-5xl flex-col gap-6 px-6">
           <h1 className="text-3xl font-semibold text-white sm:text-4xl">欢迎回来！</h1>
           <p className="max-w-3xl text-sm leading-relaxed text-slate-300 sm:text-base">
-            你的账户 {address ? `（${address}）` : ""} 已连接。进入竞赛控制台，继续管理你创建的活动或参与中的赛事。
+            你的账户 {address ? `（${address}）` : ""} 已连接。以下为你负责与参与的竞赛概览，继续推进比赛节奏吧。
           </p>
+          <div className="grid gap-6 sm:grid-cols-3">
+            {stats.map((item) => (
+              <article
+                key={item.label}
+                className="rounded-2xl border border-slate-800 bg-slate-900/60 p-5 shadow-lg shadow-black/30"
+              >
+                <p className="text-xs uppercase tracking-[0.2em] text-emerald-300">{item.label}</p>
+                <p className="mt-3 text-3xl font-semibold text-white">{item.value}</p>
+                <p className="mt-2 text-xs text-slate-400">{item.detail}</p>
+              </article>
+            ))}
+          </div>
           <div className="flex flex-wrap gap-3">
             <Link
               href="/contests"
@@ -177,37 +254,287 @@ function AuthenticatedWelcome({ address }: AuthenticatedWelcomeProps) {
         </div>
       </section>
 
-      <section className="container mx-auto flex max-w-5xl flex-col gap-6 px-6">
-        <h2 className="text-xl font-semibold text-white">常用入口</h2>
-        <div className="grid gap-6 md:grid-cols-3">
-          {[
-            {
-              title: "我的竞赛",
-              description: "快速查看你已经创建或部署的竞赛，管理生命周期和获奖信息。",
-              href: "/me/contests"
-            },
-            {
-              title: "参赛记录",
-              description: "回顾近期的参赛操作，跟进奖励发放和本金赎回进度。",
-              href: "/me/participation"
-            },
-            {
-              title: "操作指南",
-              description: "熟悉部署组件、发布竞赛、参赛操作的详细步骤与常见问题。",
-              href: "/docs/getting-started"
-            }
-          ].map((item) => (
-            <Link
-              key={item.title}
-              href={item.href}
-              className="flex flex-col gap-3 rounded-2xl border border-slate-800 bg-slate-900/60 p-6 text-left text-slate-200 shadow-lg shadow-black/20 transition hover:border-emerald-400 hover:text-emerald-200"
-            >
-              <h3 className="text-lg font-semibold text-white">{item.title}</h3>
-              <p className="text-sm leading-relaxed text-slate-300">{item.description}</p>
-            </Link>
-          ))}
-        </div>
-      </section>
+      <DashboardSection
+        title="我创建的竞赛"
+        description="查看最近部署的竞赛及其当前阶段。列表仅展示最新五条，可前往“我的竞赛”查看更多详情。"
+        isLoading={createdQuery.isLoading}
+        error={createdQuery.isError ? createdQuery.error : null}
+      >
+        <CreatedContestList records={createdRecords} />
+      </DashboardSection>
+
+      <DashboardSection
+        title="我的参赛经历"
+        description="汇总你最近参与或关注的竞赛，了解状态、最近事件与奖励获取情况。"
+        isLoading={participationQuery.isLoading}
+        error={participationQuery.isError ? participationQuery.error : null}
+      >
+        <ParticipationList records={participationRecords} />
+      </DashboardSection>
     </main>
   );
+}
+
+type DashboardSectionProps = {
+  title: string;
+  description: string;
+  isLoading: boolean;
+  error: unknown;
+  children: ReactNode;
+};
+
+function DashboardSection({ title, description, isLoading, error, children }: DashboardSectionProps) {
+  return (
+    <section className="container mx-auto flex max-w-5xl flex-col gap-8 px-6">
+      <header className="flex flex-col gap-2">
+        <h2 className="text-xl font-semibold text-white">{title}</h2>
+        <p className="text-sm text-slate-400">{description}</p>
+      </header>
+      {isLoading ? <LoadingCardList count={3} /> : error ? <ErrorState error={error} /> : children}
+    </section>
+  );
+}
+
+function CreatedContestList({ records }: { records: CreatorContestRecord[] }) {
+  if (!records.length) {
+    return (
+      <div className="rounded-2xl border border-slate-800 bg-slate-900/40 p-6 text-sm text-slate-300">
+        暂无创建记录，立即前往{" "}
+        <Link href="/contests/create" className="text-emerald-300 hover:underline">
+          创建竞赛
+        </Link>{" "}
+        吧。
+      </div>
+    );
+  }
+
+  return (
+    <div className="grid gap-4">
+      {records.map((record) => {
+        const contest = record.contest;
+        const artifact = record.artifact;
+        const requestPayload = record.request.payload as Record<string, unknown>;
+        const titleCandidates = [
+          resolveTitleFromMetadata(artifact?.metadata),
+          resolveTitleFromMetadata(contest?.metadata),
+          resolveTitleFromMetadata(requestPayload.metadata),
+          typeof requestPayload.contestId === "string" ? requestPayload.contestId : null,
+          record.request.requestId
+        ];
+
+        const displayTitle = titleCandidates.find((value) => typeof value === "string" && value.trim().length > 0);
+        const status = formatContestStatus(contest?.status ?? record.status);
+        const createdAt = artifact?.createdAt ?? record.request.createdAt;
+        const contestAddress = contest?.contractAddress ?? artifact?.contestAddress ?? "待部署";
+        const chainId = contest?.chainId ?? artifact?.networkId ?? record.request.networkId;
+
+        return (
+          <article
+            key={record.request.requestId}
+            className="flex flex-col gap-3 rounded-2xl border border-slate-800 bg-slate-900/60 p-5 text-sm text-slate-300 shadow-lg shadow-black/20"
+          >
+            <div className="flex items-center justify-between gap-3">
+              <h3 className="text-base font-semibold text-white">{displayTitle ?? "未命名竞赛"}</h3>
+              <span className="rounded-full border border-emerald-500/30 bg-emerald-500/10 px-3 py-1 text-xs font-semibold uppercase tracking-wider text-emerald-300">
+                {status}
+              </span>
+            </div>
+            <p className="text-xs text-slate-400">
+              合约地址：{contestAddress} · 更新时间：{formatDate(createdAt)}
+            </p>
+            <div className="flex flex-wrap gap-3 text-xs text-slate-400">
+              <InfoBadge label="链 ID" value={chainId} />
+              <InfoBadge label="部署记录" value={artifact?.transactionHash ?? "尚未确认"} />
+              <InfoBadge label="提交状态" value={record.status} />
+              <InfoBadge label="计划 ID" value={record.request.requestId} />
+            </div>
+          </article>
+        );
+      })}
+    </div>
+  );
+}
+
+function ParticipationList({ records }: { records: UserContestRecord[] }) {
+  if (!records.length) {
+    return (
+      <div className="rounded-2xl border border-slate-800 bg-slate-900/40 p-6 text-sm text-slate-300">
+        目前还没有参赛记录，前往{" "}
+        <Link href="/contests" className="text-emerald-300 hover:underline">
+          竞赛广场
+        </Link>{" "}
+        探索新的挑战。
+      </div>
+    );
+  }
+
+  return (
+    <div className="grid gap-4">
+      {records.map((record) => {
+        const contest = record.contest;
+        const contestTitle = resolveTitleFromMetadata(contest.metadata) ?? contest.contestId;
+
+        return (
+          <article
+            key={contest.contestId}
+            className="flex flex-col gap-3 rounded-2xl border border-slate-800 bg-slate-900/60 p-5 text-sm text-slate-300 shadow-lg shadow-black/20"
+          >
+            <div className="flex items-center justify-between gap-3">
+              <div>
+                <h3 className="text-base font-semibold text-white">{contestTitle}</h3>
+                <p className="text-xs text-slate-400">当前阶段：{formatContestStatus(contest.phase)}</p>
+              </div>
+              <Link
+                href={`/contests/${encodeURIComponent(contest.contestId)}`}
+                className="text-xs font-semibold text-emerald-300 hover:underline"
+              >
+                查看详情
+              </Link>
+            </div>
+            <div className="grid gap-2 text-xs text-slate-400 md:grid-cols-2">
+              <InfoBadge label="报名人数" value={contest.registrationCapacity.registered} />
+              <InfoBadge label="奖励记录" value={record.rewardClaims.length} />
+              <InfoBadge label="参赛操作次数" value={record.participations.length} />
+              <InfoBadge label="最近活动" value={formatDate(record.lastActivity)} />
+            </div>
+          </article>
+        );
+      })}
+    </div>
+  );
+}
+
+function LoadingCardList({ count }: { count: number }) {
+  return (
+    <div className="grid gap-4">
+      {Array.from({ length: count }).map((_, index) => (
+        <div
+          key={index}
+          className="h-24 animate-pulse rounded-2xl border border-slate-800 bg-slate-900/50"
+        />
+      ))}
+    </div>
+  );
+}
+
+type ErrorStateProps = {
+  error: unknown;
+};
+
+function ErrorState({ error }: ErrorStateProps) {
+  const message = toErrorMessage(error);
+  return (
+    <div className="rounded-2xl border border-red-500/30 bg-red-500/10 p-6 text-sm text-red-200">
+      {message}
+    </div>
+  );
+}
+
+function InfoBadge({ label, value }: { label: string; value: string | number | null | undefined }) {
+  return (
+    <div className="inline-flex flex-col gap-1 rounded-lg border border-slate-800 bg-slate-900/50 px-3 py-2">
+      <span className="text-[10px] font-semibold uppercase tracking-widest text-slate-500">{label}</span>
+      <span className="text-xs text-slate-200">{value ?? "—"}</span>
+    </div>
+  );
+}
+
+function resolveTitleFromMetadata(metadata: unknown): string | null {
+  if (!metadata || typeof metadata !== "object") {
+    return null;
+  }
+
+  const record = metadata as Record<string, unknown>;
+  const directTitle = record.title;
+  if (typeof directTitle === "string" && directTitle.trim().length > 0) {
+    return directTitle;
+  }
+
+  const directName = record.name;
+  if (typeof directName === "string" && directName.trim().length > 0) {
+    return directName;
+  }
+
+  const extra = record.extra;
+  if (extra && typeof extra === "object") {
+    const extraRecord = extra as Record<string, unknown>;
+    const extraTitle = extraRecord.title;
+    if (typeof extraTitle === "string" && extraTitle.trim().length > 0) {
+      return extraTitle;
+    }
+    const extraName = extraRecord.name;
+    if (typeof extraName === "string" && extraName.trim().length > 0) {
+      return extraName;
+    }
+  }
+
+  return null;
+}
+
+function formatContestStatus(status: string | number | null | undefined) {
+  if (typeof status !== "string") {
+    return "未知";
+  }
+
+  const normalized = status.toLowerCase();
+  switch (normalized) {
+    case "registration":
+    case "registering":
+    case "registered":
+      return "报名中";
+    case "active":
+    case "live":
+      return "进行中";
+    case "settled":
+    case "sealed":
+      return "已结算";
+    case "claimable":
+    case "claiming":
+      return "可领奖";
+    case "redeemable":
+    case "redeeming":
+      return "可赎回";
+    case "completed":
+    case "closed":
+      return "已完成";
+    case "failed":
+    case "errored":
+      return "部署失败";
+    default:
+      return status;
+  }
+}
+
+function isActiveContestStatus(status: string | number | null | undefined) {
+  if (typeof status !== "string") {
+    return false;
+  }
+
+  const normalized = status.toLowerCase();
+  return ["registration", "registering", "registered", "active", "live"].includes(normalized);
+}
+
+function formatDate(value?: string | null) {
+  if (!value) {
+    return "暂无";
+  }
+  try {
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) {
+      return value;
+    }
+    return new Intl.DateTimeFormat("zh-CN", {
+      dateStyle: "medium",
+      timeStyle: "short"
+    }).format(date);
+  } catch {
+    return value;
+  }
+}
+
+function toErrorMessage(error: unknown): string {
+  if (error instanceof Error && error.message) {
+    return error.message;
+  }
+  return "获取数据失败，请稍后重试。";
 }
