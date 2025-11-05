@@ -3,7 +3,6 @@
 import { useConnectModal } from "@rainbow-me/rainbowkit";
 import { useTranslations } from "next-intl";
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { SiweMessage } from "siwe";
 import { useAccount, useChainId, useDisconnect, useSignMessage } from "wagmi";
 
 import useSession from "../hooks/useSession";
@@ -11,6 +10,54 @@ import { logoutSession, requestSiweNonce, verifySiweSignature } from "../api/siw
 import useErrorPresenter, { type PresentedError } from "../../../lib/errors/useErrorPresenter";
 
 type InteractionStep = "idle" | "wallet" | "nonce" | "signature" | "verification" | "logout";
+
+type SiweMessageParams = {
+  domain: string;
+  address: string;
+  statement?: string;
+  uri: string;
+  version: string;
+  chainId: number;
+  nonce: string;
+  issuedAt: string;
+  expirationTime?: string;
+};
+
+function composeSiweMessage({
+  domain,
+  address,
+  statement,
+  uri,
+  version,
+  chainId,
+  nonce,
+  issuedAt,
+  expirationTime
+}: SiweMessageParams): string {
+  const headerPrefix = domain;
+  const header = `${headerPrefix} wants you to sign in with your Ethereum account:`;
+  let messageBody = `${header}\n${address}\n`;
+
+  if (statement && statement.length > 0) {
+    messageBody += `\n${statement}\n`;
+  }
+
+  const fields: string[] = [
+    `URI: ${uri}`,
+    `Version: ${version}`,
+    `Chain ID: ${chainId}`,
+    `Nonce: ${nonce}`,
+    `Issued At: ${issuedAt}`
+  ];
+
+  if (expirationTime) {
+    fields.push(`Expiration Time: ${expirationTime}`);
+  }
+
+  const suffix = fields.join("\n");
+
+  return `${messageBody}\n${suffix}`;
+}
 
 function formatWalletAddress(address: string): string {
   if (address.length <= 10) {
@@ -116,7 +163,8 @@ export default function WalletConnectButton() {
 
       setPendingStep("signature");
 
-      const message = new SiweMessage({
+      const issuedAt = new Date().toISOString();
+      const preparedMessage = composeSiweMessage({
         domain: resolveDomain(),
         address,
         statement: t("auth.siwe.statement"),
@@ -124,11 +172,10 @@ export default function WalletConnectButton() {
         version: "1",
         chainId,
         nonce,
-        issuedAt: new Date().toISOString(),
+        issuedAt,
         expirationTime: expiresAt
       });
 
-      const preparedMessage = message.prepareMessage();
       const signature = await signMessageAsync({ message: preparedMessage });
 
       setPendingStep("verification");
@@ -139,6 +186,10 @@ export default function WalletConnectButton() {
 
       await session.refetch();
     } catch (caught) {
+      if (process.env.NODE_ENV !== "production") {
+        // eslint-disable-next-line no-console -- development diagnostics for SIWE flow
+        console.error("[wallet-connect] siwe flow failed", caught);
+      }
       setError(presentError(caught));
     } finally {
       setPendingStep("idle");

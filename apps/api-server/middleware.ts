@@ -1,6 +1,8 @@
 import type { NextRequest } from 'next/server';
 import { NextResponse } from 'next/server';
 
+import { applyCorsHeaders } from '@/lib/http/cors';
+
 const SESSION_COOKIE_BASE = 'cc_session';
 const isProduction = process.env.NODE_ENV === 'production';
 const SESSION_COOKIE_NAME = isProduction ? `__Secure-${SESSION_COOKIE_BASE}` : SESSION_COOKIE_BASE;
@@ -47,13 +49,21 @@ const evaluateLimit = (sessionToken: string | null, ip: string | null, route: st
   return { allowed: false, remaining: 0, resetAt: bucket.resetAt };
 };
 
-const buildJsonResponse = (status: number, code: string, message: string, detail?: unknown): NextResponse => {
+const buildJsonResponse = (
+  request: NextRequest,
+  status: number,
+  code: string,
+  message: string,
+  detail?: unknown
+): NextResponse => {
   const body = JSON.stringify({ code, message, detail });
   const headers: Record<string, string> = {
     'content-type': 'application/json',
     'cache-control': 'no-store'
   };
-  return new NextResponse(body, { status, headers });
+  const response = new NextResponse(body, { status, headers });
+  applyCorsHeaders(response, request);
+  return response;
 };
 
 const PUBLIC_PATHS = ['/api/auth/siwe/start', '/api/auth/siwe/verify', '/api/health', '/api/runtime/config'];
@@ -80,13 +90,13 @@ export function middleware(request: NextRequest): NextResponse {
   if (!rate.allowed) {
     const retryAfterMs = Math.max(rate.resetAt - getTimestamp(), 0);
     const retryAfterSeconds = Math.max(Math.ceil(retryAfterMs / 1000), 1);
-    const response = buildJsonResponse(429, 'rate_limited', 'Too many requests', { retryAfterMs });
+    const response = buildJsonResponse(request, 429, 'rate_limited', 'Too many requests', { retryAfterMs });
     response.headers.set('retry-after', retryAfterSeconds.toString());
     return response;
   }
 
   if (!sessionToken) {
-    return buildJsonResponse(401, 'unauthorized', 'Authentication required');
+    return buildJsonResponse(request, 401, 'unauthorized', 'Authentication required');
   }
 
   return NextResponse.next();
