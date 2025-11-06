@@ -3,7 +3,7 @@ import type { ValidatorRegistrationOptions } from '../../src/bootstrap/register-
 import { walletSourceEnum } from '../../src/schema/user-bindings.js';
 
 const walletSourceValues = walletSourceEnum.enumValues as readonly string[];
-const supportedChainIds = [1, 5, 10, 11155111, 42161] as const;
+const supportedChainIds = [1, 5, 10, 11155111, 42161, 31337] as const;
 const contestStatusValues = ['registered', 'active', 'sealed', 'settled'] as const;
 const contestOriginValues = ['factory', 'imported'] as const;
 

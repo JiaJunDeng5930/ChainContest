@@ -14,7 +14,7 @@ const sharedSchemasPath = path.resolve(
 const { z } = require(sharedSchemasPath);
 
 const walletSourceValues = ['manual', 'auto_inferred', 'imported'];
-const supportedChainIds = [1, 5, 10, 11155111, 42161];
+const supportedChainIds = [1, 5, 10, 11155111, 42161, 31337];
 const contestStatusValues = ['registered', 'active', 'sealed', 'settled'];
 const contestOriginValues = ['factory', 'imported'];
 
