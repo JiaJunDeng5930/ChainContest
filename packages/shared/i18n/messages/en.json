@@ -3,6 +3,7 @@
   "app.tagline": "Trustless on-chain competitions",
   "nav.home": "Home",
   "nav.contests": "Contests",
+  "nav.components": "Components",
   "nav.myContests": "My Contests",
   "nav.participation": "My Participation",
   "nav.runtime": "Runtime",

@@ -17,6 +17,7 @@ type NavigationItem = {
 const NAVIGATION_ITEMS: NavigationItem[] = [
   { href: "/", labelKey: "nav.home", requiresSession: false },
   { href: "/contests", labelKey: "nav.contests", requiresSession: true, excludePaths: ["/contests/create"] },
+  { href: "/components", labelKey: "nav.components", requiresSession: true, excludePaths: ["/components/deploy"] },
   { href: "/contests/create", labelKey: "nav.myContests", requiresSession: true },
   { href: "/profile/participation", labelKey: "nav.participation", requiresSession: true },
   { href: "/runtime", labelKey: "nav.runtime", requiresSession: true }

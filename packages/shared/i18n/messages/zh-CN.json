@@ -3,6 +3,7 @@
   "app.tagline": "可信的链上赛事平台",
   "nav.home": "首页",
   "nav.contests": "全部比赛",
+  "nav.components": "我的组件",
   "nav.myContests": "我创建的比赛",
   "nav.participation": "我的参赛",
   "nav.runtime": "运行时配置",

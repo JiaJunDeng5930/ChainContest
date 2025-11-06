@@ -1,5 +1,6 @@
 'use client';
 
+import Link from "next/link";
 import React, { useMemo, useState } from "react";
 
 const CopyIcon = (props: React.SVGProps<SVGSVGElement>) => (
@@ -79,11 +80,19 @@ export default function OrganizerComponentsPage() {
 
   return (
     <div className="space-y-6">
-      <header className="space-y-2">
-        <h1 className="text-2xl font-semibold">我的组件</h1>
-        <p className="text-sm text-muted-foreground">
-          查看并管理部署的 Vault 实现与 PriceSource 组件，可按网络与状态过滤结果。
-        </p>
+      <header className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <div className="space-y-2">
+          <h1 className="text-2xl font-semibold">我的组件</h1>
+          <p className="text-sm text-muted-foreground">
+            查看并管理部署的 Vault 实现与 PriceSource 组件，可按网络与状态过滤结果。
+          </p>
+        </div>
+        <Link
+          href="/components/deploy"
+          className="inline-flex items-center justify-center rounded-full bg-emerald-500 px-5 py-2 text-sm font-semibold text-slate-950 transition hover:bg-emerald-400"
+        >
+          部署新组件
+        </Link>
       </header>
 
       <section className="rounded border p-4">
@@ -188,7 +197,11 @@ export default function OrganizerComponentsPage() {
             {items.length === 0 && !isFetching ? (
               <tr>
                 <td className="px-3 py-4 text-center text-muted-foreground" colSpan={6}>
-                  暂无符合条件的组件。
+                  暂无符合条件的组件，前往{" "}
+                  <Link href="/components/deploy" className="text-emerald-300 hover:underline">
+                    部署新组件
+                  </Link>
+                  。
                 </td>
               </tr>
             ) : (
