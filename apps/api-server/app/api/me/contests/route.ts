@@ -39,6 +39,8 @@ const serializeCreationItem = (
         settlementAddress: item.artifact.settlementAddress,
         rewardsAddress: item.artifact.rewardsAddress,
         metadata: item.artifact.metadata,
+        transactionHash: item.artifact.transactionHash ?? null,
+        confirmedAt: item.artifact.confirmedAt ? item.artifact.confirmedAt.toISOString() : null,
         createdAt: item.artifact.createdAt.toISOString(),
         updatedAt: item.artifact.updatedAt.toISOString()
       }
