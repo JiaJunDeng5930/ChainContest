@@ -33,8 +33,16 @@ const parseFilters = (request: NextRequest) => {
     chainId = parsed;
   }
 
+  const STATUS_ALIASES: Record<string, string> = {
+    registration: 'registered',
+    closed: 'sealed'
+  };
+
   const statusRaw = params.get('status');
-  const status = statusRaw ? statusRaw.trim() : undefined;
+  const statusNormalized = statusRaw ? statusRaw.trim() : undefined;
+  const status = statusNormalized
+    ? STATUS_ALIASES[statusNormalized.toLowerCase()] ?? statusNormalized
+    : undefined;
   if (status !== undefined && status.length === 0) {
     throw httpErrors.badRequest('status must be a non-empty string');
   }
