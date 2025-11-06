@@ -28,7 +28,13 @@ export default function RuntimeConfigPage() {
   if (isError) {
     return (
       <main className="space-y-4">
-        <ErrorBanner error={error} onRetry={() => refetch()} forceRetryable />
+        <ErrorBanner
+          error={error}
+          onRetry={async () => {
+            await refetch();
+          }}
+          forceRetryable
+        />
       </main>
     );
   }
@@ -51,7 +57,9 @@ export default function RuntimeConfigPage() {
           {refreshedAtLabel ? <span>{t("runtime.refreshedAt", { defaultMessage: "刷新时间：{timestamp}" , timestamp: refreshedAtLabel })}</span> : null}
           <button
             type="button"
-            onClick={() => refetch()}
+            onClick={() => {
+              void refetch();
+            }}
             className="rounded border border-slate-700 px-3 py-1 text-xs font-medium text-slate-200 transition hover:border-slate-500 hover:text-slate-50 focus:outline-none focus:ring focus:ring-slate-500/40"
           >
             {t("runtime.reload", { defaultMessage: "重新加载" })}

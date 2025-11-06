@@ -100,11 +100,11 @@ export const useWalletTransactions = () => {
   const sendExecutionCall = useCallback(
     async (call: ExecutionCall): Promise<ExecutedTransaction> => {
       const wallet = requireWallet();
-      const request = {
+      const request: Parameters<typeof wallet.sendTransaction>[0] = {
         account: wallet.account,
         to: normalizeAddress(call.to, "Transaction target"),
         data: normalizeData(call.data, "Transaction data")
-      } satisfies Parameters<typeof wallet.sendTransaction>[0];
+      };
 
       const gasLimit = parseOptionalBigInt(call.gasLimit);
       if (gasLimit !== undefined) {

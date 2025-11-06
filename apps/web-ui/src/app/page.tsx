@@ -12,11 +12,8 @@ import {
   type CreatorContestListResponse,
   type CreatorContestRecord
 } from "../features/contests/api/creatorContests";
-import {
-  fetchParticipationHistory,
-  type UserContestListResponse,
-  type UserContestRecord
-} from "../features/participation/api/history";
+import { fetchParticipationHistory } from "../features/participation/api/history";
+import type { UserContestListResponse, UserContestRecord } from "../features/participation/api/types";
 
 export default function HomePage() {
   const session = useSession();
@@ -29,7 +26,7 @@ export default function HomePage() {
     return <UnauthenticatedLanding />;
   }
 
-  return <AuthenticatedDashboard address={session.data.addressChecksum ?? session.data.address ?? ""} />;
+  return <AuthenticatedDashboard address={session.data.addressChecksum} />;
 }
 
 type LoadingStateProps = {

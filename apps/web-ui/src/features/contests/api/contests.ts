@@ -51,6 +51,12 @@ export type ContestSnapshot = {
   registrationCapacity: ContestRegistrationCapacity;
   leaderboard?: ContestLeaderboard | null;
   derivedAt: ContestDerivedAt;
+  contractAddress?: string | null;
+  status?: string;
+  originTag?: string | null;
+  metadata?: Record<string, unknown> | null;
+  createdAt?: string;
+  updatedAt?: string;
 };
 
 export type ContestListResponse = {
