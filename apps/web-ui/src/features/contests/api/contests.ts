@@ -64,6 +64,13 @@ export type ContestListQuery = {
   cursor?: string | null;
 };
 
+const PHASE_TO_BACKEND_STATUS: Record<ContestPhase, string> = {
+  registration: "registered",
+  active: "active",
+  settled: "settled",
+  closed: "sealed"
+};
+
 function buildContestListPath(query: ContestListQuery = {}): string {
   const searchParams = new URLSearchParams();
 
@@ -72,7 +79,10 @@ function buildContestListPath(query: ContestListQuery = {}): string {
   }
 
   if (query.status) {
-    searchParams.set("status", query.status);
+    const backendStatus = PHASE_TO_BACKEND_STATUS[query.status];
+    if (backendStatus) {
+      searchParams.set("status", backendStatus);
+    }
   }
 
   if (query.cursor) {
