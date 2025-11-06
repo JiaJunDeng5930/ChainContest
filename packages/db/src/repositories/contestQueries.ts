@@ -26,7 +26,7 @@ const DEFAULT_PAGE_SIZE = 25;
 const MAX_PAGE_SIZE = 100;
 
 // Temporary supported chain list until shared schemas export an authoritative catalogue.
-const SUPPORTED_CHAIN_IDS = new Set([1, 5, 10, 11155111, 42161]);
+const SUPPORTED_CHAIN_IDS = new Set([1, 5, 10, 11155111, 42161, 31337]);
 
 function assertContestStatuses(
   statuses: readonly string[],
