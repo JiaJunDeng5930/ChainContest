@@ -4,6 +4,8 @@ import React, { useState } from "react";
 import { useDeployComponent } from "../../../../features/components/useDeployComponent";
 
 const DEFAULT_TWAP_SECONDS = 900;
+const inputClassName =
+  "rounded border border-slate-700 bg-slate-900 px-3 py-2 text-sm text-slate-100 placeholder:text-slate-500 focus:border-emerald-400 focus:outline-none focus:ring-2 focus:ring-emerald-500/20";
 
 type ComponentType = "vault_implementation" | "price_source";
 
@@ -81,31 +83,33 @@ export default function DeployComponentPage() {
   const componentSelector = React.createElement(
     "fieldset",
     { className: "space-y-2" },
-    React.createElement("legend", { className: "text-sm font-medium" }, "组件类型"),
+    React.createElement("legend", { className: "text-sm font-medium text-slate-200" }, "组件类型"),
     React.createElement(
       "div",
       { className: "flex gap-4" },
       React.createElement(
         "label",
-        { className: "flex items-center gap-2 text-sm" },
+        { className: "flex items-center gap-2 text-sm text-slate-100" },
         React.createElement("input", {
           type: "radio",
           name: "component-type",
           value: "vault_implementation",
           checked: componentType === "vault_implementation",
-          onChange: () => setComponentType("vault_implementation")
+          onChange: () => setComponentType("vault_implementation"),
+          className: "h-4 w-4 rounded border-slate-600 bg-slate-900 text-emerald-500 focus:ring-emerald-500/40"
         }),
         "Vault 实现"
       ),
       React.createElement(
         "label",
-        { className: "flex items-center gap-2 text-sm" },
+        { className: "flex items-center gap-2 text-sm text-slate-100" },
         React.createElement("input", {
           type: "radio",
           name: "component-type",
           value: "price_source",
           checked: componentType === "price_source",
-          onChange: () => setComponentType("price_source")
+          onChange: () => setComponentType("price_source"),
+          className: "h-4 w-4 rounded border-slate-600 bg-slate-900 text-emerald-500 focus:ring-emerald-500/40"
         }),
         "PriceSource"
       )
@@ -116,14 +120,14 @@ export default function DeployComponentPage() {
 
   const networkField = React.createElement(
     "label",
-    { className: "flex flex-col gap-1 text-sm" },
+    { className: "flex flex-col gap-1 text-sm text-slate-200" },
     "网络 ID",
     React.createElement("input", {
       type: "number",
       min: 1,
       value: networkId,
       onChange: (event: React.ChangeEvent<HTMLInputElement>) => setNetworkId(Number(event.target.value)),
-      className: "rounded border px-2 py-1"
+      className: inputClassName
     })
   );
 
@@ -136,25 +140,25 @@ export default function DeployComponentPage() {
         { className: "grid gap-4 md:grid-cols-2" },
         React.createElement(
           "label",
-          { className: "flex flex-col gap-1 text-sm" },
+          { className: "flex flex-col gap-1 text-sm text-slate-200" },
           "Base Asset",
           React.createElement("input", {
             type: "text",
             value: baseAsset,
             onChange: (event: React.ChangeEvent<HTMLInputElement>) => setBaseAsset(event.target.value),
-            className: "rounded border px-2 py-1",
+            className: inputClassName,
             placeholder: "0x..."
           })
         ),
         React.createElement(
           "label",
-          { className: "flex flex-col gap-1 text-sm" },
+          { className: "flex flex-col gap-1 text-sm text-slate-200" },
           "Quote Asset",
           React.createElement("input", {
             type: "text",
             value: quoteAsset,
             onChange: (event: React.ChangeEvent<HTMLInputElement>) => setQuoteAsset(event.target.value),
-            className: "rounded border px-2 py-1",
+            className: inputClassName,
             placeholder: "0x..."
           })
         )
@@ -167,26 +171,26 @@ export default function DeployComponentPage() {
         { className: "grid gap-4 md:grid-cols-2" },
         React.createElement(
           "label",
-          { className: "flex flex-col gap-1 text-sm" },
+          { className: "flex flex-col gap-1 text-sm text-slate-200" },
           "池地址",
           React.createElement("input", {
             type: "text",
             value: poolAddress,
             onChange: (event: React.ChangeEvent<HTMLInputElement>) => setPoolAddress(event.target.value),
-            className: "rounded border px-2 py-1",
+            className: inputClassName,
             placeholder: "0x..."
           })
         ),
         React.createElement(
           "label",
-          { className: "flex flex-col gap-1 text-sm" },
+          { className: "flex flex-col gap-1 text-sm text-slate-200" },
           "TWAP 秒数",
           React.createElement("input", {
             type: "number",
             min: 60,
             value: twapSeconds,
             onChange: (event: React.ChangeEvent<HTMLInputElement>) => setTwapSeconds(Number(event.target.value)),
-            className: "rounded border px-2 py-1"
+            className: inputClassName
           })
         )
       )
@@ -195,12 +199,12 @@ export default function DeployComponentPage() {
 
   const metadataField = React.createElement(
     "label",
-    { className: "flex flex-col gap-1 text-sm" },
+    { className: "flex flex-col gap-1 text-sm text-slate-200" },
     "元数据 (JSON)",
     React.createElement("textarea", {
       value: metadata,
       onChange: (event: React.ChangeEvent<HTMLTextAreaElement>) => setMetadata(event.target.value),
-      className: "h-24 rounded border px-2 py-1 font-mono text-xs",
+      className: `h-24 font-mono text-xs ${inputClassName}`,
       placeholder: '{\n  "label": "My component"\n}'
     })
   );
@@ -211,7 +215,8 @@ export default function DeployComponentPage() {
     "button",
     {
       type: "submit",
-      className: "rounded bg-black px-4 py-2 text-sm font-medium text-white disabled:opacity-50",
+      className:
+        "rounded bg-emerald-500 px-4 py-2 text-sm font-semibold text-slate-900 transition hover:bg-emerald-400 disabled:cursor-not-allowed disabled:opacity-50",
       disabled: mutation.isPending
     },
     mutation.isPending ? "部署中..." : "立即部署"
