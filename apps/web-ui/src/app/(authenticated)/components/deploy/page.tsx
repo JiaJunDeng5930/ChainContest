@@ -21,7 +21,7 @@ const extractContractAddress = (component: unknown): string => {
 
 export default function DeployComponentPage() {
   const [componentType, setComponentType] = useState<ComponentType>("vault_implementation");
-  const [networkId, setNetworkId] = useState<number>(11155111);
+  const [networkIdInput, setNetworkIdInput] = useState<string>("11155111");
   const [baseAsset, setBaseAsset] = useState<string>("");
   const [quoteAsset, setQuoteAsset] = useState<string>("");
   const [poolAddress, setPoolAddress] = useState<string>("");
@@ -43,10 +43,16 @@ export default function DeployComponentPage() {
       }
     }
 
+    const parsedNetworkId = Number.parseInt(networkIdInput, 10);
+    if (!Number.isInteger(parsedNetworkId) || parsedNetworkId <= 0) {
+      alert("请输入有效的网络 ID");
+      return;
+    }
+
     if (componentType === "vault_implementation") {
       mutation.mutate({
         componentType,
-        networkId,
+        networkId: parsedNetworkId,
         baseAsset,
         quoteAsset,
         metadata: parsedMetadata
@@ -56,7 +62,7 @@ export default function DeployComponentPage() {
 
     mutation.mutate({
       componentType,
-      networkId,
+      networkId: parsedNetworkId,
       poolAddress,
       twapSeconds,
       metadata: parsedMetadata
@@ -123,11 +129,22 @@ export default function DeployComponentPage() {
     { className: "flex flex-col gap-1 text-sm text-slate-200" },
     "网络 ID",
     React.createElement("input", {
-      type: "number",
-      min: 1,
-      value: networkId,
-      onChange: (event: React.ChangeEvent<HTMLInputElement>) => setNetworkId(Number(event.target.value)),
-      className: inputClassName
+      type: "text",
+      inputMode: "numeric",
+      pattern: "[0-9]*",
+      value: networkIdInput,
+      onChange: (event: React.ChangeEvent<HTMLInputElement>) => {
+        const nextValue = event.target.value;
+        if (nextValue === "") {
+          setNetworkIdInput("");
+          return;
+        }
+        if (/^\d+$/.test(nextValue)) {
+          setNetworkIdInput(nextValue);
+        }
+      },
+      className: inputClassName,
+      placeholder: "请输入网络 ID"
     })
   );
 
