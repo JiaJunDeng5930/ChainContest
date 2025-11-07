@@ -26,6 +26,9 @@ const STATUS_OPTIONS = [
   { value: "failed", label: "Failed" }
 ] as const;
 
+const fieldClassName =
+  "rounded border border-slate-700 bg-slate-900 px-3 py-2 text-sm text-slate-100 placeholder:text-slate-500 focus:border-emerald-400 focus:outline-none focus:ring-2 focus:ring-emerald-500/20";
+
 type ComponentTypeFilter = "all" | "vault_implementation" | "price_source";
 
 type StatusFilter = (typeof STATUS_OPTIONS)[number]["value"];
@@ -95,7 +98,7 @@ export default function OrganizerComponentsPage() {
         </Link>
       </header>
 
-      <section className="rounded border p-4">
+      <section className="rounded border border-slate-800 bg-slate-950/40 p-4">
         <form
           className="grid gap-4 md:grid-cols-[repeat(3,minmax(0,1fr))]"
           onSubmit={(event) => {
@@ -112,7 +115,7 @@ export default function OrganizerComponentsPage() {
                 setComponentType(event.target.value as ComponentTypeFilter);
                 setCursor(null);
               }}
-              className="rounded border px-2 py-1"
+              className={fieldClassName}
             >
               <option value="all">全部</option>
               <option value="vault_implementation">Vault 实现</option>
@@ -123,14 +126,15 @@ export default function OrganizerComponentsPage() {
           <label className="flex flex-col gap-1 text-sm">
             网络 ID
             <input
-              type="number"
-              min={1}
+              type="text"
+              inputMode="numeric"
+              pattern="[0-9]*"
               value={networkId}
               onChange={(event) => {
                 setNetworkId(event.target.value);
                 setCursor(null);
               }}
-              className="rounded border px-2 py-1"
+              className={fieldClassName}
               placeholder="全部"
             />
           </label>
@@ -144,6 +148,7 @@ export default function OrganizerComponentsPage() {
                     type="checkbox"
                     checked={selectedStatuses.includes(option.value)}
                     onChange={() => toggleStatus(option.value)}
+                    className="h-4 w-4 rounded border-slate-600 bg-slate-900 text-emerald-500 focus:ring-emerald-500/40"
                   />
                   {option.label}
                 </label>
@@ -154,14 +159,14 @@ export default function OrganizerComponentsPage() {
           <div className="flex items-end gap-3">
             <button
               type="submit"
-              className="rounded bg-black px-3 py-2 text-sm font-medium text-white"
+              className="rounded bg-emerald-500 px-3 py-2 text-sm font-semibold text-slate-900 transition hover:bg-emerald-400"
             >
               应用
             </button>
             <button
               type="button"
               onClick={resetFilters}
-              className="rounded border px-3 py-2 text-sm"
+              className="rounded border border-slate-600 px-3 py-2 text-sm text-slate-200 hover:border-slate-400"
             >
               重置
             </button>
