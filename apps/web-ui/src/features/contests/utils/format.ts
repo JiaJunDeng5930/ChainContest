@@ -4,7 +4,7 @@ import {
   type ContestPhase
 } from "@chaincontest/shared-i18n";
 import { useMemo } from "react";
-import { formatEther } from "viem";
+import { formatUnits } from "viem";
 
 export function truncateIdentifier(value: string, prefixLength = 6, suffixLength = 4): string {
   if (value.length <= prefixLength + suffixLength) {
@@ -56,24 +56,29 @@ export function useContestDateTimeFormatter(locale: string) {
 export function formatPrizeAmount({
   value,
   chainId,
-  numberFormatter
+  numberFormatter,
+  decimals,
+  symbol
 }: {
   value: string;
   chainId: number;
   numberFormatter: Intl.NumberFormat;
+  decimals?: number;
+  symbol?: string;
 }): string {
   const metadata = CHAIN_METADATA[chainId as keyof typeof CHAIN_METADATA];
-  const symbol = metadata?.nativeCurrencySymbol ?? "ETH";
+  const resolvedSymbol = symbol ?? metadata?.nativeCurrencySymbol ?? "ETH";
+  const resolvedDecimals = typeof decimals === "number" && Number.isFinite(decimals) ? decimals : 18;
 
   try {
-    const etherValue = formatEther(BigInt(value));
-    const numeric = Number.parseFloat(etherValue);
+    const formattedValue = formatUnits(BigInt(value), resolvedDecimals);
+    const numeric = Number.parseFloat(formattedValue);
     if (!Number.isFinite(numeric)) {
-      return `${etherValue} ${symbol}`;
+      return `${formattedValue} ${resolvedSymbol}`;
     }
-    return `${numberFormatter.format(numeric)} ${symbol}`;
+    return `${numberFormatter.format(numeric)} ${resolvedSymbol}`;
   } catch (_error) {
-    return `${value} ${symbol}`;
+    return `${value} ${resolvedSymbol}`;
   }
 }
 

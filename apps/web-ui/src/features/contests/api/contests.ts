@@ -13,10 +13,17 @@ export type ContestValuationAnchor = {
   observedAt: string;
 };
 
+export type ContestPrizeAsset = {
+  symbol?: string;
+  tokenAddress?: string;
+  decimals?: number;
+};
+
 export type ContestPrizePool = {
   currentBalance: string;
   accumulatedInflow?: string;
   valuationAnchor?: ContestValuationAnchor | null;
+  asset?: ContestPrizeAsset | null;
 };
 
 export type ContestRegistrationCapacity = {

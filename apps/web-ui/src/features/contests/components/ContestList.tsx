@@ -61,10 +61,13 @@ function ContestCard({ contest }: { contest: ContestSnapshot }) {
 
   const chainLabel = getChainLabel(contest.chainId, t);
   const phaseLabel = getPhaseLabel(contest.phase, t);
+  const prizeAsset = contest.prizePool.asset;
   const prizeLabel = formatPrizeAmount({
     value: contest.prizePool.currentBalance,
     chainId: contest.chainId,
-    numberFormatter
+    numberFormatter,
+    decimals: prizeAsset?.decimals,
+    symbol: prizeAsset?.symbol
   });
   const capacityLabel = `${contest.registrationCapacity.registered} / ${contest.registrationCapacity.maximum}`;
   const isFull = contest.registrationCapacity.isFull;
@@ -120,7 +123,9 @@ function ContestCard({ contest }: { contest: ContestSnapshot }) {
                   amount: formatPrizeAmount({
                     value: contest.prizePool.accumulatedInflow,
                     chainId: contest.chainId,
-                    numberFormatter
+                    numberFormatter,
+                    decimals: prizeAsset?.decimals,
+                    symbol: prizeAsset?.symbol
                   })
                 })}
               </dd>

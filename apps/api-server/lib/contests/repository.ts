@@ -14,6 +14,12 @@ export interface ContestLeaderboardSnapshot {
   entries: ContestLeaderboardEntry[];
 }
 
+export interface ContestPrizeAsset {
+  symbol?: string;
+  tokenAddress?: string;
+  decimals?: number;
+}
+
 export interface ContestSnapshot {
   contestId: string;
   chainId: number;
@@ -30,6 +36,7 @@ export interface ContestSnapshot {
       currency: string;
       observedAt: string;
     };
+    asset?: ContestPrizeAsset | null;
   };
   registrationCapacity: {
     registered: number;
@@ -101,6 +108,36 @@ const asBoolean = (value: unknown, context: string): boolean => {
   throw httpErrors.internal('Required boolean value missing', { detail: { context, value } });
 };
 
+const isRecord = (value: unknown): value is Record<string, unknown> =>
+  Boolean(value) && typeof value === 'object' && !Array.isArray(value);
+
+const inferPrizeAsset = (metadata: Record<string, unknown>): ContestPrizeAsset | null => {
+  const gateway = metadata.chainGatewayDefinition;
+  if (!isRecord(gateway)) {
+    return null;
+  }
+
+  const registration = gateway.registration;
+  if (!isRecord(registration)) {
+    return null;
+  }
+
+  const requirement = registration.requirement;
+  if (!isRecord(requirement)) {
+    return null;
+  }
+
+  const symbol = typeof requirement.symbol === 'string' ? requirement.symbol : undefined;
+  const tokenAddress = typeof requirement.tokenAddress === 'string' ? requirement.tokenAddress : undefined;
+  const decimals = typeof requirement.decimals === 'number' ? requirement.decimals : undefined;
+
+  if (!symbol && !tokenAddress && decimals === undefined) {
+    return null;
+  }
+
+  return { symbol, tokenAddress, decimals };
+};
+
 const parsePrizePool = (metadata: Record<string, unknown>): ContestSnapshot['prizePool'] => {
   const raw = metadata.prizePool;
   if (!raw || typeof raw !== 'object') {
@@ -128,6 +165,11 @@ const parsePrizePool = (metadata: Record<string, unknown>): ContestSnapshot['pri
       currency: ensureString(anchorRecord.currency, 'prizePool.valuationAnchor.currency'),
       observedAt: ensureString(anchorRecord.observedAt, 'prizePool.valuationAnchor.observedAt')
     };
+  }
+
+  const asset = inferPrizeAsset(metadata);
+  if (asset) {
+    result.asset = asset;
   }
 
   return result;

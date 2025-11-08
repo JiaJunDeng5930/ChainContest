@@ -102,10 +102,13 @@ export function ContestDetail({ contestId }: ContestDetailProps) {
 
   const chainLabel = getChainLabel(contest.chainId, t);
   const phaseLabel = getPhaseLabel(normalizedPhase, t);
+  const prizeAsset = contest.prizePool.asset;
   const prizeLabel = formatPrizeAmount({
     value: contest.prizePool.currentBalance,
     chainId: contest.chainId,
-    numberFormatter
+    numberFormatter,
+    decimals: prizeAsset?.decimals,
+    symbol: prizeAsset?.symbol
   });
   const capacityLabel = `${contest.registrationCapacity.registered} / ${contest.registrationCapacity.maximum}`;
   const isFull = contest.registrationCapacity.isFull;
@@ -176,7 +179,9 @@ export function ContestDetail({ contestId }: ContestDetailProps) {
                 amount: formatPrizeAmount({
                   value: contest.prizePool.accumulatedInflow,
                   chainId: contest.chainId,
-                  numberFormatter
+                  numberFormatter,
+                  decimals: prizeAsset?.decimals,
+                  symbol: prizeAsset?.symbol
                 })
               })}
             </dd>
