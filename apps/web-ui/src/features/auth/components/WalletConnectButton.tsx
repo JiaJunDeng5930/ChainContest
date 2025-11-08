@@ -11,6 +11,22 @@ import useErrorPresenter, { type PresentedError } from "../../../lib/errors/useE
 
 type InteractionStep = "idle" | "wallet" | "nonce" | "signature" | "verification" | "logout";
 
+const DEFAULT_SIWE_STATEMENT = "Sign in to ChainContest";
+
+const isAscii = (value: string | undefined | null): value is string => {
+  if (!value) {
+    return false;
+  }
+  return /^[\x20-\x7E]+$/.test(value);
+};
+
+const normalizeStatement = (value: string | undefined): string | undefined => {
+  if (isAscii(value)) {
+    return value;
+  }
+  return DEFAULT_SIWE_STATEMENT;
+};
+
 type SiweMessageParams = {
   domain: string;
   address: string;
@@ -164,10 +180,11 @@ export default function WalletConnectButton() {
       setPendingStep("signature");
 
       const issuedAt = new Date().toISOString();
+      const statement = normalizeStatement(t("auth.siwe.statement"));
       const preparedMessage = composeSiweMessage({
         domain: resolveDomain(),
         address,
-        statement: t("auth.siwe.statement"),
+        statement,
         uri: resolveUri(),
         version: "1",
         chainId,
