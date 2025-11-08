@@ -119,8 +119,64 @@ describe('deployContestBundle', () => {
     });
     expect(result.contestAddress).toBe('0x0000000000000000000000000000000000001000');
     expect(result.vaultFactoryAddress).toBe('0x0000000000000000000000000000000000002000');
-    expect(result.initialization.transactionHash).toBe('0xinitialization-tx');
-    expect(result.initialization.confirmedAt).toBeDefined();
+    expect(result.initialization?.transactionHash).toBe('0xinitialization-tx');
+    expect(result.initializer.calldata).toMatch(/^0x/);
+    expect(result.initializer.args.owner).toBe('0x000000000000000000000000000000000000dead');
+  });
+
+  it('skips initialization when requested and exposes call data', async () => {
+    const { runtime, client } = createRuntime();
+    client.deployContract
+      .mockResolvedValueOnce('0xcontest-tx')
+      .mockResolvedValueOnce('0xvaultfactory-tx');
+
+    waitForTransactionReceiptMock
+      .mockResolvedValueOnce({
+        blockHash: '0xaaa1',
+        blockNumber: 1n,
+        contractAddress: '0x0000000000000000000000000000000000001000'
+      })
+      .mockResolvedValueOnce({
+        blockHash: '0xaaa2',
+        blockNumber: 2n,
+        contractAddress: '0x0000000000000000000000000000000000002000'
+      });
+
+    getBlockMock
+      .mockResolvedValueOnce({ timestamp: 1700000000n })
+      .mockResolvedValueOnce({ timestamp: 1700000010n });
+
+    const result = await deployContestBundle({
+      runtime,
+      chain: { id: 31337 } as never,
+      organizer: '0x000000000000000000000000000000000000dead',
+      contestId: ('0x' + '99'.repeat(32)) as `0x${string}`,
+      vaultImplementation: '0x0000000000000000000000000000000000009000',
+      config: {
+        entryAsset: '0x0000000000000000000000000000000000000100',
+        entryAmount: 1n,
+        entryFee: 1n,
+        priceSource: '0x0000000000000000000000000000000000000200',
+        swapPool: '0x0000000000000000000000000000000000000300',
+        priceToleranceBps: 100,
+        settlementWindow: 3600,
+        maxParticipants: 16,
+        topK: 4
+      },
+      timeline: {
+        registeringEnds: 100n,
+        liveEnds: 200n,
+        claimEnds: 300n
+      },
+      initialPrizeAmount: 500n,
+      payoutSchedule: [1000, 900, 800],
+      skipInitialization: true
+    });
+
+    expect(writeContractMock).not.toHaveBeenCalled();
+    expect(result.initialization).toBeNull();
+    expect(result.initializer.calldata).toMatch(/^0x70cc65c3/);
+    expect(result.initializer.args.initialPrizeAmount).toBe(500n);
   });
 
   it('wraps deployment failures with ContestChainError', async () => {

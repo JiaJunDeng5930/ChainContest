@@ -75,6 +75,26 @@ export interface ContestCreationReceiptArtifact {
   metadata: Record<string, unknown>;
 }
 
+export interface OwnerInitializationMetadata {
+  contestAddress: string;
+  vaultFactoryAddress: string;
+  callData: string;
+  args: {
+    config: {
+      entryAsset: string;
+      entryAmount: string;
+      entryFee: string;
+      priceSource: string;
+      swapPool: string;
+      priceToleranceBps: number;
+      settlementWindow: number;
+      maxParticipants: number;
+      topK: number;
+    };
+    initialPrizeAmount: string;
+  };
+}
+
 export interface ContestCreationReceipt {
   status: string;
   requestId: string;
@@ -101,4 +121,18 @@ export async function submitContestCreation(
   request: ContestCreationRequest
 ): Promise<ContestCreationAggregate> {
   return apiClient.post<ContestCreationAggregate>("/api/contests/create", request as unknown as JsonValue);
+}
+
+export interface FinalizeContestCreationPayload {
+  requestId: string;
+  transactionHash: string;
+}
+
+export async function finalizeContestCreation(
+  request: FinalizeContestCreationPayload
+): Promise<ContestCreationAggregate> {
+  return apiClient.post<ContestCreationAggregate>(
+    "/api/contests/create/finalize",
+    request as unknown as JsonValue
+  );
 }

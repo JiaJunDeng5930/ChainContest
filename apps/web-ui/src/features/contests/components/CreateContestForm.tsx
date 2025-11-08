@@ -8,10 +8,15 @@ import { useTranslations } from "next-intl";
 
 import ErrorBanner from "../../../components/ErrorBanner";
 import { useNetworkGateState } from "../../network/NetworkGate";
-import type { ContestCreationAggregate } from "../api/createContest";
+import {
+  finalizeContestCreation,
+  type ContestCreationAggregate,
+  type OwnerInitializationMetadata
+} from "../api/createContest";
 import { useOrganizerComponents } from "../../components/useOrganizerComponents";
 import type { OrganizerComponentItem } from "../../components/useOrganizerComponents";
 import { useDeployContest } from "../useDeployContest";
+import { useWalletTransactions } from "../../participation/hooks/useWalletTransactions";
 
 const ADDRESS_REGEX = /^0x[0-9a-fA-F]{40}$/u;
 const BYTES32_REGEX = /^0x[0-9a-fA-F]{64}$/u;
@@ -292,6 +297,9 @@ export default function CreateContestForm() {
   const vaultComponents = useOrganizerComponents(vaultQueryInput);
   const priceSourceComponents = useOrganizerComponents(priceSourceQueryInput);
 
+  const { approveToken, sendExecutionCall, walletReady } = useWalletTransactions();
+  const [isFundingInitialPrize, setIsFundingInitialPrize] = useState(false);
+
   const findComponent = useCallback(
     (collection: OrganizerComponentItem[] | undefined, id: string): OrganizerComponentItem | null => {
       if (!collection) {
@@ -304,11 +312,47 @@ export default function CreateContestForm() {
 
   const [lastSubmitted, setLastSubmitted] = useState<ContestCreationAggregate | null>(null);
 
-  const deployContest = useDeployContest({
-    onSuccess: (data) => {
-      setLastSubmitted(data);
-    }
-  });
+  const deployContest = useDeployContest();
+
+  const fundInitialPrize = useCallback(
+    async (
+      ownerInitialization: OwnerInitializationMetadata | undefined,
+      requestId: string,
+      values: ContestFormInput
+    ): Promise<ContestCreationAggregate | null> => {
+      if (!ownerInitialization) {
+        return null;
+      }
+
+      const normalizedAmount = values.initialPrizeAmount.trim();
+      if (normalizedAmount === "" || normalizedAmount === "0") {
+        return null;
+      }
+
+      if (!walletReady) {
+        throw new Error("请先连接钱包以完成初始奖池注资");
+      }
+
+      await approveToken({
+        tokenAddress: values.entryAsset,
+        spender: ownerInitialization.contestAddress,
+        amount: normalizedAmount
+      });
+
+      const execution = await sendExecutionCall({
+        to: ownerInitialization.contestAddress,
+        data: ownerInitialization.callData
+      });
+
+      const finalized = await finalizeContestCreation({
+        requestId,
+        transactionHash: execution.hash
+      });
+
+      return finalized;
+    },
+    [approveToken, sendExecutionCall, walletReady]
+  );
 
   const onSubmit = useCallback(
     async (values: ContestFormInput) => {
@@ -338,7 +382,7 @@ export default function CreateContestForm() {
 
       deployContest.reset();
 
-      await deployContest.mutateAsync({
+      const creationResult = await deployContest.mutateAsync({
         networkId,
         payload: {
           contestId: values.contestId,
@@ -366,8 +410,35 @@ export default function CreateContestForm() {
           metadata: parseMetadata(values.metadata)
         }
       });
+
+      const ownerInitialization = creationResult.receipt.metadata?.ownerInitialization as
+        | OwnerInitializationMetadata
+        | undefined;
+
+      let aggregateResult: ContestCreationAggregate = creationResult;
+
+      if (ownerInitialization && values.initialPrizeAmount.trim() !== "0") {
+        setIsFundingInitialPrize(true);
+        try {
+          const finalized = await fundInitialPrize(ownerInitialization, creationResult.request.requestId, values);
+          if (finalized) {
+            aggregateResult = finalized;
+          }
+        } finally {
+          setIsFundingInitialPrize(false);
+        }
+      }
+
+      setLastSubmitted(aggregateResult);
     },
-    [deployContest, findComponent, messages, priceSourceComponents.data, vaultComponents.data]
+    [
+      deployContest,
+      findComponent,
+      fundInitialPrize,
+      messages,
+      priceSourceComponents.data,
+      vaultComponents.data
+    ]
   );
 
   const disabledReason = useMemo(() => {
@@ -397,7 +468,8 @@ export default function CreateContestForm() {
     vaultComponents.isLoading
   ]);
 
-  const isSubmitDisabled = Boolean(disabledReason) || deployContest.isPending || isSubmitting;
+  const isSubmitDisabled =
+    Boolean(disabledReason) || deployContest.isPending || isSubmitting || isFundingInitialPrize;
 
   const submitLabel = deployContest.isPending
     ? t("contests.create.actions.submitting", { defaultMessage: "部署中..." })

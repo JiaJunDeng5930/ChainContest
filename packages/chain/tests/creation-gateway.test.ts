@@ -49,7 +49,7 @@ const buildPayload = (overrides: Partial<ContestDeploymentPayload> = {}): Contes
     liveEnds: 1_700_000_002n,
     claimEnds: 1_700_000_003n
   },
-  initialPrizeAmount: 5_000_000_000_000_000_000n,
+  initialPrizeAmount: 0n,
   payoutSchedule: [5000, 3000, 2000],
   metadata: { label: 'test-contest' },
   ...overrides
@@ -93,6 +93,33 @@ describe('contest creation gateway', () => {
         blockNumber: 5n,
         blockHash: '0x0303',
         confirmedAt: INITIALIZATION_CONFIRMED_AT
+      },
+      initializer: {
+        calldata: '0x70cc65c3' as const,
+        args: {
+          contestId: CONTEST_ID,
+          config: {
+            entryAsset: BASE_ASSET,
+            entryAmount: 1_000_000_000_000_000_000n,
+            entryFee: 100_000_000_000_000_000n,
+            priceSource: PRICE_SOURCE,
+            swapPool: SWAP_POOL,
+            priceToleranceBps: 100,
+            settlementWindow: 3600,
+            maxParticipants: 128,
+            topK: 16
+          },
+          timeline: {
+            registeringEnds: 1_700_000_001n,
+            liveEnds: 1_700_000_002n,
+            claimEnds: 1_700_000_003n
+          },
+          initialPrizeAmount: 5_000_000_000_000_000_000n,
+          payoutSchedule: [5000, 3000, 2000],
+          vaultImplementation: VAULT_IMPLEMENTATION,
+          vaultFactory: '0x0000000000000000000000000000000000000501' as const,
+          owner: ORGANIZER
+        }
       }
     }));
 
@@ -157,5 +184,66 @@ describe('contest creation gateway', () => {
 
     expect(receipt.acceptedAt).toMatch(/Z$/);
     expect(receipt.artifact?.contestAddress).toMatch(/^0x[0-9a-f]{40}$/);
+  });
+
+  it('surfaces owner initialization metadata when initial prize funding is required', async () => {
+    const initializerMock = {
+      contestAddress: '0x0000000000000000000000000000000000000401' as const,
+      vaultFactoryAddress: '0x0000000000000000000000000000000000000501' as const,
+      contestDeployment: {
+        transactionHash: '0x111111' as const,
+        blockNumber: 10n,
+        blockHash: '0x0f0f',
+        confirmedAt: '2025-10-25T00:00:01.000Z'
+      },
+      vaultFactoryDeployment: {
+        transactionHash: '0x222222' as const,
+        blockNumber: 11n,
+        blockHash: '0x0e0e',
+        confirmedAt: '2025-10-25T00:00:02.000Z'
+      },
+      initialization: null,
+      initializer: {
+        calldata: '0x70cc65c3deadbeef' as const,
+        args: {
+          contestId: CONTEST_ID,
+          config: {
+            entryAsset: BASE_ASSET,
+            entryAmount: 1_000_000n,
+            entryFee: 1_000n,
+            priceSource: PRICE_SOURCE,
+            swapPool: SWAP_POOL,
+            priceToleranceBps: 100,
+            settlementWindow: 3600,
+            maxParticipants: 128,
+            topK: 16
+          },
+          timeline: {
+            registeringEnds: 1_700_000_010n,
+            liveEnds: 1_700_000_011n,
+            claimEnds: 1_700_000_012n
+          },
+          initialPrizeAmount: 1_000_000n,
+          payoutSchedule: [5000, 3000, 2000],
+          vaultImplementation: VAULT_IMPLEMENTATION,
+          vaultFactory: '0x0000000000000000000000000000000000000501' as const,
+          owner: ORGANIZER
+        }
+      }
+    };
+
+    vi.spyOn(contestDeployment, 'deployContestBundle').mockResolvedValueOnce(initializerMock);
+
+    const receipt = await gateway.executeContestDeployment({
+      organizer: ORGANIZER,
+      networkId: NETWORK_ID,
+      payload: buildPayload({ initialPrizeAmount: 1_000_000n })
+    });
+
+    expect(receipt.status).toBe('accepted');
+    expect(receipt.metadata?.ownerInitialization).toMatchObject({
+      contestAddress: initializerMock.contestAddress,
+      callData: '0x70cc65c3deadbeef'
+    });
   });
 });

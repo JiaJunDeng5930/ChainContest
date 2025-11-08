@@ -25,7 +25,11 @@ import {
   type ComponentDeploymentResult
 } from './componentDeployment.js';
 import { defaultDeploymentRuntime, type DeploymentRuntime } from '../runtime/deploymentRuntime.js';
-import { deployContestBundle, type DeploymentTransactionReceipt } from './contestDeployment.js';
+import {
+  deployContestBundle,
+  type ContestInitializationArguments,
+  type DeploymentTransactionReceipt
+} from './contestDeployment.js';
 import { wrapContestChainError } from '../errors/contestChainError.js';
 
 const ETH_CURRENCY = {
@@ -135,6 +139,31 @@ const normalizeTimeline = (timeline: ContestDeploymentTimelineInput) => ({
   claimEnds: timeline.claimEnds
 });
 
+const serializeInitializationArgs = (args: ContestInitializationArguments) => ({
+  contestId: args.contestId,
+  config: {
+    entryAsset: args.config.entryAsset,
+    entryAmount: args.config.entryAmount.toString(),
+    entryFee: args.config.entryFee.toString(),
+    priceSource: args.config.priceSource,
+    swapPool: args.config.swapPool,
+    priceToleranceBps: args.config.priceToleranceBps,
+    settlementWindow: args.config.settlementWindow,
+    maxParticipants: args.config.maxParticipants,
+    topK: args.config.topK
+  },
+  timeline: {
+    registeringEnds: args.timeline.registeringEnds.toString(),
+    liveEnds: args.timeline.liveEnds.toString(),
+    claimEnds: args.timeline.claimEnds.toString()
+  },
+  initialPrizeAmount: args.initialPrizeAmount.toString(),
+  payoutSchedule: args.payoutSchedule,
+  vaultImplementation: args.vaultImplementation,
+  vaultFactory: args.vaultFactory,
+  owner: args.owner
+});
+
 const deriveReceiptMetadata = (
   payload: ContestDeploymentPayload,
   contestAddress: Address,
@@ -142,7 +171,7 @@ const deriveReceiptMetadata = (
   bundle: {
     contestDeployment: DeploymentTransactionReceipt;
     vaultFactoryDeployment: DeploymentTransactionReceipt;
-    initialization: DeploymentTransactionReceipt;
+    initialization: DeploymentTransactionReceipt | null;
   }
 ) => ({
   contestAddress,
@@ -171,7 +200,7 @@ const deriveReceiptMetadata = (
   transactions: {
     contest: serializeReceipt(bundle.contestDeployment),
     vaultFactory: serializeReceipt(bundle.vaultFactoryDeployment),
-    initialize: serializeReceipt(bundle.initialization)
+    ...(bundle.initialization ? { initialize: serializeReceipt(bundle.initialization) } : {})
   },
   extra: payload.metadata ?? {}
 });
@@ -265,6 +294,7 @@ class ContestCreationGatewayImpl implements ContestCreationGateway {
     assertEqualAddress(payload.config.priceSource, payload.priceSourceComponent.contractAddress, 'config.priceSource');
 
     const chain = this.resolveChain(input.networkId);
+    const requiresOwnerInitialization = payload.initialPrizeAmount > 0n;
     const bundle = await deployContestBundle({
       runtime: this.runtime,
       chain,
@@ -275,15 +305,16 @@ class ContestCreationGatewayImpl implements ContestCreationGateway {
       timeline: normalizeTimeline(payload.timeline),
       initialPrizeAmount: payload.initialPrizeAmount,
       payoutSchedule: payload.payoutSchedule,
-      metadata: payload.metadata
+      metadata: payload.metadata,
+      skipInitialization: requiresOwnerInitialization
     });
 
     const artifact: ContestDeploymentArtifact = createContestDeploymentArtifact({
       networkId: input.networkId,
       contestAddress: bundle.contestAddress,
       vaultFactoryAddress: bundle.vaultFactoryAddress,
-      transactionHash: bundle.initialization.transactionHash,
-      confirmedAt: bundle.initialization.confirmedAt ?? undefined,
+      transactionHash: bundle.initialization?.transactionHash ?? undefined,
+      confirmedAt: bundle.initialization?.confirmedAt ?? undefined,
       metadata: deriveReceiptMetadata(payload, bundle.contestAddress, bundle.vaultFactoryAddress, bundle)
     });
 
@@ -292,22 +323,33 @@ class ContestCreationGatewayImpl implements ContestCreationGateway {
       networkId: input.networkId,
       contestAddress: bundle.contestAddress,
       vaultFactoryAddress: bundle.vaultFactoryAddress,
-      tx: bundle.initialization.transactionHash
+      tx: bundle.initialization?.transactionHash ?? null
     });
 
+    const receiptMetadata: Record<string, unknown> = {
+      componentConfigHash: {
+        vault: payload.vaultComponent.configHash,
+        priceSource: payload.priceSourceComponent.configHash
+      }
+    };
+
+    if (requiresOwnerInitialization) {
+      receiptMetadata.ownerInitialization = {
+        contestAddress: bundle.contestAddress,
+        vaultFactoryAddress: bundle.vaultFactoryAddress,
+        callData: bundle.initializer.calldata,
+        args: serializeInitializationArgs(bundle.initializer.args)
+      };
+    }
+
     return createContestCreationReceipt({
-      status: 'confirmed',
+      status: requiresOwnerInitialization ? 'accepted' : 'confirmed',
       requestId: deriveRequestId(seed),
       organizer,
       networkId: input.networkId,
       artifact,
-      acceptedAt: bundle.initialization.confirmedAt ?? nowIso(this.clock),
-      metadata: {
-        componentConfigHash: {
-          vault: payload.vaultComponent.configHash,
-          priceSource: payload.priceSourceComponent.configHash
-        }
-      }
+      acceptedAt: bundle.initialization?.confirmedAt ?? nowIso(this.clock),
+      metadata: receiptMetadata
     });
   }
 }

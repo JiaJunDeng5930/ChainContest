@@ -1,5 +1,5 @@
-import type { Address, Hex } from 'viem';
-import type { Chain } from 'viem';
+import type { Address } from 'viem';
+import { encodeFunctionData, type Chain, type Hex } from 'viem';
 import { getBlock, waitForTransactionReceipt, writeContract } from 'viem/actions';
 import {
   contestArtifact,
@@ -37,6 +37,7 @@ export interface ContestDeploymentParams {
   readonly initialPrizeAmount: bigint;
   readonly payoutSchedule: readonly number[];
   readonly metadata?: Record<string, unknown>;
+  readonly skipInitialization?: boolean;
 }
 
 export interface DeploymentTransactionReceipt {
@@ -46,12 +47,27 @@ export interface DeploymentTransactionReceipt {
   readonly confirmedAt: string | null;
 }
 
+export interface ContestInitializationArguments {
+  readonly contestId: Hex;
+  readonly config: ReturnType<typeof toContestConfig>;
+  readonly timeline: ReturnType<typeof toContestTimeline>;
+  readonly initialPrizeAmount: bigint;
+  readonly payoutSchedule: number[];
+  readonly vaultImplementation: Address;
+  readonly vaultFactory: Address;
+  readonly owner: Address;
+}
+
 export interface ContestDeploymentResult {
   readonly contestAddress: Address;
   readonly vaultFactoryAddress: Address;
   readonly contestDeployment: DeploymentTransactionReceipt;
   readonly vaultFactoryDeployment: DeploymentTransactionReceipt;
-  readonly initialization: DeploymentTransactionReceipt;
+  readonly initialization: DeploymentTransactionReceipt | null;
+  readonly initializer: {
+    readonly calldata: Hex;
+    readonly args: ContestInitializationArguments;
+  };
 }
 
 const normalizeSchedule = (schedule: readonly number[]): number[] => {
@@ -144,23 +160,37 @@ export const deployContestBundle = async (
       }
     ] as const;
 
-    const initializeTx = await writeContract(client, {
-      address: contestAddress,
+    const encodedInitialize = encodeFunctionData({
       abi: contestArtifact.abi,
       functionName: 'initialize',
-      args: initializeArgs,
-      account: runtime.account,
-      chain
+      args: initializeArgs
     });
-    const initializationReceipt = await waitForTransactionReceipt(client, { hash: initializeTx });
-    const initializationConfirmation = await toDeploymentReceipt(client, initializeTx, initializationReceipt);
+
+    let initializationConfirmation: DeploymentTransactionReceipt | null = null;
+
+    if (!params.skipInitialization) {
+      const initializeTx = await writeContract(client, {
+        address: contestAddress,
+        abi: contestArtifact.abi,
+        functionName: 'initialize',
+        args: initializeArgs,
+        account: runtime.account,
+        chain
+      });
+      const initializationReceipt = await waitForTransactionReceipt(client, { hash: initializeTx });
+      initializationConfirmation = await toDeploymentReceipt(client, initializeTx, initializationReceipt);
+    }
 
     return {
       contestAddress,
       vaultFactoryAddress,
       contestDeployment: contestConfirmation,
       vaultFactoryDeployment: vaultFactoryConfirmation,
-      initialization: initializationConfirmation
+      initialization: initializationConfirmation,
+      initializer: {
+        calldata: encodedInitialize,
+        args: initializeArgs[0]
+      }
     };
   } catch (error) {
     throw wrapContestChainError(error, {

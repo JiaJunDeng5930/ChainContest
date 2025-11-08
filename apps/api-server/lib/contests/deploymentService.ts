@@ -9,10 +9,24 @@ import type {
   ContestDeploymentArtifactRecord,
   OrganizerComponentRecord
 } from '@chaincontest/db';
-import type { ContestCreationReceipt } from '@chaincontest/chain';
+import { createContestCreationReceipt, type ContestCreationReceipt } from '@chaincontest/chain';
 import { lowercaseAddress } from '@/lib/runtime/address';
 import { logContestDeployment } from '@/lib/observability/logger';
 import { getEnv } from '@/lib/config/env';
+
+type OwnerInitializationMetadata = {
+  contestAddress: string;
+  vaultFactoryAddress: string;
+  callData: string;
+  args: Record<string, unknown>;
+};
+
+const ensureRecord = (value: unknown): Record<string, unknown> => {
+  if (value && typeof value === 'object' && !Array.isArray(value)) {
+    return value as Record<string, unknown>;
+  }
+  return {};
+};
 
 const bigintSchema = z
   .union([z.string(), z.number(), z.bigint()])
@@ -521,6 +535,42 @@ const toSerializablePayload = (
   metadata: payload.metadata ?? {}
 });
 
+const deserializeStoredPayload = (
+  stored: Record<string, unknown>
+): z.infer<typeof payloadSchema> => {
+  const config = ensureRecord(stored.config);
+  const timeline = ensureRecord(stored.timeline);
+  const payoutSchedule = Array.isArray(stored.payoutSchedule)
+    ? (stored.payoutSchedule as number[])
+    : [];
+
+  return {
+    contestId: stored.contestId as `0x${string}`,
+    vaultComponentId: String(stored.vaultComponentId ?? ''),
+    priceSourceComponentId: String(stored.priceSourceComponentId ?? ''),
+    vaultImplementation: stored.vaultImplementation as `0x${string}`,
+    config: {
+      entryAsset: config.entryAsset as `0x${string}`,
+      entryAmount: BigInt(config.entryAmount as string),
+      entryFee: BigInt(config.entryFee as string),
+      priceSource: config.priceSource as `0x${string}`,
+      swapPool: config.swapPool as `0x${string}`,
+      priceToleranceBps: Number(config.priceToleranceBps ?? 0),
+      settlementWindow: Number(config.settlementWindow ?? 0),
+      maxParticipants: Number(config.maxParticipants ?? 0),
+      topK: Number(config.topK ?? 0)
+    },
+    timeline: {
+      registeringEnds: BigInt(timeline.registeringEnds as string),
+      liveEnds: BigInt(timeline.liveEnds as string),
+      claimEnds: BigInt(timeline.claimEnds as string)
+    },
+    initialPrizeAmount: BigInt(stored.initialPrizeAmount as string),
+    payoutSchedule,
+    metadata: (stored.metadata ?? {}) as Record<string, unknown>
+  } as z.infer<typeof payloadSchema>;
+};
+
 const toContestPayload = async (
   userId: string,
   organizerAddress: string,
@@ -661,6 +711,9 @@ export const deployContest = async (
       payload: chainPayload
     });
 
+    const ownerInitialization = receipt.metadata?.ownerInitialization as OwnerInitializationMetadata | undefined;
+    const needsOwnerFunding = Boolean(ownerInitialization);
+
     let artifactRecord: ContestDeploymentArtifactRecord | null = null;
 
     if (receipt.artifact) {
@@ -668,6 +721,10 @@ export const deployContest = async (
         ...(receipt.artifact.metadata ?? {}),
         contestBytes32: parsedPayload.data.contestId
       };
+
+      if (ownerInitialization) {
+        artifactMetadata.ownerInitialization = ownerInitialization;
+      }
 
       const registrarAddress =
         receipt.artifact.registrarAddress ?? receipt.artifact.contestAddress ?? null;
@@ -688,21 +745,23 @@ export const deployContest = async (
       })) as ContestDeploymentArtifactRecord;
     }
 
-    const persistedStatus = (() => {
-      switch (receipt.status) {
-        case 'confirmed':
-          return 'confirmed';
-        case 'failed':
-          return 'failed';
+    const persistedStatus = needsOwnerFunding
+      ? 'deploying'
+      : (() => {
+        switch (receipt.status) {
+          case 'confirmed':
+            return 'confirmed';
+          case 'failed':
+            return 'failed';
         case 'noop':
           return 'accepted';
         case 'accepted':
           return 'accepted';
-        case 'deploying':
-        default:
-          return 'deploying';
-      }
-    })();
+          case 'deploying':
+          default:
+            return 'deploying';
+        }
+      })();
 
     if (persistedStatus === 'failed') {
       throw httpErrors.conflict('Contest deployment did not complete successfully', {
@@ -716,27 +775,33 @@ export const deployContest = async (
     const updated = (await database.updateContestCreationRequestStatus({
       requestId: creation.request.requestId,
       status: persistedStatus,
-      transactionHash: receipt.artifact?.transactionHash ?? null,
-      confirmedAt: receipt.artifact?.confirmedAt ? new Date(receipt.artifact.confirmedAt) : null,
+      transactionHash: needsOwnerFunding ? null : receipt.artifact?.transactionHash ?? null,
+      confirmedAt: needsOwnerFunding
+        ? null
+        : receipt.artifact?.confirmedAt
+          ? new Date(receipt.artifact.confirmedAt)
+          : null,
       failureReason: null
     })) as ContestCreationRequestRecord;
 
-    const domainRegistration = await registerContestInDomain({
-      request: updated,
-      receipt,
-      artifact: artifactRecord,
-      payload: parsedPayload.data,
-      networkId: input.networkId
-    });
+    const domainRegistration = needsOwnerFunding
+      ? null
+      : await registerContestInDomain({
+          request: updated,
+          receipt,
+          artifact: artifactRecord,
+          payload: parsedPayload.data,
+          networkId: input.networkId
+        });
 
     let resolvedContestId = domainRegistration?.contestId ?? null;
     let updatedArtifactRecord = artifactRecord;
 
-    if (!resolvedContestId && artifactRecord?.contestAddress) {
+    if (!needsOwnerFunding && !resolvedContestId && artifactRecord?.contestAddress) {
       resolvedContestId = await lookupContestId(parsedPayload.data.contestId, artifactRecord.contestAddress, input.networkId);
     }
 
-    if (resolvedContestId && artifactRecord) {
+    if (!needsOwnerFunding && resolvedContestId && artifactRecord) {
       const registrarAddress =
         updatedArtifactRecord?.registrarAddress ??
         updatedArtifactRecord?.contestAddress ??
@@ -821,4 +886,181 @@ export const deployContest = async (
     );
     throw error;
   }
+};
+
+export interface FinalizeContestDeploymentInput {
+  requestId: string;
+  transactionHash: `0x${string}`;
+  userId: string;
+  organizerAddress: string;
+}
+
+export const finalizeContestDeployment = async (
+  input: FinalizeContestDeploymentInput
+): Promise<ContestDeploymentServiceResult> => {
+  const aggregate = await database.getContestCreationRequest(input.requestId);
+  if (!aggregate) {
+    throw httpErrors.notFound('Contest creation request not found');
+  }
+
+  if (aggregate.request.userId !== input.userId) {
+    throw httpErrors.forbidden('You are not allowed to finalize this request');
+  }
+
+  if (aggregate.request.status !== 'deploying') {
+    throw httpErrors.conflict('Contest deployment has already been finalized');
+  }
+
+  const artifactRecord = aggregate.artifact;
+  if (!artifactRecord) {
+    throw httpErrors.conflict('Contest deployment artifact is missing');
+  }
+
+  const ownerInitialization = ensureRecord(artifactRecord.metadata.ownerInitialization);
+  if (!ownerInitialization.callData || !ownerInitialization.contestAddress) {
+    throw httpErrors.conflict('Contest deployment does not require owner initialization');
+  }
+
+  const networkId = aggregate.request.networkId;
+  const rpcEnv = getEnv();
+  const rpcUrl = rpcEnv.chain.publicRpc ?? rpcEnv.chain.primaryRpc;
+  if (!rpcUrl) {
+    throw httpErrors.internal('RPC endpoint is not configured for contest finalization', {
+      detail: { networkId }
+    });
+  }
+
+  const client = createRpcClient(networkId, rpcUrl);
+  const blockInfo = await resolveBlockInfo(client, input.transactionHash);
+  const confirmedAt = blockInfo.timestamp ? new Date(blockInfo.timestamp) : new Date();
+
+  const updatedRequest = (await database.updateContestCreationRequestStatus({
+    requestId: input.requestId,
+    status: 'confirmed',
+    transactionHash: input.transactionHash,
+    confirmedAt,
+    failureReason: null
+  })) as ContestCreationRequestRecord;
+
+  const transactionsMetadata = ensureRecord(artifactRecord.metadata.transactions);
+  transactionsMetadata.initialize = {
+    transactionHash: input.transactionHash,
+    blockHash: blockInfo.blockHash,
+    blockNumber: blockInfo.blockNumber,
+    confirmedAt: blockInfo.timestamp ?? confirmedAt.toISOString()
+  };
+
+  const updatedArtifactMetadata = {
+    ...artifactRecord.metadata,
+    ownerInitialization: {
+      ...ownerInitialization,
+      completed: true,
+      transactionHash: input.transactionHash
+    },
+    transactions: transactionsMetadata
+  };
+
+  const updatedArtifactRecord = (await database.recordContestDeploymentArtifact({
+    requestId: input.requestId,
+    contestId: artifactRecord.contestId,
+    networkId,
+    contestAddress: artifactRecord.contestAddress,
+    vaultFactoryAddress: artifactRecord.vaultFactoryAddress,
+    registrarAddress: artifactRecord.registrarAddress ?? artifactRecord.contestAddress,
+    treasuryAddress: artifactRecord.treasuryAddress,
+    settlementAddress: artifactRecord.settlementAddress,
+    rewardsAddress: artifactRecord.rewardsAddress,
+    transactionHash: input.transactionHash,
+    confirmedAt,
+    metadata: updatedArtifactMetadata
+  })) as ContestDeploymentArtifactRecord;
+
+  const payload = deserializeStoredPayload(updatedRequest.request.payload as Record<string, unknown>);
+
+  const syntheticReceipt = createContestCreationReceipt({
+    status: 'confirmed',
+    requestId: updatedRequest.request.requestId,
+    organizer: input.organizerAddress as `0x${string}`,
+    networkId,
+    artifact: {
+      networkId,
+      contestAddress: ownerInitialization.contestAddress as `0x${string}`,
+      vaultFactoryAddress: ownerInitialization.vaultFactoryAddress as `0x${string}`,
+      registrarAddress: updatedArtifactRecord.registrarAddress ?? ownerInitialization.contestAddress,
+      treasuryAddress: updatedArtifactRecord.treasuryAddress ?? null,
+      settlementAddress: updatedArtifactRecord.settlementAddress ?? null,
+      rewardsAddress: updatedArtifactRecord.rewardsAddress ?? null,
+      transactionHash: input.transactionHash,
+      confirmedAt: confirmedAt.toISOString(),
+      metadata: updatedArtifactMetadata
+    },
+    acceptedAt: confirmedAt.toISOString(),
+    metadata: {
+      ownerInitialization: ownerInitialization,
+      componentConfigHash: {}
+    }
+  });
+
+  const domainRegistration = await registerContestInDomain({
+    request: updatedRequest,
+    receipt: syntheticReceipt,
+    artifact: updatedArtifactRecord,
+    payload,
+    networkId
+  });
+
+  let resolvedContestId = domainRegistration?.contestId ?? null;
+  let artifactWithContest = updatedArtifactRecord;
+
+  if (!resolvedContestId && updatedArtifactRecord.contestAddress) {
+    resolvedContestId = await lookupContestId(
+      payload.contestId,
+      updatedArtifactRecord.contestAddress,
+      networkId
+    );
+  }
+
+  if (resolvedContestId) {
+    artifactWithContest = (await database.recordContestDeploymentArtifact({
+      requestId: input.requestId,
+      contestId: resolvedContestId,
+      networkId,
+      contestAddress: updatedArtifactRecord.contestAddress,
+      vaultFactoryAddress: updatedArtifactRecord.vaultFactoryAddress,
+      registrarAddress: updatedArtifactRecord.registrarAddress,
+      treasuryAddress: updatedArtifactRecord.treasuryAddress,
+      settlementAddress: updatedArtifactRecord.settlementAddress,
+      rewardsAddress: updatedArtifactRecord.rewardsAddress,
+      transactionHash: updatedArtifactRecord.transactionHash,
+      confirmedAt: updatedArtifactRecord.confirmedAt,
+      metadata: updatedArtifactRecord.metadata
+    })) as ContestDeploymentArtifactRecord;
+  }
+
+  logContestDeployment({
+    status: 'confirmed',
+    networkId,
+    organizer: input.organizerAddress,
+    requestId: input.requestId,
+    contestId: payload.contestId,
+    vaultComponentId: payload.vaultComponentId,
+    priceSourceComponentId: payload.priceSourceComponentId,
+    contestAddress: artifactWithContest.contestAddress ?? null,
+    vaultFactoryAddress: artifactWithContest.vaultFactoryAddress ?? null,
+    transactionHash: input.transactionHash,
+    durationMs: 0,
+    metadata: {
+      receiptMetadata: syntheticReceipt.metadata ?? {},
+      ingestion: artifactWithContest.metadata ?? {},
+      domainRegistration
+    },
+    failureReason: null
+  });
+
+  const refreshed = (await database.getContestCreationRequest(input.requestId))!;
+  return {
+    request: refreshed,
+    artifact: artifactWithContest,
+    receipt: syntheticReceipt
+  };
 };
