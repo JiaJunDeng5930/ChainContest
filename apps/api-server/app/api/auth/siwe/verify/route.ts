@@ -6,7 +6,7 @@ import { SiweMessage } from 'siwe';
 import { z } from 'zod';
 import { getEnv } from '@/lib/config/env';
 import { getAuthAdapter, SESSION_COOKIE, SESSION_MAX_AGE_SECONDS } from '@/lib/auth/config';
-import { initDatabase } from '@/lib/db/client';
+import { initDatabase, database } from '@/lib/db/client';
 import { httpErrors, toErrorResponse } from '@/lib/http/errors';
 import { enforceRateLimit } from '@/lib/middleware/rateLimit';
 import { getRequestLogger } from '@/lib/observability/logger';
@@ -213,6 +213,16 @@ export async function POST(request: NextRequest): Promise<Response> {
     const email = `${walletAddress}@wallet.chaincontest`;
 
     const user = await ensureUser(adapter, checksumAddress, email);
+
+    await database.mutateUserWallet({
+      action: 'bind',
+      userId: user.id,
+      walletAddress,
+      actorContext: {
+        source: 'api.auth.siwe.verify',
+        actorId: user.id
+      }
+    });
 
     const expires = new Date(Date.now() + SESSION_MAX_AGE_SECONDS * 1000);
     const sessionToken = createSessionToken();
