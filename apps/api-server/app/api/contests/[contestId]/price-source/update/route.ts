@@ -1,13 +1,11 @@
 import type { NextRequest } from 'next/server';
 import { NextResponse } from 'next/server';
-import { createPublicClient, defineChain, encodeFunctionData, http } from 'viem';
+import { encodeFunctionData } from 'viem';
 import { requireSession } from '@/lib/auth/session';
 import { buildContestDefinition } from '@/lib/contests/definitionBuilder';
 import { resolveContestId } from '@/lib/http/routeParams';
 import { applyCorsHeaders, handleCorsPreflight } from '@/lib/http/cors';
 import { httpErrors, toErrorResponse } from '@/lib/http/errors';
-import { getEnv } from '@/lib/config/env';
-import { contestArtifact, type ContestDefinition } from '@chaincontest/chain';
 
 const updateAbi = [{
   type: 'function',
@@ -27,81 +25,6 @@ const updateAbi = [{
     }
   ]
 } as const];
-
-const ADDRESS_PATTERN = /^0x[a-fA-F0-9]{40}$/;
-
-const normalizeAddress = (value: unknown): `0x${string}` | null => {
-  if (typeof value !== 'string') {
-    return null;
-  }
-  const trimmed = value.trim();
-  if (!ADDRESS_PATTERN.test(trimmed)) {
-    return null;
-  }
-  return trimmed.toLowerCase() as `0x${string}`;
-};
-
-const resolvePriceSourceAddress = async (definition: ContestDefinition): Promise<`0x${string}` | null> => {
-  if (definition.rebalance?.priceSource) {
-    return definition.rebalance.priceSource;
-  }
-
-  const contestAddress = definition.contest.addresses?.registrar;
-  if (!contestAddress) {
-    return null;
-  }
-
-  try {
-    const env = getEnv();
-    const rpcCandidates = [env.chain.primaryRpc, env.chain.publicRpc, env.chain.fallbackRpc].filter(
-      (value): value is string => Boolean(value)
-    );
-    if (!rpcCandidates.length) {
-      return null;
-    }
-
-    const chain = defineChain({
-      id: definition.contest.chainId,
-      name: `runtime-chain-${definition.contest.chainId}`,
-      network: `runtime-chain-${definition.contest.chainId}`,
-      nativeCurrency: {
-        name: 'Ether',
-        symbol: 'ETH',
-        decimals: 18
-      },
-      rpcUrls: {
-        default: { http: rpcCandidates },
-        public: { http: rpcCandidates }
-      }
-    });
-
-    const client = createPublicClient({
-      chain,
-      transport: http(rpcCandidates[0]!)
-    });
-
-    const config = await client.readContract({
-      address: contestAddress as `0x${string}`,
-      abi: contestArtifact.abi,
-      functionName: 'getConfig'
-    });
-
-    const candidate =
-      normalizeAddress(
-        typeof config === 'object' && config !== null && 'priceSource' in config
-          ? (config as Record<string, unknown>).priceSource
-          : Array.isArray(config)
-            ? config[3]
-            : undefined
-      );
-
-    if (candidate) {
-      return candidate;
-    }
-  } catch {
-    return null;
-  }
-};
 
 export const POST = async (
   request: NextRequest,
@@ -123,7 +46,7 @@ export const POST = async (
       }
     );
 
-    const priceSourceAddress = await resolvePriceSourceAddress(definition);
+    const priceSourceAddress = definition.rebalance?.priceSource;
     if (!priceSourceAddress) {
       throw httpErrors.conflict('Contest price source not configured', {
         detail: { contestId }
