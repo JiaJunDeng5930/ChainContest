@@ -772,6 +772,7 @@ export const db = {
   init,
   lookupUserWallet,
   mutateUserWallet,
+  ensureUserIdentity,
   queryContests,
   queryUserContests,
   queryCreatorContests,

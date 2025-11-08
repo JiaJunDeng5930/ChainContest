@@ -163,6 +163,20 @@ describe('SIWE 登录与会话管理', () => {
     vi.doMock('@/lib/db/pool', () => ({
       getPool: () => ({})
     }));
+    const ensureUserIdentity = vi.fn().mockResolvedValue({
+      id: 'identity-user-1',
+      externalId: 'user-1',
+      status: 'active'
+    });
+    const mutateUserWallet = vi.fn().mockResolvedValue({ status: 'applied' });
+
+    vi.doMock('@/lib/db/client', () => ({
+      initDatabase: vi.fn(),
+      database: {
+        ensureUserIdentity,
+        mutateUserWallet
+      }
+    }));
 
     const actualSession = await vi.importActual<typeof import('@/lib/auth/session')>('@/lib/auth/session');
 
@@ -322,6 +336,20 @@ describe('SIWE 登录与会话管理', () => {
 
     vi.doMock('@/lib/db/pool', () => ({
       getPool: () => ({})
+    }));
+    const ensureUserIdentity = vi.fn().mockResolvedValue({
+      id: 'identity-user-1',
+      externalId: 'user-1',
+      status: 'active'
+    });
+    const mutateUserWallet = vi.fn().mockResolvedValue({ status: 'applied' });
+
+    vi.doMock('@/lib/db/client', () => ({
+      initDatabase: vi.fn(),
+      database: {
+        ensureUserIdentity,
+        mutateUserWallet
+      }
     }));
 
     const actualSession2 = await vi.importActual<typeof import('@/lib/auth/session')>('@/lib/auth/session');

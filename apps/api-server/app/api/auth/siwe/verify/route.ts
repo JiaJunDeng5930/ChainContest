@@ -217,7 +217,8 @@ export async function POST(request: NextRequest): Promise<Response> {
     await database.ensureUserIdentity({
       externalId: user.id,
       actorContext: {
-        source: 'api.auth.siwe.verify',
+        source: 'manual',
+        trigger: 'api.auth.siwe.verify',
         actorId: user.id
       }
     });
@@ -227,7 +228,8 @@ export async function POST(request: NextRequest): Promise<Response> {
       userId: user.id,
       walletAddress,
       actorContext: {
-        source: 'api.auth.siwe.verify',
+        source: 'manual',
+        trigger: 'api.auth.siwe.verify',
         actorId: user.id
       }
     });
@@ -254,6 +256,11 @@ export async function POST(request: NextRequest): Promise<Response> {
     applyCorsHeaders(response, request);
     return response;
   } catch (error) {
+    try {
+      getRequestLogger({ route: 'auth.siwe.verify' }).error({ err: error }, 'SIWE verification failed');
+    } catch {
+      // logger best-effort; avoid masking original error
+    }
     if (adapter && createdSessionToken && adapter.deleteSession) {
       try {
         await adapter.deleteSession(createdSessionToken);
