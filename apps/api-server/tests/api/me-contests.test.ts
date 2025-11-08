@@ -11,6 +11,10 @@ describe('GET /api/me/contests', () => {
   });
 
   it('returns created contests using creator query', async () => {
+    vi.doMock('@/lib/contests/phaseSync', () => ({
+      synchronizeContestPhases: vi.fn().mockResolvedValue(undefined)
+    }));
+
     const queryCreatorContests = vi.fn().mockResolvedValue({
       items: [
         {
@@ -61,6 +65,10 @@ describe('GET /api/me/contests', () => {
   });
 
   it('returns participated contests summary', async () => {
+    vi.doMock('@/lib/contests/phaseSync', () => ({
+      synchronizeContestPhases: vi.fn().mockResolvedValue(undefined)
+    }));
+
     const queryUserContests = vi.fn().mockResolvedValue({
       items: [
         {

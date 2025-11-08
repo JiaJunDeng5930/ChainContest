@@ -1,6 +1,7 @@
 import type { ContestAggregate, ContestRecord, QueryContestsResponse } from '@chaincontest/db';
 import { database, initDatabase } from '@/lib/db/client';
 import { httpErrors } from '@/lib/http/errors';
+import { synchronizeContestPhases } from '@/lib/contests/phaseSync';
 
 export interface ContestLeaderboardEntry {
   rank: number;
@@ -264,6 +265,7 @@ export const listContests = async (filters: ContestListFilters): Promise<Contest
     filter.statuses = [status];
   }
   selector.filter = Object.keys(filter).length > 0 ? filter : {};
+  const requestedStatuses = filter.statuses ? new Set(filter.statuses) : null;
 
   const response = await queryContests({
     selector,
@@ -276,7 +278,17 @@ export const listContests = async (filters: ContestListFilters): Promise<Contest
     }
   });
 
-  const items = (response.items ?? []).map(mapContestAggregate);
+  const aggregates = response.items ?? [];
+  await synchronizeContestPhases(
+    aggregates.map((aggregate) => aggregate.contest).filter(Boolean) as ContestRecord[]
+  );
+
+  const filteredAggregates =
+    requestedStatuses && requestedStatuses.size > 0
+      ? aggregates.filter((aggregate) => requestedStatuses.has(aggregate.contest.status))
+      : aggregates;
+
+  const items = filteredAggregates.map(mapContestAggregate);
 
   return {
     items,
@@ -315,6 +327,8 @@ export const getContest = async (contestId: string): Promise<ContestSnapshot> =>
       detail: { contestId }
     });
   }
+
+  await synchronizeContestPhases([aggregate.contest]);
 
   return mapContestAggregate(aggregate);
 };

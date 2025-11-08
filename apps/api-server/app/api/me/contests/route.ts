@@ -4,6 +4,7 @@ import { requireSession, SessionNotFoundError } from '@/lib/auth/session';
 import { initDatabase, database } from '@/lib/db/client';
 import { httpErrors, toErrorResponse } from '@/lib/http/errors';
 import { applyCorsHeaders, handleCorsPreflight } from '@/lib/http/cors';
+import { synchronizeContestPhases } from '@/lib/contests/phaseSync';
 
 const parseInteger = (value: string | null, context: string): number | undefined => {
   if (!value) {
@@ -117,6 +118,12 @@ export const GET = async (request: NextRequest): Promise<Response> => {
         nextCursor: string | null;
       };
 
+      await synchronizeContestPhases(
+        items
+          .map((item) => item.contest)
+          .filter((contest): contest is import('@chaincontest/db').ContestRecord => Boolean(contest))
+      );
+
       const response = NextResponse.json(
         {
           kind: 'created',
@@ -138,6 +145,8 @@ export const GET = async (request: NextRequest): Promise<Response> => {
       items: import('@chaincontest/db').QueryUserContestsResponse['items'];
       nextCursor: string | null;
     };
+
+    await synchronizeContestPhases(items.map((item) => item.contest));
 
     const response = NextResponse.json(
       {
