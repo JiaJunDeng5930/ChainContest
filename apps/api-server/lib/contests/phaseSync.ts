@@ -15,40 +15,100 @@ const parseTimestamp = (value: unknown): number | null => {
   return Number.isNaN(parsed) ? null : parsed;
 };
 
+const TIMELINE_SOURCES: ReadonlyArray<readonly string[]> = [
+  ['timeline'],
+  ['chainGatewayDefinition', 'timeline'],
+  ['gatewayDefinition', 'timeline'],
+  ['definition', 'timeline']
+];
+
+const getTimelineNode = (metadata: Record<string, unknown>, path: readonly string[]): Record<string, unknown> | null => {
+  let current: unknown = metadata;
+  for (const segment of path) {
+    if (!isRecord(current)) {
+      return null;
+    }
+    current = current[segment];
+  }
+  return isRecord(current) ? (current as Record<string, unknown>) : null;
+};
+
 const getTimelineTimestamp = (contest: ContestRecord, key: string): number | null => {
   const metadata = contest.metadata;
   if (!isRecord(metadata)) {
     return null;
   }
-  const timeline = metadata.timeline;
-  if (!isRecord(timeline)) {
-    return null;
+
+  for (const source of TIMELINE_SOURCES) {
+    const node = getTimelineNode(metadata, source);
+    if (!node) {
+      continue;
+    }
+    const timestamp = parseTimestamp(node[key]);
+    if (timestamp) {
+      return timestamp;
+    }
   }
-  return parseTimestamp(timeline[key]);
+
+  return null;
 };
 
-type ContestTransition =
-  | {
-      status: 'active';
-      phase: 'live';
+const getFirstTimelineTimestamp = (contest: ContestRecord, keys: readonly string[]): number | null => {
+  for (const key of keys) {
+    const timestamp = getTimelineTimestamp(contest, key);
+    if (timestamp !== null) {
+      return timestamp;
     }
-  | null;
+  }
+  return null;
+};
+
+type ContestTransition = {
+  status: 'registered' | 'active' | 'sealed' | 'settled';
+  phase: string;
+} | null;
 
 const determineTransition = (contest: ContestRecord): ContestTransition => {
-  if (contest.status !== 'registered') {
+  const now = Date.now();
+
+  if (contest.status === 'registered') {
+    const registrationClosesAt = getFirstTimelineTimestamp(contest, ['registrationClosesAt']);
+    if (registrationClosesAt && now >= registrationClosesAt) {
+      return {
+        status: 'active',
+        phase: 'live'
+      };
+    }
     return null;
   }
-  const registrationClosesAt = getTimelineTimestamp(contest, 'registrationClosesAt');
-  if (!registrationClosesAt) {
+
+  if (contest.status === 'active') {
+    const tradingClosesAt = getFirstTimelineTimestamp(contest, ['tradingClosesAt', 'liveEnds']);
+    if (tradingClosesAt && now >= tradingClosesAt) {
+      return {
+        status: 'sealed',
+        phase: 'sealed'
+      };
+    }
     return null;
   }
-  if (Date.now() < registrationClosesAt) {
+
+  if (contest.status === 'sealed') {
+    const redemptionAvailableAt = getFirstTimelineTimestamp(contest, [
+      'redemptionAvailableAt',
+      'rewardAvailableAt',
+      'claimEnds'
+    ]);
+    if (redemptionAvailableAt && now >= redemptionAvailableAt) {
+      return {
+        status: 'settled',
+        phase: 'settled'
+      };
+    }
     return null;
   }
-  return {
-    status: 'active',
-    phase: 'live'
-  };
+
+  return null;
 };
 
 const applyLocalMetadataPhase = (contest: ContestRecord, phase: string): void => {

@@ -724,6 +724,29 @@ const collectTokenTargets = (
     addAllowance(approval.tokenAddress as Address | undefined, approval.spender as Address | undefined);
   }
 
+  const rebalance = definition.rebalance;
+  if (rebalance) {
+    const rebalanceSpender = rebalance.spender as Address | undefined;
+    const rebalanceTokens = new Set<Address | undefined>([
+      rebalance.baseAsset as Address | undefined,
+      rebalance.quoteAsset as Address | undefined
+    ]);
+
+    for (const asset of rebalance.whitelist ?? []) {
+      rebalanceTokens.add(asset as Address | undefined);
+    }
+
+    for (const token of rebalanceTokens) {
+      addToken(token);
+      addAllowance(token, rebalanceSpender);
+    }
+
+    for (const approval of rebalance.approvals ?? []) {
+      addToken(approval.tokenAddress as Address | undefined);
+      addAllowance(approval.tokenAddress as Address | undefined, approval.spender as Address | undefined);
+    }
+  }
+
   return { tokens, allowances };
 };
 
