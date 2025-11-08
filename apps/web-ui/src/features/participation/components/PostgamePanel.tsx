@@ -105,6 +105,7 @@ export default function PostgamePanel({ contestId, contest }: PostgamePanelProps
   const dateFormatter = useContestDateTimeFormatter(locale);
   const gate = useNetworkGateState();
   const queryClient = useQueryClient();
+  const { isParticipant, isLoading: isParticipationLoading } = useContestParticipationStatus(contest.contestId);
 
   const participantAddress = gate.address ?? null;
 
@@ -176,6 +177,8 @@ export default function PostgamePanel({ contestId, contest }: PostgamePanelProps
         queryClient={queryClient}
         translate={t}
         participantAddress={participantAddress}
+        isParticipant={isParticipant}
+        isParticipationLoading={isParticipationLoading}
       />
     </section>
   );
@@ -190,6 +193,11 @@ type SectionBaseProps = {
   queryClient: ReturnType<typeof useQueryClient>;
   translate: Translate;
   participantAddress: string | null;
+};
+
+type RebalanceSectionProps = SectionBaseProps & {
+  isParticipant: boolean;
+  isParticipationLoading: boolean;
 };
 
 function SettlementSection({
@@ -749,8 +757,10 @@ function RebalanceSection({
   formatAnchor,
   queryClient,
   translate: t,
-  participantAddress
-}: SectionBaseProps) {
+  participantAddress,
+  isParticipant,
+  isParticipationLoading
+}: RebalanceSectionProps) {
   const [intent, setIntent] = useState<RebalanceIntent>({
     sellAsset: "",
     buyAsset: "",
@@ -763,7 +773,6 @@ function RebalanceSection({
   const [approvalStates, setApprovalStates] = useState<Record<string, ApprovalState>>({});
   const [lastError, setLastError] = useState<unknown>(null);
   const { approveToken, sendExecutionCall, walletReady } = useWalletTransactions();
-  const { isParticipant, isLoading: isParticipationLoading } = useContestParticipationStatus(contest.contestId);
 
   const isEligiblePhase = contest.phase === "active";
 
