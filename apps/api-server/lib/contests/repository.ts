@@ -210,6 +210,24 @@ const normalisePhase = (status: string): string => {
   }
 };
 
+const parseIsoTimestamp = (value: string | undefined): number | null => {
+  if (!value) {
+    return null;
+  }
+  const parsed = Date.parse(value);
+  return Number.isNaN(parsed) ? null : parsed;
+};
+
+const derivePhase = (contest: ContestRecord, timeline: ContestSnapshot['timeline']): string => {
+  if (contest.status === 'registered') {
+    const closesAt = parseIsoTimestamp(timeline.registrationClosesAt);
+    if (closesAt && Date.now() >= closesAt) {
+      return 'active';
+    }
+  }
+  return normalisePhase(ensureString(contest.status, 'contest.status'));
+};
+
 const mapContestAggregate = (aggregate: ContestAggregate): ContestSnapshot => {
   const { contest } = aggregate;
   if (!contest) {
@@ -227,7 +245,7 @@ const mapContestAggregate = (aggregate: ContestAggregate): ContestSnapshot => {
   return {
     contestId: ensureString(contest.contestId ?? contest.internalKey ?? contest.contractAddress, 'contest.contestId'),
     chainId: toNumber(contest.chainId, 'contest.chainId'),
-    phase: normalisePhase(ensureString(contest.status, 'contest.status')),
+    phase: derivePhase(contest, timeline),
     timeline,
     prizePool,
     registrationCapacity,

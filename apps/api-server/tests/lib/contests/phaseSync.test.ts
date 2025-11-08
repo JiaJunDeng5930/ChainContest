@@ -8,10 +8,13 @@ vi.mock('@/lib/db/client', () => ({
   }
 }));
 
+const logger = {
+  warn: vi.fn(),
+  info: vi.fn()
+};
+
 vi.mock('@/lib/observability/logger', () => ({
-  getRequestLogger: () => ({
-    warn: vi.fn()
-  })
+  getRequestLogger: () => logger
 }));
 
 describe('contest phase synchronization', () => {
@@ -55,7 +58,7 @@ describe('contest phase synchronization', () => {
       action: 'update_phase',
       payload: {
         contestId: 'contest-1',
-        phase: 'active',
+        phase: 'live',
         status: 'active'
       },
       actorContext: {

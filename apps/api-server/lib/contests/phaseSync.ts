@@ -30,7 +30,7 @@ const getTimelineTimestamp = (contest: ContestRecord, key: string): number | nul
 type ContestTransition =
   | {
       status: 'active';
-      phase: 'active';
+      phase: 'live';
     }
   | null;
 
@@ -47,7 +47,7 @@ const determineTransition = (contest: ContestRecord): ContestTransition => {
   }
   return {
     status: 'active',
-    phase: 'active'
+    phase: 'live'
   };
 };
 
@@ -74,6 +74,17 @@ export const synchronizeContestPhase = async (
     return false;
   }
 
+  if (!contest.contestId) {
+    logger.warn(
+      {
+        contest,
+        reason: 'contest_id_missing'
+      },
+      'Unable to synchronize contest phase without contest id'
+    );
+    return false;
+  }
+
   try {
     await database.writeContestDomain({
       action: 'update_phase',
@@ -89,12 +100,21 @@ export const synchronizeContestPhase = async (
     });
     contest.status = transition.status;
     applyLocalMetadataPhase(contest, transition.phase);
+    logger.info(
+      {
+        contestId: contest.contestId,
+        status: transition.status,
+        deadline: getTimelineTimestamp(contest, 'registrationClosesAt')
+      },
+      'Contest phase synchronized'
+    );
     return true;
   } catch (error) {
     logger.warn(
       {
         contestId: contest.contestId,
-        error: error instanceof Error ? error.message : error
+        error: error instanceof Error ? error.message : error,
+        errorDetail: error && typeof error === 'object' && 'detail' in error ? (error as Record<string, unknown>).detail : undefined
       },
       'Failed to synchronize contest phase'
     );
