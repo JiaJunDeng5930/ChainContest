@@ -20,8 +20,8 @@ const isAscii = (value: string | undefined | null): value is string => {
   return /^[\x20-\x7E]+$/.test(value);
 };
 
-const normalizeStatement = (value: string | undefined): string | undefined => {
-  if (isAscii(value)) {
+const normalizeStatement = (value: string | undefined): string => {
+  if (value && isAscii(value)) {
     return value;
   }
   return DEFAULT_SIWE_STATEMENT;
