@@ -24,6 +24,7 @@ import {
   type DisplayCall
 } from "./ActionArtifacts";
 import { useWalletTransactions } from "../hooks/useWalletTransactions";
+import useContestParticipationStatus from "../hooks/useContestParticipationStatus";
 
 type RewardClaimPanelProps = {
   contestId: string;
@@ -58,6 +59,7 @@ export default function RewardClaimPanel({ contestId, contest }: RewardClaimPane
   const [executionDisplay, setExecutionDisplay] = useState<RewardExecutionDisplay | null>(null);
   const [lastError, setLastError] = useState<unknown>(null);
   const { sendExecutionCall, walletReady } = useWalletTransactions();
+  const { isParticipant, isLoading: isParticipationLoading } = useContestParticipationStatus(contest.contestId);
 
   const participantAddress = gate.address ?? null;
   const isEligiblePhase = contest.phase === "settled" || contest.phase === "closed";
@@ -127,11 +129,23 @@ const formatCall = (call: RewardClaimResult["claimCall"] | null | undefined): Di
     if (!isEligiblePhase) {
       return t("participation.messages.rewardPhaseOnly");
     }
+    if (gate.isSessionActive && !isParticipationLoading && !isParticipant) {
+      return t("participation.messages.notRegistered");
+    }
     if (!participantAddress) {
       return t("participation.messages.walletRequired");
     }
     return null;
-  }, [gate.isSessionActive, gate.isSupportedNetwork, gate.isWalletConnected, isEligiblePhase, participantAddress, t]);
+  }, [
+    gate.isSessionActive,
+    gate.isSupportedNetwork,
+    gate.isWalletConnected,
+    isEligiblePhase,
+    isParticipationLoading,
+    isParticipant,
+    participantAddress,
+    t
+  ]);
 
   const toInput = (): RewardClaimInput => {
     if (!participantAddress) {
@@ -276,8 +290,15 @@ const formatCall = (call: RewardClaimResult["claimCall"] | null | undefined): Di
     return planDisplay.claimCall != null || planDisplay.payout != null;
   }, [planDisplay, walletReady]);
 
+  const showParticipationNotice = gate.isSessionActive && !isParticipationLoading && !isParticipant;
+
   return (
     <section className="space-y-4 rounded-xl border border-slate-800/60 bg-slate-900/40 p-6">
+      {showParticipationNotice ? (
+        <p className="rounded border border-amber-400/40 bg-amber-500/10 p-3 text-sm text-amber-100">
+          {t("participation.messages.notRegistered")}
+        </p>
+      ) : null}
       <header className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h3 className="text-lg font-semibold text-slate-50">{t("participation.reward.title")}</h3>

@@ -165,6 +165,7 @@ export interface UserContestQueryFilters {
   chainIds?: number[];
   statuses?: string[];
   timeRange?: { from: string; to: string };
+  contestIds?: string[];
 }
 
 export interface UserContestQueryParams {
@@ -959,7 +960,17 @@ async function loadUserContestCandidates(
     return { rows: [], nextCursor: null };
   }
 
-  const baseContestIds = Array.from(activityMap.keys());
+  let baseContestIds = Array.from(activityMap.keys());
+
+  if (filters?.contestIds && filters.contestIds.length > 0) {
+    const requestedIds = new Set(filters.contestIds);
+    baseContestIds = baseContestIds.filter((id) => requestedIds.has(id));
+  }
+
+  if (baseContestIds.length === 0) {
+    return { rows: [], nextCursor: null };
+  }
+
   const conditions: SQL[] = [inArray(contests.id, baseContestIds)];
 
   if (filters?.chainIds && filters.chainIds.length > 0) {

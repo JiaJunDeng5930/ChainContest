@@ -261,6 +261,7 @@
   "participation.messages.redemptionPhaseOnly": "Principal redemption is available after settlement.",
   "participation.messages.rebalancePhaseOnly": "Rebalance is only available while the contest is active.",
   "participation.messages.rebalanceIntentIncomplete": "Provide sell asset, buy asset, and amount to generate a rebalance plan.",
+  "participation.messages.notRegistered": "You need to register for this contest before performing these actions.",
   "participation.messages.planPlaceholder": "Generate a plan to review checks, approvals, and transaction details.",
   "participation.messages.executionPlaceholder": "Execute the action to view the latest chain result.",
   "participation.actions.generatePlan": "Generate Plan",

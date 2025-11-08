@@ -104,6 +104,7 @@ export const GET = async (request: NextRequest): Promise<Response> => {
     const networkId = parseInteger(params.get('networkId'), 'networkId');
     const pageSize = parseInteger(params.get('pageSize'), 'pageSize');
     const cursor = params.get('cursor') ?? null;
+    const contestIdFilter = params.get('contestId');
 
     const session = await requireSession();
     await initDatabase();
@@ -137,9 +138,17 @@ export const GET = async (request: NextRequest): Promise<Response> => {
       return response;
     }
 
+    const userContestFilters =
+      networkId || contestIdFilter
+        ? {
+            ...(networkId ? { chainIds: [networkId] } : {}),
+            ...(contestIdFilter ? { contestIds: [contestIdFilter] } : {})
+          }
+        : undefined;
+
     const { items, nextCursor } = (await database.queryUserContests({
       userId: session.user.id,
-      filters: networkId ? { chainIds: [networkId] } : undefined,
+      filters: userContestFilters,
       pagination: { cursor, pageSize }
     })) as {
       items: import('@chaincontest/db').QueryUserContestsResponse['items'];

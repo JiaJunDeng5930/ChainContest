@@ -5,9 +5,10 @@ export type ParticipationHistoryParams = {
   cursor?: string | null;
   pageSize?: number;
   networkId?: number;
+  contestId?: string;
 };
 
-function buildHistoryPath({ cursor, pageSize, networkId }: ParticipationHistoryParams = {}): string {
+function buildHistoryPath({ cursor, pageSize, networkId, contestId }: ParticipationHistoryParams = {}): string {
   const searchParams = new URLSearchParams({
     kind: "participated"
   });
@@ -22,6 +23,10 @@ function buildHistoryPath({ cursor, pageSize, networkId }: ParticipationHistoryP
 
   if (typeof networkId === "number" && Number.isFinite(networkId) && networkId > 0) {
     searchParams.set("networkId", String(networkId));
+  }
+
+  if (contestId) {
+    searchParams.set("contestId", contestId);
   }
 
   return `/api/me/contests?${searchParams.toString()}`;

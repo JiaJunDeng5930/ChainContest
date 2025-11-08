@@ -117,7 +117,8 @@ const userContestFilterSchema = z
         from: z.string().min(1),
         to: z.string().min(1)
       })
-      .optional()
+      .optional(),
+    contestIds: z.array(z.string().uuid()).optional()
   })
   .optional();
 

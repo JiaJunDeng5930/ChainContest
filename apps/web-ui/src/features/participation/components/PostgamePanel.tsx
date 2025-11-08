@@ -40,6 +40,7 @@ import {
   type DisplayCall
 } from "./ActionArtifacts";
 import { useWalletTransactions } from "../hooks/useWalletTransactions";
+import useContestParticipationStatus from "../hooks/useContestParticipationStatus";
 
 type PostgamePanelProps = {
   contestId: string;
@@ -133,8 +134,15 @@ export default function PostgamePanel({ contestId, contest }: PostgamePanelProps
     [dateFormatter]
   );
 
+  const showParticipationNotice = gate.isSessionActive && !isParticipationLoading && !isParticipant;
+
   return (
     <section className="space-y-6 rounded-xl border border-slate-800/60 bg-slate-900/40 p-6">
+      {showParticipationNotice ? (
+        <p className="rounded border border-amber-400/40 bg-amber-500/10 p-3 text-sm text-amber-100">
+          {t("participation.messages.notRegistered")}
+        </p>
+      ) : null}
       <header className="space-y-2">
         <h3 className="text-lg font-semibold text-slate-50">{t("participation.postgame.title")}</h3>
         <p className="text-sm text-slate-300">{t("participation.postgame.subtitle")}</p>
@@ -755,6 +763,7 @@ function RebalanceSection({
   const [approvalStates, setApprovalStates] = useState<Record<string, ApprovalState>>({});
   const [lastError, setLastError] = useState<unknown>(null);
   const { approveToken, sendExecutionCall, walletReady } = useWalletTransactions();
+  const { isParticipant, isLoading: isParticipationLoading } = useContestParticipationStatus(contest.contestId);
 
   const isEligiblePhase = contest.phase === "active";
 
@@ -771,6 +780,9 @@ function RebalanceSection({
     if (!isEligiblePhase) {
       return t("participation.messages.rebalancePhaseOnly");
     }
+    if (gate.isSessionActive && !isParticipationLoading && !isParticipant) {
+      return t("participation.messages.notRegistered");
+    }
     if (!participantAddress) {
       return t("participation.messages.walletRequired");
     }
@@ -778,7 +790,19 @@ function RebalanceSection({
       return t("participation.messages.rebalanceIntentIncomplete");
     }
     return null;
-  }, [gate.isSessionActive, gate.isSupportedNetwork, gate.isWalletConnected, isEligiblePhase, participantAddress, intent.amount, intent.buyAsset, intent.sellAsset, t]);
+  }, [
+    gate.isSessionActive,
+    gate.isSupportedNetwork,
+    gate.isWalletConnected,
+    isEligiblePhase,
+    isParticipationLoading,
+    isParticipant,
+    participantAddress,
+    intent.amount,
+    intent.buyAsset,
+    intent.sellAsset,
+    t
+  ]);
 
   const toInput = (): RebalanceInput => {
     if (!participantAddress) {
