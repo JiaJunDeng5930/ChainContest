@@ -22,37 +22,48 @@ type ProvidersProps = {
 const APP_NAME = "ChainContest";
 const SUPPORTED_CHAINS = [mainnet, sepolia, hardhat] as const;
 
-const transports = SUPPORTED_CHAINS.reduce<
-  Record<
-    (typeof SUPPORTED_CHAINS)[number]["id"],
-    ReturnType<typeof http>
-  >
->(
-  (acc, chain) => {
+const resolveHardhatRpcUrl = (): string => {
+  const normalize = (value: string | undefined): string | undefined => {
+    if (!value) {
+      return undefined;
+    }
+    const trimmed = value.trim();
+    return trimmed.length > 0 ? trimmed : undefined;
+  };
+
+  if (typeof window !== "undefined") {
+    const explicitBrowser = normalize(process.env.NEXT_PUBLIC_HARDHAT_RPC_URL);
+    if (explicitBrowser) {
+      return explicitBrowser;
+    }
+    const { protocol, hostname } = window.location;
+    return `${protocol}//${hostname}:8545`;
+  }
+
+  return (
+    normalize(process.env.HARDHAT_RPC_URL) ??
+    normalize(process.env.NEXT_PUBLIC_HARDHAT_RPC_URL) ??
+    "http://hardhat-node:8545"
+  );
+};
+
+const buildTransports = () =>
+  SUPPORTED_CHAINS.reduce<
+    Record<
+      (typeof SUPPORTED_CHAINS)[number]["id"],
+      ReturnType<typeof http>
+    >
+  >((acc, chain) => {
     if (chain.id === hardhat.id) {
-      const rpcOverride =
-        process.env.NEXT_PUBLIC_HARDHAT_RPC_URL ??
-        process.env.HARDHAT_RPC_URL ??
-        "http://hardhat-node:8545";
-      acc[chain.id] = http(rpcOverride);
+      acc[chain.id] = http(resolveHardhatRpcUrl());
       return acc;
     }
     acc[chain.id] = http();
     return acc;
-  },
-  {} as Record<(typeof SUPPORTED_CHAINS)[number]["id"], ReturnType<typeof http>>
-);
+  }, {} as Record<(typeof SUPPORTED_CHAINS)[number]["id"], ReturnType<typeof http>>);
 
 const walletConnectProjectId =
   process.env.NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID ?? "00000000000000000000000000000000";
-
-const wagmiConfig = getDefaultConfig({
-  appName: APP_NAME,
-  chains: SUPPORTED_CHAINS,
-  projectId: walletConnectProjectId,
-  transports,
-  ssr: true
-});
 
 const RAINBOWKIT_LOCALE_MAP: Record<SupportedLocale, Locale> = {
   en: "en",
@@ -61,6 +72,15 @@ const RAINBOWKIT_LOCALE_MAP: Record<SupportedLocale, Locale> = {
 
 export function AppProviders({ children, locale, messages }: ProvidersProps) {
   const [queryClient] = useState(() => createQueryClient());
+  const [wagmiConfig] = useState(() =>
+    getDefaultConfig({
+      appName: APP_NAME,
+      chains: SUPPORTED_CHAINS,
+      projectId: walletConnectProjectId,
+      transports: buildTransports(),
+      ssr: true
+    })
+  );
   const apiBaseUrl = process.env.NEXT_PUBLIC_API_BASE_URL ?? process.env.API_BASE_URL ?? "";
 
   const rainbowLocale = useMemo<Locale>(() => RAINBOWKIT_LOCALE_MAP[locale] ?? "en", [locale]);
