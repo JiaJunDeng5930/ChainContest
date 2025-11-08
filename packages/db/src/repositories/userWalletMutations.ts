@@ -3,6 +3,7 @@ import type { DrizzleTransaction } from '../adapters/connection.js';
 import { DbError, DbErrorCode } from '../instrumentation/metrics.js';
 import {
   userIdentities,
+  userIdentityStatusEnum,
   walletBindings,
   walletSourceEnum,
   type DbSchema,
@@ -24,6 +25,18 @@ export interface MutateUserWalletParams {
   userId: string;
   walletAddress: string;
   actorContext?: WalletMutationActorContext | null;
+}
+
+export interface EnsureUserIdentityParams {
+  externalId: string;
+  status?: (typeof userIdentityStatusEnum.enumValues)[number];
+  actorContext?: WalletMutationActorContext | null;
+}
+
+export interface EnsureUserIdentityResult {
+  id: string;
+  externalId: string;
+  status: (typeof userIdentityStatusEnum.enumValues)[number];
 }
 
 export interface MutateUserWalletResult {
@@ -68,6 +81,52 @@ export async function mutateUserWallet(
         }
       });
   }
+}
+
+export async function ensureUserIdentity(
+  tx: DrizzleTransaction<DbSchema>,
+  params: EnsureUserIdentityParams
+): Promise<EnsureUserIdentityResult> {
+  const externalId = params.externalId?.trim();
+  if (!externalId) {
+    throw new DbError(DbErrorCode.INPUT_INVALID, 'externalId is required to ensure user identity', {
+      detail: { reason: 'identity_external_id_required' }
+    });
+  }
+
+  const existing = await tx.query.userIdentities.findFirst({
+    where: eq(userIdentities.externalId, externalId)
+  });
+
+  if (existing) {
+    return {
+      id: existing.id,
+      externalId: existing.externalId,
+      status: existing.status
+    };
+  }
+
+  const actorReference = resolveAuditActor(params.actorContext);
+  const status = params.status ?? userIdentityStatusEnum.enumValues[0]!;
+
+  const inserted = await tx
+    .insert(userIdentities)
+    .values({
+      externalId,
+      status,
+      createdBy: actorReference,
+      updatedBy: actorReference
+    })
+    .returning({ id: userIdentities.id, externalId: userIdentities.externalId, status: userIdentities.status });
+
+  const record = inserted[0];
+  if (!record) {
+    throw new DbError(DbErrorCode.INTERNAL_ERROR, 'Failed to insert user identity', {
+      detail: { reason: 'identity_insert_failed', context: { externalId } }
+    });
+  }
+
+  return record;
 }
 
 async function bindWallet(

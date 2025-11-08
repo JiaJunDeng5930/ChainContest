@@ -28,10 +28,13 @@ import {
 } from './repositories/userWalletLookup.js';
 import {
   mutateUserWallet as mutateUserWalletRecords,
+  ensureUserIdentity as ensureUserIdentityRecord,
   type MutateUserWalletParams,
   type MutateUserWalletResult,
   type WalletMutationActorContext,
-  type WalletMutationAction
+  type WalletMutationAction,
+  type EnsureUserIdentityParams,
+  type EnsureUserIdentityResult
 } from './repositories/userWalletMutations.js';
 import {
   queryContests as queryContestRecords,
@@ -385,6 +388,17 @@ export const mutateUserWallet = async (
   };
 
   return withMetrics('mutateUserWallet', operation);
+};
+
+export const ensureUserIdentity = async (
+  request: EnsureUserIdentityParams
+): Promise<EnsureUserIdentityResult> => {
+  const database = ensurePool();
+
+  const operation = (): Promise<EnsureUserIdentityResult> =>
+    database.withTransaction((tx) => ensureUserIdentityRecord(tx, request));
+
+  return withMetrics('ensureUserIdentity', operation);
 };
 
 export const queryContests = async (
@@ -785,7 +799,12 @@ export const db = {
   isInitialised
 };
 
-export type { WalletMutationActorContext, WalletMutationAction };
+export type {
+  WalletMutationActorContext,
+  WalletMutationAction,
+  EnsureUserIdentityParams,
+  EnsureUserIdentityResult
+};
 
 const ensurePool = (): DatabasePool<DbSchema> => {
   if (!pool) {

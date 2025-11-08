@@ -214,6 +214,14 @@ export async function POST(request: NextRequest): Promise<Response> {
 
     const user = await ensureUser(adapter, checksumAddress, email);
 
+    await database.ensureUserIdentity({
+      externalId: user.id,
+      actorContext: {
+        source: 'api.auth.siwe.verify',
+        actorId: user.id
+      }
+    });
+
     await database.mutateUserWallet({
       action: 'bind',
       userId: user.id,

@@ -24,6 +24,7 @@ interface InternalDb {
   isInitialised(): boolean;
   lookupUserWallet: (...args: unknown[]) => Promise<unknown>;
   mutateUserWallet: (...args: unknown[]) => Promise<unknown>;
+  ensureUserIdentity: (...args: unknown[]) => Promise<unknown>;
   queryContests: (...args: unknown[]) => Promise<unknown>;
   queryUserContests: (...args: unknown[]) => Promise<unknown>;
   writeContestDomain: (...args: unknown[]) => Promise<unknown>;
@@ -45,6 +46,7 @@ export type DatabaseClient = Pick<
   |
     'lookupUserWallet'
   | 'mutateUserWallet'
+  | 'ensureUserIdentity'
   | 'queryContests'
   | 'queryUserContests'
   | 'writeContestDomain'
@@ -131,6 +133,9 @@ export const database: DatabaseClient = {
   },
   mutateUserWallet(request) {
     return ensureDatabase().mutateUserWallet(request);
+  },
+  ensureUserIdentity(request) {
+    return ensureDatabase().ensureUserIdentity(request);
   },
   queryContests(request) {
     return ensureDatabase().queryContests(request);
