@@ -5,6 +5,7 @@ import { initDatabase, database } from '@/lib/db/client';
 import { httpErrors, toErrorResponse } from '@/lib/http/errors';
 import { applyCorsHeaders, handleCorsPreflight } from '@/lib/http/cors';
 import { synchronizeContestPhases } from '@/lib/contests/phaseSync';
+import { toContestSnapshot } from '@/lib/contests/repository';
 
 const parseInteger = (value: string | null, context: string): number | undefined => {
   if (!value) {
@@ -64,34 +65,29 @@ const serializeCreationItem = (
 
 const serializeParticipationItem = (
   item: import('@chaincontest/db').QueryUserContestsResponse['items'][number]
-) => ({
-  contest: {
-    contestId: item.contest.contestId,
-    chainId: item.contest.chainId,
-    contractAddress: item.contest.contractAddress,
-    status: item.contest.status,
-    originTag: item.contest.originTag,
-    timeWindowStart: item.contest.timeWindowStart.toISOString(),
-    timeWindowEnd: item.contest.timeWindowEnd.toISOString(),
-    metadata: item.contest.metadata,
-    createdAt: item.contest.createdAt.toISOString(),
-    updatedAt: item.contest.updatedAt.toISOString()
-  },
-  participations: item.participations.map((entry) => ({
-    contestId: entry.contestId,
-    walletAddress: entry.walletAddress,
-    vaultReference: entry.vaultReference,
-    amount: entry.amount,
-    occurredAt: entry.occurredAt.toISOString()
-  })),
-  rewardClaims: item.rewardClaims.map((entry) => ({
-    contestId: entry.contestId,
-    walletAddress: entry.walletAddress,
-    amount: entry.amount,
-    claimedAt: entry.claimedAt.toISOString()
-  })),
-  lastActivity: item.lastActivity ? item.lastActivity.toISOString() : null
-});
+) => {
+  const snapshot = toContestSnapshot({
+    contest: item.contest
+  });
+
+  return {
+    contest: snapshot,
+    participations: item.participations.map((entry) => ({
+      contestId: entry.contestId,
+      walletAddress: entry.walletAddress,
+      vaultReference: entry.vaultReference,
+      amount: entry.amount,
+      occurredAt: entry.occurredAt.toISOString()
+    })),
+    rewardClaims: item.rewardClaims.map((entry) => ({
+      contestId: entry.contestId,
+      walletAddress: entry.walletAddress,
+      amount: entry.amount,
+      claimedAt: entry.claimedAt.toISOString()
+    })),
+    lastActivity: item.lastActivity ? item.lastActivity.toISOString() : null
+  };
+};
 
 export const GET = async (request: NextRequest): Promise<Response> => {
   try {

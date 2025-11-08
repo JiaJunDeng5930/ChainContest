@@ -82,7 +82,24 @@ describe('GET /api/me/contests', () => {
             timeWindowEnd: new Date('2025-10-10T00:00:00.000Z'),
             originTag: 'factory',
             sealedAt: null,
-            metadata: {},
+            metadata: {
+              prizePool: {
+                currentBalance: '0'
+              },
+              registrationCapacity: {
+                registered: 1,
+                maximum: 1000,
+                isFull: false
+              },
+              derivedAt: {
+                blockNumber: 1,
+                timestamp: '2025-10-02T00:00:00.000Z'
+              },
+              timeline: {
+                registrationOpensAt: '2025-10-01T00:00:00.000Z',
+                registrationClosesAt: '2025-10-05T00:00:00.000Z'
+              }
+            },
             createdAt: new Date('2025-10-01T00:00:00.000Z'),
             updatedAt: new Date('2025-10-02T00:00:00.000Z')
           },
@@ -122,5 +139,6 @@ describe('GET /api/me/contests', () => {
     const body = await response.json();
     expect(body.kind).toBe('participated');
     expect(body.items[0].contest.contestId).toBe('contest-1');
+    expect(body.items[0].contest.registrationCapacity.maximum).toBe(1000);
   });
 });

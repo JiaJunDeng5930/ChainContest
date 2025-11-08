@@ -270,7 +270,7 @@ const derivePhase = (contest: ContestRecord, timeline: ContestSnapshot['timeline
   return normalisePhase(ensureString(contest.status, 'contest.status'));
 };
 
-const mapContestAggregate = (aggregate: ContestAggregate): ContestSnapshot => {
+export const toContestSnapshot = (aggregate: ContestAggregate): ContestSnapshot => {
   const { contest } = aggregate;
   if (!contest) {
     throw httpErrors.internal('Contest aggregate missing contest payload');
@@ -348,7 +348,7 @@ export const listContests = async (filters: ContestListFilters): Promise<Contest
       ? aggregates.filter((aggregate) => requestedStatuses.has(aggregate.contest.status))
       : aggregates;
 
-  const items = filteredAggregates.map(mapContestAggregate);
+  const items = filteredAggregates.map(toContestSnapshot);
 
   return {
     items,
@@ -390,5 +390,5 @@ export const getContest = async (contestId: string): Promise<ContestSnapshot> =>
 
   await synchronizeContestPhases([aggregate.contest]);
 
-  return mapContestAggregate(aggregate);
+  return toContestSnapshot(aggregate);
 };
