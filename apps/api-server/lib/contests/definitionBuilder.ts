@@ -412,6 +412,7 @@ const parseRebalanceConfig = (raw: unknown): ContestRebalanceConfig | undefined 
     cooldownSeconds: toNumber(source.cooldownSeconds ?? 0, 'rebalance.cooldownSeconds'),
     priceFreshnessSeconds: toNumber(source.priceFreshnessSeconds ?? 0, 'rebalance.priceFreshnessSeconds'),
     lastPriceUpdatedAt: ensureString(source.lastPriceUpdatedAt ?? new Date().toISOString(), 'rebalance.lastPriceUpdatedAt'),
+    priceSource: source.priceSource ? ensureAddress(source.priceSource, 'rebalance.priceSource') : undefined,
     spender: ensureAddress(source.spender, 'rebalance.spender'),
     router: ensureAddress(source.router, 'rebalance.router'),
     slippageBps: toNumber(source.slippageBps ?? 0, 'rebalance.slippageBps'),

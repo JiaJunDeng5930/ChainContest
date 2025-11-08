@@ -8,6 +8,7 @@ const rawEnvSchema = z.object({
   PG_BOSS_SCHEMA: z.string().min(1, 'PG_BOSS_SCHEMA is required').default('boss'),
   CHAIN_RPC_PRIMARY: z.string().url('CHAIN_RPC_PRIMARY must be a valid URL'),
   CHAIN_RPC_FALLBACK: z.string().url().optional(),
+  CHAIN_RPC_PUBLIC_URL: z.string().url().optional(),
   RATE_LIMIT_WINDOW: z.coerce
     .number({ invalid_type_error: 'RATE_LIMIT_WINDOW must be a number' })
     .int('RATE_LIMIT_WINDOW must be an integer')
@@ -22,8 +23,9 @@ const rawEnvSchema = z.object({
     .enum(['fatal', 'error', 'warn', 'info', 'debug', 'trace', 'silent'])
     .optional()
     .default('info'),
-  CHAIN_RPC_PUBLIC_URL: z.string().url().optional(),
-  API_ALLOWED_ORIGINS: z.string().optional()
+  API_ALLOWED_ORIGINS: z.string().optional(),
+  RUNTIME_CHAIN_ID: z.coerce.number().int().positive().optional(),
+  HARDHAT_RPC_URL: z.string().url().optional()
 });
 
 export type RawEnv = z.infer<typeof rawEnvSchema>;
@@ -42,6 +44,8 @@ export interface AppEnv {
     readonly primaryRpc: string;
     readonly fallbackRpc?: string;
     readonly publicRpc?: string;
+    readonly runtimeChainId?: number;
+    readonly hardhatRpc?: string;
   };
   readonly rateLimit: {
     readonly windowMs: number;
@@ -102,7 +106,9 @@ const normaliseEnv = (raw: RawEnv): AppEnv => ({
   chain: {
     primaryRpc: raw.CHAIN_RPC_PRIMARY,
     fallbackRpc: raw.CHAIN_RPC_FALLBACK,
-    publicRpc: raw.CHAIN_RPC_PUBLIC_URL
+    publicRpc: raw.CHAIN_RPC_PUBLIC_URL,
+    runtimeChainId: raw.RUNTIME_CHAIN_ID,
+    hardhatRpc: raw.HARDHAT_RPC_URL
   },
   rateLimit: {
     windowMs: raw.RATE_LIMIT_WINDOW,
@@ -133,11 +139,13 @@ export const loadEnv = (input: NodeJS.ProcessEnv = process.env): AppEnv => {
     PG_BOSS_SCHEMA: input.PG_BOSS_SCHEMA,
     CHAIN_RPC_PRIMARY: input.CHAIN_RPC_PRIMARY,
     CHAIN_RPC_FALLBACK: input.CHAIN_RPC_FALLBACK,
+    CHAIN_RPC_PUBLIC_URL: input.CHAIN_RPC_PUBLIC_URL,
     RATE_LIMIT_WINDOW: input.RATE_LIMIT_WINDOW,
     RATE_LIMIT_MAX: input.RATE_LIMIT_MAX,
     LOG_LEVEL: input.LOG_LEVEL,
-    CHAIN_RPC_PUBLIC_URL: input.CHAIN_RPC_PUBLIC_URL,
-    API_ALLOWED_ORIGINS: input.API_ALLOWED_ORIGINS
+    API_ALLOWED_ORIGINS: input.API_ALLOWED_ORIGINS,
+    RUNTIME_CHAIN_ID: input.RUNTIME_CHAIN_ID,
+    HARDHAT_RPC_URL: input.HARDHAT_RPC_URL
   });
 
   if (!parsed.success) {

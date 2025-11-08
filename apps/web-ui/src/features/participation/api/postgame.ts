@@ -3,7 +3,8 @@ import {
   type SettlementResult,
   type PrincipalRedemptionResult,
   type RebalancePlanResult,
-  type RebalanceExecutionResult
+  type RebalanceExecutionResult,
+  type TransactionEnvelope
 } from "./types";
 import type { BlockTag } from "./registration";
 
@@ -167,5 +168,13 @@ export async function executeRebalance(contestId: string, input: RebalanceInput)
   return apiClient.post<RebalanceExecutionResult>(
     `/api/contests/${encodeURIComponent(safeContestId)}/execute/rebalance`,
     body
+  );
+}
+
+export async function requestPriceSourceUpdate(contestId: string): Promise<TransactionEnvelope> {
+  const safeContestId = ensureContestId(contestId);
+  return apiClient.post<TransactionEnvelope>(
+    `/api/contests/${encodeURIComponent(safeContestId)}/price-source/update`,
+    {}
   );
 }

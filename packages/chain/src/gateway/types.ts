@@ -56,6 +56,7 @@ export interface ContestRebalanceConfig {
   readonly cooldownSeconds: number;
   readonly priceFreshnessSeconds: number;
   readonly lastPriceUpdatedAt: string;
+  readonly priceSource?: Address;
   readonly spender: Address;
   readonly router: Address;
   readonly slippageBps: number;

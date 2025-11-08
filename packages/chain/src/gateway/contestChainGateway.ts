@@ -19,6 +19,7 @@ import {
   type LifecycleSnapshot,
   type TokenApprovalRequestShape,
 } from './domainModels.js';
+import type { BlockTag } from 'viem';
 import {
   createContestChainError,
   wrapContestChainError,
@@ -38,6 +39,7 @@ import type {
   GatewayRuntime,
 } from './contracts.js';
 import type { ContestChainGateway as ContestChainGatewayContract } from './contracts.js';
+import type { Address } from 'viem';
 import type { ContestDefinition, ContestParticipantProfile } from './types.js';
 import { lowercaseAddress } from './types.js';
 import { evaluateRegistrationRules } from '../policies/registrationRules.js';
@@ -49,6 +51,7 @@ import {
   evaluateRedemptionGuards,
 } from '../policies/settlementGuards.js';
 import { decodeContestEventBatch } from '../events/contestEventDecoder.js';
+import { priceSourceArtifact, contestArtifact } from './artifacts.js';
 
 export type ContestChainGatewayInstance = ContestChainGatewayContract;
 
@@ -99,6 +102,186 @@ const buildRegistrationApprovals = (definition: ContestDefinition): TokenApprova
 
 class ContestChainGatewayImpl implements ContestChainGateway {
   constructor(private readonly runtime: GatewayRuntime) {}
+
+  private async resolveBlockTimestamp(
+    chainId: number,
+    blockTag?: bigint | 'latest',
+  ): Promise<string> {
+    try {
+      const client = this.runtime.rpcClientFactory({ chainId });
+      const targetBlockTag = (blockTag ?? 'latest') as BlockTag;
+      const block = await client.getBlock({ blockTag: targetBlockTag });
+      if (block?.timestamp !== undefined) {
+        const millis = Number(block.timestamp) * 1000;
+        if (Number.isFinite(millis)) {
+          return new Date(millis).toISOString();
+        }
+        try {
+          this.runtime.errorLogger?.(
+            createContestChainError({
+              code: 'CHAIN_UNAVAILABLE',
+              message: 'Resolved block timestamp is not finite',
+              details: {
+                chainId,
+                blockTag: blockTag ?? 'latest',
+                rawTimestamp: block.timestamp,
+              },
+              severity: 'warn',
+            }),
+          );
+        } catch {
+          // ignore logger failures
+        }
+      } else {
+        try {
+          this.runtime.errorLogger?.(
+            createContestChainError({
+              code: 'CHAIN_UNAVAILABLE',
+              message: 'Block timestamp not present in RPC response',
+              details: {
+                chainId,
+                blockTag: blockTag ?? 'latest',
+              },
+              severity: 'warn',
+              retryable: true,
+            }),
+          );
+        } catch {
+          // ignore logger failures
+        }
+      }
+    } catch (error) {
+      try {
+        this.runtime.errorLogger?.(
+          createContestChainError({
+            code: 'CHAIN_UNAVAILABLE',
+            message: 'Failed to resolve block timestamp from RPC',
+            details: {
+              chainId,
+              blockTag: blockTag ?? 'latest',
+            },
+            cause: error,
+            retryable: true,
+            severity: 'warn',
+          }),
+        );
+      } catch {
+        // ignore logger failures
+      }
+      // fall back to host clock below
+    }
+    return new Date().toISOString();
+  }
+
+  private extractSnapshotUpdatedAt(snapshot: unknown): bigint | null {
+    if (!snapshot) {
+      return null;
+    }
+    if (Array.isArray(snapshot) && snapshot.length >= 4) {
+      const candidate = snapshot[3];
+      return typeof candidate === 'bigint' ? candidate : null;
+    }
+    if (typeof snapshot === 'object' && 'updatedAt' in (snapshot as Record<string, unknown>)) {
+      const candidate = (snapshot as Record<string, unknown>).updatedAt;
+      if (typeof candidate === 'bigint') {
+        return candidate;
+      }
+    }
+    return null;
+  }
+
+  private async resolvePriceSourceTimestamp(
+    chainId: number,
+    priceSource: string | undefined,
+    fallback?: string,
+  ): Promise<string | undefined> {
+    if (!priceSource) {
+      return fallback;
+    }
+    try {
+      const client = this.runtime.rpcClientFactory({ chainId });
+      const snapshot = await client.readContract({
+        address: priceSource as Address,
+        abi: priceSourceArtifact.abi,
+        functionName: 'snapshot',
+      });
+      const updatedAt = this.extractSnapshotUpdatedAt(snapshot);
+      if (updatedAt && updatedAt > 0n) {
+        return new Date(Number(updatedAt) * 1000).toISOString();
+      }
+    } catch (error) {
+      try {
+        this.runtime.errorLogger?.(
+          createContestChainError({
+            code: 'CHAIN_UNAVAILABLE',
+            message: 'Failed to read price source snapshot',
+            details: {
+              chainId,
+              priceSource,
+            },
+            cause: error,
+            severity: 'warn',
+            retryable: true,
+          }),
+        );
+      } catch {
+        // ignore logger failures
+      }
+    }
+    return fallback;
+  }
+
+  private async resolveContestPriceSource(
+    contest: ContestDefinition,
+  ): Promise<string | undefined> {
+    const contestAddress = contest.contest.addresses?.registrar;
+    if (!contestAddress) {
+      return undefined;
+    }
+    try {
+      const client = this.runtime.rpcClientFactory({
+        chainId: contest.contest.chainId,
+      });
+      const config = await client.readContract({
+        address: contestAddress as Address,
+        abi: contestArtifact.abi,
+        functionName: 'getConfig',
+      }) as { priceSource?: Address } | readonly unknown[];
+      if (config && typeof config === 'object') {
+        if (Array.isArray(config) && config.length > 0) {
+          const maybePriceSource = config[2];
+          if (typeof maybePriceSource === 'string') {
+            return maybePriceSource;
+          }
+        } else if ('priceSource' in (config as Record<string, unknown>)) {
+          const candidate = (config as Record<string, unknown>).priceSource;
+          if (typeof candidate === 'string') {
+            return candidate;
+          }
+        }
+      }
+    } catch (error) {
+      try {
+        this.runtime.errorLogger?.(
+          createContestChainError({
+            code: 'CHAIN_UNAVAILABLE',
+            message: 'Failed to resolve contest price source',
+            details: {
+              contestId: contest.contest.contestId,
+              chainId: contest.contest.chainId,
+              contestAddress,
+            },
+            cause: error,
+            severity: 'warn',
+            retryable: true,
+          }),
+        );
+      } catch {
+        // ignore logger failures
+      }
+    }
+    return undefined;
+  }
 
   private async loadDefinition(
     contest: DescribeContestLifecycleInput['contest'],
@@ -263,6 +446,19 @@ class ContestChainGatewayImpl implements ContestChainGateway {
         });
       }
 
+      const priceSourceAddress =
+        config.priceSource ?? (await this.resolveContestPriceSource(definition));
+
+      const refreshedPriceTimestamp = await this.resolvePriceSourceTimestamp(
+        definition.contest.chainId,
+        priceSourceAddress,
+        config.lastPriceUpdatedAt,
+      );
+      const effectiveConfig =
+        refreshedPriceTimestamp && refreshedPriceTimestamp !== config.lastPriceUpdatedAt
+          ? { ...config, lastPriceUpdatedAt: refreshedPriceTimestamp }
+          : config;
+
       const participant = resolveParticipantProfile(
         definition,
         input.participant,
@@ -271,21 +467,25 @@ class ContestChainGatewayImpl implements ContestChainGateway {
       const approvals = [
         {
           tokenAddress: input.intent.sellAsset,
-          spender: config.spender,
+          spender: effectiveConfig.spender,
           amount: input.intent.amount,
           reason: 'rebalance-sell-allowance',
         },
-        ...(config.approvals ?? []),
+        ...(effectiveConfig.approvals ?? []),
       ];
+
+      const blockTimestamp = await this.resolveBlockTimestamp(
+        definition.contest.chainId,
+        input.blockTag,
+      );
 
       const evaluation = evaluateRebalanceRules({
         contest: definition.contest,
-        config,
+        config: effectiveConfig,
         participant,
         intent: input.intent,
         approvals,
-        blockTimestamp:
-          definition.derivedAt.timestamp ?? new Date().toISOString(),
+        blockTimestamp,
         phase: definition.phase,
       });
 
@@ -293,18 +493,18 @@ class ContestChainGatewayImpl implements ContestChainGateway {
         return createRebalancePlan({
           status: 'blocked',
           policyChecks: evaluation.checks,
-          rollbackAdvice: config.rollbackAdvice,
+          rollbackAdvice: effectiveConfig.rollbackAdvice,
           rejectionReason: evaluation.rejectionReason,
+          requiredApprovals: evaluation.allowanceInspection.missing,
           derivedAt: definition.derivedAt,
         });
       }
 
       const routePlan = planTradeRoute({
         contest: definition,
-        config,
+        config: effectiveConfig,
         intent: input.intent,
-        blockTimestamp:
-          definition.derivedAt.timestamp ?? new Date().toISOString(),
+        blockTimestamp,
         participant,
       });
 
@@ -312,7 +512,8 @@ class ContestChainGatewayImpl implements ContestChainGateway {
         status: 'ready',
         policyChecks: evaluation.checks,
         transaction: routePlan.transaction,
-        rollbackAdvice: config.rollbackAdvice,
+        rollbackAdvice: effectiveConfig.rollbackAdvice,
+        requiredApprovals: evaluation.allowanceInspection.missing,
         derivedAt: definition.derivedAt,
       });
     } catch (error) {

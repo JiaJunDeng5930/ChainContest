@@ -208,6 +208,7 @@ export interface RebalancePlanShape {
   transaction?: ExecutionCallShape & { route?: RouteDescriptorShape };
   rollbackAdvice?: string;
   rejectionReason?: PlanRejectionReasonShape;
+  requiredApprovals?: readonly TokenApprovalRequestShape[];
   derivedAt: BlockAnchorShape;
 }
 

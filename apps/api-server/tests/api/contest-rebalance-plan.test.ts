@@ -196,6 +196,7 @@ describe('POST /api/contests/[contestId]/rebalance-plan', () => {
           message: 'Cooldown satisfied'
         }
       ],
+      requiredApprovals: [],
       transaction: {
         to: '0x00000000000000000000000000000000000000dd',
         data: '0xbeef',
@@ -290,6 +291,7 @@ describe('POST /api/contests/[contestId]/rebalance-plan', () => {
           message: 'Trade amount exceeds quota'
         }
       ],
+      requiredApprovals: [],
       rejectionReason: {
         code: 'LIMIT_EXCEEDED',
         message: 'Maximum trade amount exceeded'
@@ -333,4 +335,3 @@ describe('POST /api/contests/[contestId]/rebalance-plan', () => {
     expect(buildContestDefinition).not.toHaveBeenCalled();
   });
 });
-

@@ -33,6 +33,10 @@ export type ExecutionCall = {
   route?: string;
 };
 
+export type TransactionEnvelope = {
+  transaction: ExecutionCall;
+};
+
 export type ActionReason = {
   code?: string;
   message: string;
@@ -95,6 +99,7 @@ export type PrincipalRedemptionResult = {
 export type RebalancePlanResult = {
   status: string;
   checks: ActionCheck[];
+  requiredApprovals?: RequiredApproval[];
   transaction?: ExecutionCall | null;
   rollbackAdvice?: Record<string, unknown> | null;
   rejectionReason?: ActionReason | null;

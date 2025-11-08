@@ -133,6 +133,7 @@ export const rebalancePlanResponse = (plan: RebalancePlan): NextResponse => {
   return jsonResponse({
     status: plan.status,
     checks: normalizeChecks(plan.policyChecks ?? []),
+    requiredApprovals: normalizeApprovals(plan.requiredApprovals) ?? [],
     transaction: normalizeExecutionCall(plan.transaction),
     rollbackAdvice: plan.rollbackAdvice,
     rejectionReason: plan.rejectionReason ?? undefined,

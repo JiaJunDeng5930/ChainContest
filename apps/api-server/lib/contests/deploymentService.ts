@@ -333,6 +333,7 @@ const registerContestInDomain = async (
     maxTradeAmount: (payload.config.entryAmount * 10n).toString(),
     cooldownSeconds: 0,
     priceFreshnessSeconds: configuredTwapSeconds,
+    priceSource: requestedPriceSource,
     lastPriceUpdatedAt: derivedTimestamp,
     spender: contestAddress,
     router: contestAddress,

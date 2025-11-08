@@ -2,6 +2,7 @@ import {
   createContestChainGateway,
   createContestChainError,
   createInMemoryContestDataProvider,
+  createRpcClientFactory,
   isContestChainError,
   type ContestChainGateway,
   type ContestDefinition,
@@ -11,9 +12,11 @@ import {
   type RpcClientFactory,
   type SignerLocator
 } from '@chaincontest/chain';
+import { defineChain } from 'viem';
 import type { ValidationContext } from '@chaincontest/shared-schemas';
 import { httpErrors } from '@/lib/http/errors';
 import { getLogger } from '@/lib/observability/logger';
+import { getEnv } from '@/lib/config/env';
 
 interface GatewayCacheEntry {
   gateway: ContestChainGateway;
@@ -29,6 +32,42 @@ interface WithContestGatewayOptions {
 
 const gatewayCache = new Map<string, GatewayCacheEntry>();
 
+const parseChainId = (value: string | number | null | undefined): number | null => {
+  if (value === null || value === undefined) {
+    return null;
+  }
+  const numeric = typeof value === 'number' ? value : Number(value);
+  if (!Number.isFinite(numeric) || numeric <= 0) {
+    return null;
+  }
+  return Math.trunc(numeric);
+};
+
+const normalizeRuntimeRpcUrls = (): string[] => {
+  const env = getEnv();
+  const candidates = [
+    env.chain.primaryRpc,
+    env.chain.publicRpc,
+    env.chain.fallbackRpc,
+    env.chain.hardhatRpc,
+    process.env.CHAIN_RPC_PRIMARY,
+    process.env.CHAIN_RPC_PUBLIC_URL,
+    process.env.CHAIN_RPC_FALLBACK,
+    process.env.HARDHAT_RPC_URL
+  ];
+
+  return candidates.filter((value, index, array) => {
+    if (!value) {
+      return false;
+    }
+    const trimmed = value.trim();
+    if (!trimmed) {
+      return false;
+    }
+    return array.findIndex((candidate) => candidate === value) === index;
+  });
+};
+
 const cacheKeyFor = (definition: ContestDefinition): string =>
   `${definition.contest.contestId}:${definition.contest.chainId}`;
 
@@ -40,7 +79,21 @@ const noopValidationAdapter: GatewayValidationAdapter = {
   assertTypeValid: () => Object.freeze({ status: 'success', validatedTypes: Object.freeze([]), firstError: null, metrics: undefined })
 };
 
-const stubRpcClientFactory: RpcClientFactory = Object.assign(
+const runtimeRpcUrls = normalizeRuntimeRpcUrls();
+
+if (!runtimeRpcUrls.length) {
+  getLogger().warn(
+    { event: 'contestGateway.rpcConfig', runtimeRpcUrls },
+    'Contest gateway RPC URLs missing',
+  );
+} else {
+  getLogger().info(
+    { event: 'contestGateway.rpcConfig', runtimeRpcUrls },
+    'Contest gateway RPC URLs resolved',
+  );
+}
+
+const stubbedRpcClientFactory: RpcClientFactory = Object.assign(
   () => {
     throw createContestChainError({
       code: 'CHAIN_UNAVAILABLE',
@@ -52,6 +105,46 @@ const stubRpcClientFactory: RpcClientFactory = Object.assign(
   }
 );
 
+const chainRegistry: Record<number, ReturnType<typeof defineChain>> = {};
+const rpcRegistry: Record<number, readonly string[]> = {};
+
+const registerRuntimeChain = (chainId: number): void => {
+  if (!Number.isFinite(chainId) || chainId <= 0) {
+    return;
+  }
+  if (chainRegistry[chainId]) {
+    return;
+  }
+  if (!runtimeRpcUrls.length) {
+    return;
+  }
+
+  chainRegistry[chainId] = defineChain({
+    id: chainId,
+    name: `runtime-chain-${chainId}`,
+    network: `runtime-chain-${chainId}`,
+    nativeCurrency: {
+      name: 'Ether',
+      symbol: 'ETH',
+      decimals: 18
+    },
+    rpcUrls: {
+      default: { http: runtimeRpcUrls },
+      public: { http: runtimeRpcUrls }
+    }
+  });
+
+  rpcRegistry[chainId] = runtimeRpcUrls;
+};
+
+const runtimeRpcClientFactory: RpcClientFactory =
+  runtimeRpcUrls.length === 0
+    ? stubbedRpcClientFactory
+    : createRpcClientFactory({
+        chains: chainRegistry,
+        defaultRpcUrls: rpcRegistry
+      });
+
 const stubSignerLocator: SignerLocator = async () => {
   throw createContestChainError({
     code: 'AUTHORIZATION_REQUIRED',
@@ -60,6 +153,8 @@ const stubSignerLocator: SignerLocator = async () => {
 };
 
 const createGateway = (definition: ContestDefinition): GatewayCacheEntry => {
+  registerRuntimeChain(definition.contest.chainId);
+
   const provider = createInMemoryContestDataProvider([definition]) as ContestChainDataProvider & {
     register: (payload: ContestDefinition) => void;
   };
@@ -68,7 +163,7 @@ const createGateway = (definition: ContestDefinition): GatewayCacheEntry => {
 
   const gateway = createContestChainGateway({
     validators: noopValidationAdapter,
-    rpcClientFactory: stubRpcClientFactory,
+    rpcClientFactory: runtimeRpcClientFactory,
     signerLocator: stubSignerLocator,
     errorLogger: (error: ContestChainError) => {
       logger.warn({
@@ -139,6 +234,7 @@ export const withContestGateway = async <T>(
   handler: (gateway: ContestChainGateway, blockTag?: bigint | 'latest') => Promise<T>
 ): Promise<T> => {
   const { definition, resource } = options;
+  registerRuntimeChain(definition.contest.chainId);
   const key = cacheKeyFor(definition);
 
   let entry = gatewayCache.get(key);

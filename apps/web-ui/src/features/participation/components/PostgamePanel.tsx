@@ -15,6 +15,7 @@ import {
   executePrincipalRedemption,
   fetchRebalancePlan,
   executeRebalance,
+  requestPriceSourceUpdate,
   type SettlementInput,
   type PrincipalRedemptionInput,
   type RebalanceInput,
@@ -25,9 +26,10 @@ import type {
   PrincipalRedemptionResult,
   RebalancePlanResult,
   RebalanceExecutionResult,
-  BlockAnchor
+  BlockAnchor,
+  RequiredApproval
 } from "../api/types";
-import { formatContestTimestamp, useContestDateTimeFormatter } from "../../contests/utils/format";
+import { formatContestTimestamp, useContestDateTimeFormatter, truncateIdentifier } from "../../contests/utils/format";
 import {
   AnchorDetails,
   StatusBadge,
@@ -73,6 +75,7 @@ type RebalancePlanDisplay = {
   rollbackAdvice?: RebalancePlanResult["rollbackAdvice"];
   rejectionReasonMessage?: string | null;
   anchor: BlockAnchor;
+  approvals: RequiredApproval[];
 };
 
 type RebalanceExecutionDisplay = {
@@ -82,6 +85,17 @@ type RebalanceExecutionDisplay = {
   reasonMessage?: string | null;
   anchor: BlockAnchor;
   transactionHash?: string | null;
+};
+
+type ApprovalState = {
+  status: "idle" | "pending" | "success" | "error";
+  error?: string | null;
+};
+
+const approvalKey = (approval: RequiredApproval): string => {
+  const token = approval.tokenAddress?.toLowerCase() ?? "unknown";
+  const spender = approval.spender?.toLowerCase() ?? "unknown";
+  return `${token}-${spender}-${approval.amount}`;
 };
 
 export default function PostgamePanel({ contestId, contest }: PostgamePanelProps) {
@@ -738,8 +752,9 @@ function RebalanceSection({
   });
   const [planDisplay, setPlanDisplay] = useState<RebalancePlanDisplay | null>(null);
   const [executionDisplay, setExecutionDisplay] = useState<RebalanceExecutionDisplay | null>(null);
+  const [approvalStates, setApprovalStates] = useState<Record<string, ApprovalState>>({});
   const [lastError, setLastError] = useState<unknown>(null);
-  const { sendExecutionCall, walletReady } = useWalletTransactions();
+  const { approveToken, sendExecutionCall, walletReady } = useWalletTransactions();
 
   const isEligiblePhase = contest.phase === "active";
 
@@ -797,6 +812,7 @@ function RebalanceSection({
           hasTransaction: Boolean(result.transaction)
         }
       });
+      const approvals = result.requiredApprovals ?? [];
       setPlanDisplay({
         status: result.status,
         checks: formatChecks(result.checks),
@@ -807,7 +823,19 @@ function RebalanceSection({
           blockNumber: "-",
           blockHash: undefined,
           timestamp: "-"
+        },
+        approvals
+      });
+      setApprovalStates((previous) => {
+        if (!approvals.length) {
+          return {};
         }
+        const next: Record<string, ApprovalState> = {};
+        approvals.forEach((approval) => {
+          const key = approvalKey(approval);
+          next[key] = previous[key] ?? { status: "idle" };
+        });
+        return next;
       });
       setExecutionDisplay(null);
       setLastError(null);
@@ -821,6 +849,20 @@ function RebalanceSection({
         walletAddress: participantAddress ?? null,
         error
       });
+      setLastError(error);
+    }
+  });
+
+  const priceRefreshMutation = useMutation({
+    mutationFn: async () => {
+      const { transaction } = await requestPriceSourceUpdate(contestId);
+      return sendExecutionCall(transaction);
+    },
+    onSuccess: async () => {
+      await planMutation.mutateAsync();
+      setLastError(null);
+    },
+    onError: (error) => {
       setLastError(error);
     }
   });
@@ -911,6 +953,11 @@ function RebalanceSection({
     await executeMutation.mutateAsync();
   }, [contest.chainId, contestId, executeMutation, intent.buyAsset, intent.sellAsset, participantAddress]);
 
+  const handleRefreshPrice = useCallback(async () => {
+    setLastError(null);
+    await priceRefreshMutation.mutateAsync();
+  }, [priceRefreshMutation]);
+
   const canExecute = useMemo(() => {
     if (!planDisplay) {
       return false;
@@ -923,6 +970,39 @@ function RebalanceSection({
     }
     return planDisplay.transaction != null;
   }, [planDisplay, walletReady]);
+
+  const needsPriceRefresh = useMemo(() => {
+    if (!planDisplay) {
+      return false;
+    }
+    return planDisplay.checks.some((check) => check.rule === "rebalance.price-freshness" && !check.passed);
+  }, [planDisplay]);
+
+  const handleApproval = useCallback(
+    async (approval: RequiredApproval) => {
+      const key = approvalKey(approval);
+      setApprovalStates((prev) => ({
+        ...prev,
+        [key]: { status: "pending" }
+      }));
+      try {
+        await approveToken(approval);
+        setApprovalStates((prev) => ({
+          ...prev,
+          [key]: { status: "success" }
+        }));
+        await planMutation.mutateAsync();
+      } catch (error) {
+        const message = error instanceof Error ? error.message : String(error);
+        setApprovalStates((prev) => ({
+          ...prev,
+          [key]: { status: "error", error: message }
+        }));
+        setLastError(error);
+      }
+    },
+    [approveToken, planMutation, setLastError]
+  );
 
   return (
     <div className="space-y-4 rounded border border-slate-800/60 bg-slate-900/40 p-5">
@@ -1054,6 +1134,64 @@ function RebalanceSection({
                   <ChecksList checks={planDisplay.checks ?? []} emptyLabel={t("participation.labels.noChecks")} />
                 </div>
               </div>
+              {planDisplay.approvals.length ? (
+                <div>
+                  <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">
+                    {t("participation.labels.approvals")}
+                  </p>
+                  <div className="mt-2 space-y-2">
+                    {planDisplay.approvals.map((approval) => {
+                      const key = approvalKey(approval);
+                      const state = approvalStates[key]?.status ?? "idle";
+                      const isPending = state === "pending" || planMutation.isPending;
+                      const isSuccess = state === "success";
+                      const isError = state === "error";
+                      const errorMessage = approvalStates[key]?.error;
+
+                      return (
+                        <div
+                          key={key}
+                          className="rounded border border-slate-800/60 bg-slate-950/30 p-3 text-sm text-slate-200"
+                        >
+                          <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                            <div>
+                              <p className="font-semibold">
+                                {approval.symbol ?? truncateIdentifier(approval.tokenAddress)} · {approval.amount}
+                              </p>
+                              <p className="text-xs text-slate-400">
+                                {truncateIdentifier(approval.tokenAddress)} → {truncateIdentifier(approval.spender)}
+                              </p>
+                            </div>
+                            <div className="flex items-center gap-2">
+                              {isSuccess ? (
+                                <span className="text-xs font-semibold text-emerald-300">
+                                  {t("participation.status.success")}
+                                </span>
+                              ) : (
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    void handleApproval(approval);
+                                  }}
+                                  disabled={!walletReady || isPending || executeMutation.isPending}
+                                  className="rounded border border-amber-400/60 bg-amber-500/10 px-3 py-1 text-xs font-semibold text-amber-100 transition hover:border-amber-300 hover:text-amber-50 disabled:cursor-not-allowed disabled:opacity-60"
+                                >
+                                  {isPending
+                                    ? t("participation.actions.approving")
+                                    : t("participation.actions.approve")}
+                                </button>
+                              )}
+                            </div>
+                          </div>
+                          {isError && errorMessage ? (
+                            <p className="mt-2 text-xs text-rose-300">{errorMessage}</p>
+                          ) : null}
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              ) : null}
               <div>
                 <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">
                   {t("participation.labels.transaction")}
@@ -1090,6 +1228,23 @@ function RebalanceSection({
                 <p className="rounded border border-rose-400/40 bg-rose-500/10 p-2 text-xs text-rose-100">
                   {planDisplay.rejectionReasonMessage ?? t("participation.labels.reasonFallback")}
                 </p>
+              ) : null}
+              {needsPriceRefresh ? (
+                <div className="rounded border border-amber-400/60 bg-amber-500/5 p-3 text-xs text-amber-100">
+                  <p>{t("participation.postgame.rebalance.refreshPriceHint")}</p>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      void handleRefreshPrice();
+                    }}
+                    disabled={priceRefreshMutation.isPending || planMutation.isPending || !walletReady}
+                    className="mt-2 inline-flex items-center gap-2 rounded border border-amber-300/60 bg-amber-400/10 px-3 py-1 text-amber-50 transition hover:border-amber-200 hover:text-amber-50 disabled:cursor-not-allowed disabled:opacity-60"
+                  >
+                    {priceRefreshMutation.isPending
+                      ? t("participation.actions.refreshingPrice")
+                      : t("participation.actions.refreshPrice")}
+                  </button>
+                </div>
               ) : null}
             </>
           ) : (

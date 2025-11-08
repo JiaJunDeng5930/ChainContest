@@ -36,6 +36,8 @@ const buyAsset = '0x0000000000000000000000000000000000000400';
 const readyVault = '0x0000000000000000000000000000000000000500';
 const cooldownVault = '0x0000000000000000000000000000000000000501';
 const poolAddress = '0x0000000000000000000000000000000000000600';
+const priceSourceAddress = '0x0000000000000000000000000000000000000700';
+const priceSourceErrorAddress = '0x0000000000000000000000000000000000000701';
 
 const baseDefinition: ContestDefinition = {
   contest: createContestIdentifier({
@@ -137,13 +139,59 @@ const buildDefinition = (
   return clone;
 };
 
-const createGatewayForDefinition = (definition: ContestDefinition) => {
+interface GatewayOptions {
+  priceSourceReadError?: boolean;
+  contestPriceSource?: string;
+  snapshotAsObject?: boolean;
+}
+
+const createGatewayForDefinition = (
+  definition: ContestDefinition,
+  gatewayOptions: GatewayOptions = {},
+) => {
   const dataProvider = createInMemoryContestDataProvider([definition]);
   (dataProvider as { register?: (definition: ContestDefinition) => void }).register?.(
     definition,
   );
+  const deriveBlockSeconds = (): bigint => {
+    const iso = definition.derivedAt.timestamp;
+    if (iso) {
+      const trimmed = iso.trim();
+      if (/^\d+$/.test(trimmed)) {
+        return BigInt(trimmed);
+      }
+      const millis = Date.parse(trimmed);
+      if (Number.isFinite(millis)) {
+        return BigInt(Math.floor(millis / 1000));
+      }
+    }
+    return BigInt(Math.floor(Date.now() / 1000));
+  };
   const rpcClientFactory = Object.assign(
-    () => ({}) as ReturnType<RpcClientFactory>,
+    () =>
+      ({
+        getBlock: async () => ({ timestamp: deriveBlockSeconds() }),
+        readContract: async (parameters?: { functionName?: string }) => {
+          if (parameters?.functionName === 'getConfig') {
+            if (!gatewayOptions.contestPriceSource) {
+              return {};
+            }
+            return { priceSource: gatewayOptions.contestPriceSource };
+          }
+          if (gatewayOptions.priceSourceReadError) {
+            throw new Error('price source unreachable');
+          }
+          if (gatewayOptions.snapshotAsObject) {
+            return {
+              meanTick: 0n,
+              sqrtPriceX96: 0n,
+              priceE18: 0n,
+              updatedAt: deriveBlockSeconds(),
+            };
+          }
+          return [0n, 0n, 0n, deriveBlockSeconds()];
+        },
+      }) as ReturnType<RpcClientFactory>,
     { clear: () => undefined },
   ) as RpcClientFactory;
   const signerLocator: SignerLocator = async () =>
@@ -250,6 +298,90 @@ describe('planPortfolioRebalance', () => {
 
     expect(plan.status).toBe('blocked');
     expect(plan.rejectionReason?.code).toBe('PRICING_STALE');
+  });
+
+  it('refreshes price timestamp from on-chain snapshot when available', async () => {
+    const definition = buildDefinition((next) => {
+      next.rebalance!.priceSource = priceSourceAddress;
+      next.rebalance!.lastPriceUpdatedAt = '2025-10-01T00:00:00Z';
+      next.rebalance!.priceFreshnessSeconds = 900;
+    });
+
+    const gateway = createGatewayForDefinition(definition, {
+      snapshotAsObject: true,
+    });
+
+    const plan = await gateway.planPortfolioRebalance({
+      contest: definition.contest,
+      participant: participantReady,
+      intent: {
+        sellAsset,
+        buyAsset,
+        amount: '500000000000000000',
+      },
+    });
+
+    expect(plan.status).toBe('ready');
+    const priceCheck = plan.policyChecks.find(
+      (check) => check.rule === 'rebalance.price-freshness',
+    );
+    expect(priceCheck?.status).toBe('pass');
+  });
+
+  it('derives price source from contest config when metadata omits it', async () => {
+    const definition = buildDefinition((next) => {
+      delete (next.rebalance as Record<string, unknown>).priceSource;
+      next.rebalance!.lastPriceUpdatedAt = '2025-10-01T00:00:00Z';
+      next.rebalance!.priceFreshnessSeconds = 900;
+    });
+
+    const gateway = createGatewayForDefinition(definition, {
+      contestPriceSource: priceSourceAddress,
+    });
+
+    const plan = await gateway.planPortfolioRebalance({
+      contest: definition.contest,
+      participant: participantReady,
+      intent: {
+        sellAsset,
+        buyAsset,
+        amount: '500000000000000000',
+      },
+    });
+
+    expect(plan.status).toBe('ready');
+    const priceCheck = plan.policyChecks.find(
+      (check) => check.rule === 'rebalance.price-freshness',
+    );
+    expect(priceCheck?.status).toBe('pass');
+  });
+
+  it('falls back to cached price timestamp when snapshot retrieval fails', async () => {
+    const definition = buildDefinition((next) => {
+      next.rebalance!.priceSource = priceSourceErrorAddress;
+      next.rebalance!.lastPriceUpdatedAt = '2025-10-01T00:00:00Z';
+      next.rebalance!.priceFreshnessSeconds = 900;
+    });
+
+    const gateway = createGatewayForDefinition(definition, {
+      priceSourceReadError: true,
+    });
+
+    const plan = await gateway.planPortfolioRebalance({
+      contest: definition.contest,
+      participant: participantReady,
+      intent: {
+        sellAsset,
+        buyAsset,
+        amount: '500000000000000000',
+      },
+    });
+
+    expect(plan.status).toBe('blocked');
+    const priceCheck = plan.policyChecks.find(
+      (check) => check.rule === 'rebalance.price-freshness',
+    );
+    expect(priceCheck?.status).toBe('fail');
   });
  
   it('blocks when assets are not whitelisted', async () => {
