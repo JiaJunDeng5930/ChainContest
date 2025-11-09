@@ -866,6 +866,20 @@ const enrichContestDefinition = async (
   });
 };
 
+const looksLikeDefinitionRecord = (value: UnknownRecord | undefined): value is UnknownRecord => {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) {
+    return false;
+  }
+  const requiredSections: Array<keyof ContestDefinition> = [
+    'contest',
+    'timeline',
+    'registration',
+    'prizePool',
+    'registrationCapacity'
+  ];
+  return requiredSections.every((key) => value[key] !== undefined);
+};
+
 const resolveDefinitionSource = (metadata: UnknownRecord): UnknownRecord => {
   const candidates = [
     metadata.chainGatewayDefinition,
@@ -878,6 +892,10 @@ const resolveDefinitionSource = (metadata: UnknownRecord): UnknownRecord => {
     if (candidate && typeof candidate === 'object') {
       return candidate as UnknownRecord;
     }
+  }
+
+  if (looksLikeDefinitionRecord(metadata)) {
+    return metadata;
   }
 
   throw httpErrors.serviceUnavailable('Contest definition is not ready', {
