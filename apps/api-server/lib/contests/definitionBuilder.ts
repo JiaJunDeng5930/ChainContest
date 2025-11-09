@@ -28,7 +28,7 @@ interface ContestAggregateRow {
 }
 
 const ADDRESS_PATTERN = /^0x[a-fA-F0-9]{40}$/;
-const HEX_PATTERN = /^0x[0-9a-fA-F]+$/;
+const HEX_PATTERN = /^0x[0-9a-fA-F]*$/;
 
 const ensureObject = (value: unknown, context: string): UnknownRecord => {
   if (value && typeof value === 'object' && !Array.isArray(value)) {
@@ -70,12 +70,13 @@ const ensureHex = (value: unknown, context: string): HexString | undefined => {
     return undefined;
   }
   const hex = ensureString(value, context);
-  if (!HEX_PATTERN.test(hex)) {
+  if (!HEX_PATTERN.test(hex) || hex.length % 2 !== 0) {
     throw httpErrors.internal('Contest metadata contains invalid hex value', {
       detail: { field: context, value: hex }
     });
   }
-  return hex.toLowerCase() as HexString;
+  const normalized = hex.toLowerCase() as HexString;
+  return normalized;
 };
 
 const ensureBoolean = (value: unknown, context: string): boolean => {
