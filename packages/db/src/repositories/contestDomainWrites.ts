@@ -249,6 +249,10 @@ function assertUpdatePhasePayload(payload: unknown): asserts payload is UpdatePh
   if (payload.status !== undefined && typeof payload.status !== 'string') {
     throw new DbError(DbErrorCode.INPUT_INVALID, 'update phase payload status must be string when provided');
   }
+
+  if (payload.settlement !== undefined && !isRecord(payload.settlement)) {
+    throw new DbError(DbErrorCode.INPUT_INVALID, 'update phase payload settlement must be an object when provided');
+  }
 }
 
 function assertUpdateParticipantPayload(payload: unknown): asserts payload is UpdateParticipantPayload {
@@ -335,6 +339,7 @@ export interface UpdatePhasePayload {
   phase: string;
   status?: Extract<ContestStatus, 'registered' | 'active' | 'sealed' | 'settled'>;
   sealedAt?: string | Date;
+  settlement?: Record<string, unknown>;
 }
 
 export interface UpdateParticipantPayload {
@@ -915,6 +920,14 @@ async function updateContestPhase(
     : {};
   gateway.phase = phase;
   metadata.chainGatewayDefinition = gateway;
+
+  const settlementPatch =
+    payload.settlement && isRecord(payload.settlement) ? cloneJson(payload.settlement) : null;
+
+  if (settlementPatch) {
+    metadata.settlement = settlementPatch;
+    gateway.settlement = settlementPatch;
+  }
 
   const updates: Partial<typeof contests.$inferInsert> = {
     metadata,

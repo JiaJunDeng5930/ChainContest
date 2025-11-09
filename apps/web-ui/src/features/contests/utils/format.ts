@@ -28,6 +28,27 @@ export function getPhaseLabel(phase: ContestPhase, translate: (key: string) => s
   return translate(key);
 }
 
+export function normalizeContestPhase(phase: string | null | undefined): ContestPhase {
+  const value = (phase ?? 'registration').toLowerCase();
+  switch (value) {
+    case 'registered':
+    case 'registration':
+      return 'registration';
+    case 'live':
+    case 'active':
+      return 'active';
+    case 'frozen':
+      return 'frozen';
+    case 'sealed':
+    case 'settled':
+      return 'settled';
+    case 'closed':
+      return 'closed';
+    default:
+      return 'registration';
+  }
+}
+
 export function useContestNumberFormatter(locale: string) {
   return useMemo(
     () =>

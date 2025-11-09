@@ -321,6 +321,27 @@ describe('executeContestSettlement', () => {
     expect(result.status).toBe('blocked');
     expect(result.rejectionReason?.code).toBe('RULE_VIOLATION');
   });
+
+  it('builds settlement call when configuration omits call definition', async () => {
+    const definition = buildDefinition({
+      settlement: {
+        ...buildDefinition().settlement!,
+        settlementCall: undefined,
+      },
+    });
+    const gateway = createGateway(definition);
+
+    const result = await gateway.executeContestSettlement({
+      contest: definition.contest,
+      caller: winner,
+    });
+
+    expect(result.status).toBe('applied');
+    expect(result.settlementCall?.to).toBe(
+      definition.contest.addresses?.settlement ?? definition.contest.addresses?.registrar,
+    );
+    expect(result.settlementCall?.data).toMatch(/^0x[0-9a-f]+$/i);
+  });
 });
 
 describe('executeRewardClaim', () => {

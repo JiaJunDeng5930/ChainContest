@@ -18,8 +18,9 @@ import {
   type ContestEventBatch,
   type LifecycleSnapshot,
   type TokenApprovalRequestShape,
+  type ExecutionCallShape,
 } from './domainModels.js';
-import type { BlockTag } from 'viem';
+import { encodeFunctionData, type BlockTag } from 'viem';
 import {
   createContestChainError,
   wrapContestChainError,
@@ -351,6 +352,29 @@ class ContestChainGatewayImpl implements ContestChainGateway {
     }
   }
 
+  private buildSettlementCall(
+    definition: ContestDefinition,
+    participant: Address,
+  ): ExecutionCallShape | null {
+    const target =
+      definition.contest.addresses?.settlement ??
+      definition.contest.addresses?.registrar ??
+      null;
+    if (!target) {
+      return null;
+    }
+
+    return {
+      to: target,
+      data: encodeFunctionData({
+        abi: contestArtifact.abi,
+        functionName: 'settle',
+        args: [participant],
+      }),
+      value: 0n,
+    };
+  }
+
   public async planParticipantRegistration(
     input: PlanParticipantRegistrationInput,
   ): Promise<RegistrationPlan> {
@@ -584,7 +608,10 @@ class ContestChainGatewayImpl implements ContestChainGateway {
       } as const;
 
       if (evaluation.status === 'ready') {
-        if (!config.settlementCall) {
+        const settlementCall =
+          config.settlementCall ??
+          this.buildSettlementCall(definition, lowercaseAddress(input.caller));
+        if (!settlementCall) {
           throw createContestChainError({
             code: 'INTERNAL_ERROR',
             message: 'Settlement call missing from configuration',
@@ -594,7 +621,7 @@ class ContestChainGatewayImpl implements ContestChainGateway {
 
         return createSettlementResult({
           status: 'applied',
-          settlementCall: config.settlementCall,
+          settlementCall,
           detail,
           frozenAt: config.frozenAt,
         });

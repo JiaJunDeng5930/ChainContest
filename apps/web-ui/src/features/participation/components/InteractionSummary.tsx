@@ -6,6 +6,7 @@ import ErrorBanner from "../../../components/ErrorBanner";
 import {
   getChainLabel,
   getPhaseLabel,
+  normalizeContestPhase,
   truncateIdentifier,
   useContestDateTimeFormatter
 } from "../../contests/utils/format";
@@ -53,7 +54,8 @@ export default function InteractionSummary({ networkId }: InteractionSummaryProp
 
   const { contest, action, amount, timestamp } = summary;
   const chainLabel = getChainLabel(contest.chainId, t);
-  const phaseLabel = getPhaseLabel(contest.phase, t);
+  const normalizedPhase = normalizeContestPhase(contest.phase);
+  const phaseLabel = getPhaseLabel(normalizedPhase, t);
   const formattedTimestamp = dateFormatter.format(new Date(timestamp));
   const actionLabel = t(`participation.summary.action.${action}`);
 

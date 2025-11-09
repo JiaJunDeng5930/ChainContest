@@ -17,6 +17,7 @@ import {
   formatContestTimestamp,
   getChainLabel,
   getPhaseLabel,
+  normalizeContestPhase,
   truncateIdentifier,
   useContestDateTimeFormatter
 } from "../../../../features/contests/utils/format";
@@ -115,7 +116,8 @@ function ParticipationRecordCard({ record }: { record: UserContestRecord }) {
   const { contest, participations, rewardClaims, lastActivity } = record;
 
   const chainLabel = getChainLabel(contest.chainId, t);
-  const phaseLabel = getPhaseLabel(contest.phase, t);
+  const normalizedPhase = normalizeContestPhase(contest.phase);
+  const phaseLabel = getPhaseLabel(normalizedPhase, t);
 
   const formattedLastActivity = lastActivity ? dateFormatter.format(new Date(lastActivity)) : null;
 

@@ -9,6 +9,7 @@ import {
   formatPrizeAmount,
   getChainLabel,
   getPhaseLabel,
+  normalizeContestPhase,
   truncateIdentifier,
   useContestDateTimeFormatter,
   useContestNumberFormatter
@@ -60,7 +61,8 @@ function ContestCard({ contest }: { contest: ContestSnapshot }) {
   const dateFormatter = useContestDateTimeFormatter(locale);
 
   const chainLabel = getChainLabel(contest.chainId, t);
-  const phaseLabel = getPhaseLabel(contest.phase, t);
+  const normalizedPhase = normalizeContestPhase(contest.phase);
+  const phaseLabel = getPhaseLabel(normalizedPhase, t);
   const prizeAsset = contest.prizePool.asset;
   const prizeLabel = formatPrizeAmount({
     value: contest.prizePool.currentBalance,

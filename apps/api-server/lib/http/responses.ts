@@ -196,6 +196,20 @@ export const redemptionResponse = (result: RedemptionResult): NextResponse => {
   });
 };
 
+export const adminPlanResponse = (payload: {
+  status: 'ready' | 'blocked';
+  transaction?: ExecutionCallShape;
+  reason?: { code?: string; message: string; detail?: unknown };
+  derivedAt?: BlockAnchorShape;
+}): NextResponse => {
+  return jsonResponse({
+    status: payload.status,
+    transaction: normalizeExecutionCall(payload.transaction),
+    reason: payload.reason,
+    derivedAt: payload.derivedAt ? normalizeDerivedAt(payload.derivedAt) : undefined
+  });
+};
+
 export const errorResponse = (error: unknown): Response => {
   const normalized = error instanceof Response ? error : undefined;
   if (normalized) {

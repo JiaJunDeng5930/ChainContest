@@ -49,6 +49,12 @@ export interface ContestSnapshot {
     blockHash?: string;
     timestamp: string;
   };
+  contractAddress?: string | null;
+  status?: string;
+  originTag?: string | null;
+  metadata?: Record<string, unknown> | null;
+  createdAt?: string;
+  updatedAt?: string;
 }
 
 export interface ContestListFilters {
@@ -197,7 +203,7 @@ const parseDerivedAt = (metadata: Record<string, unknown>): ContestSnapshot['der
 
   const derived = raw as Record<string, unknown>;
   return {
-    blockNumber: toNumber(derived.blockNumber, 'derivedAt.blockNumber'),
+    blockNumber: toNumber(derived.blockNumber ?? 0, 'derivedAt.blockNumber'),
     blockHash: derived.blockHash === undefined || derived.blockHash === null ? undefined : ensureString(derived.blockHash, 'derivedAt.blockHash'),
     timestamp: ensureString(derived.timestamp, 'derivedAt.timestamp')
   };
@@ -260,14 +266,71 @@ const parseIsoTimestamp = (value: string | undefined): number | null => {
   return Number.isNaN(parsed) ? null : parsed;
 };
 
+const toIsoString = (value: unknown): string | undefined => {
+  if (!value) {
+    return undefined;
+  }
+  if (value instanceof Date) {
+    return value.toISOString();
+  }
+  if (typeof value === 'string' && value.length > 0) {
+    return value;
+  }
+  return undefined;
+};
+
+const canonicalizePhase = (phase: string): string => {
+  const value = phase.toLowerCase();
+  switch (value) {
+    case 'registered':
+    case 'registration':
+      return 'registration';
+    case 'active':
+    case 'live':
+      return 'active';
+    case 'frozen':
+      return 'frozen';
+    case 'sealed':
+    case 'settled':
+      return 'settled';
+    case 'closed':
+      return 'closed';
+    default:
+      return 'registration';
+  }
+};
+
+const extractMetadataPhase = (metadata: Record<string, unknown> | null | undefined): string | null => {
+  if (!metadata || typeof metadata !== 'object') {
+    return null;
+  }
+  const phaseValue = (metadata as Record<string, unknown>).phase;
+  if (typeof phaseValue === 'string' && phaseValue.length > 0) {
+    return canonicalizePhase(phaseValue);
+  }
+  const gateway = (metadata as Record<string, unknown>).chainGatewayDefinition;
+  if (gateway && typeof gateway === 'object') {
+    const nestedPhase = (gateway as Record<string, unknown>).phase;
+    if (typeof nestedPhase === 'string' && nestedPhase.length > 0) {
+      return canonicalizePhase(nestedPhase);
+    }
+  }
+  return null;
+};
+
 const derivePhase = (contest: ContestRecord, timeline: ContestSnapshot['timeline']): string => {
+  const metadataPhase = extractMetadataPhase(contest.metadata as Record<string, unknown> | null | undefined);
+  if (metadataPhase) {
+    return metadataPhase;
+  }
+
   if (contest.status === 'registered') {
     const closesAt = parseIsoTimestamp(timeline.registrationClosesAt);
     if (closesAt && Date.now() >= closesAt) {
       return 'active';
     }
   }
-  return normalisePhase(ensureString(contest.status, 'contest.status'));
+  return canonicalizePhase(ensureString(contest.status, 'contest.status'));
 };
 
 export const toContestSnapshot = (aggregate: ContestAggregate): ContestSnapshot => {
@@ -292,7 +355,13 @@ export const toContestSnapshot = (aggregate: ContestAggregate): ContestSnapshot 
     prizePool,
     registrationCapacity,
     leaderboard,
-    derivedAt
+    derivedAt,
+    contractAddress: typeof contest.contractAddress === 'string' ? contest.contractAddress.toLowerCase() : undefined,
+    status: ensureString(contest.status, 'contest.status'),
+    originTag: contest.originTag ?? null,
+    metadata: metadata as Record<string, unknown>,
+    createdAt: toIsoString(contest.createdAt),
+    updatedAt: toIsoString(contest.updatedAt)
   };
 };
 

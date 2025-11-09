@@ -214,7 +214,8 @@ function SettlementSection({
   const [lastError, setLastError] = useState<unknown>(null);
   const { sendExecutionCall, walletReady } = useWalletTransactions();
 
-  const isEligiblePhase = contest.phase === "active" || contest.phase === "settled";
+  const phaseValue = (contest.phase ?? "").toLowerCase();
+  const isEligiblePhase = ["active", "frozen", "settled"].includes(phaseValue);
 
   const disableReason = useMemo(() => {
     if (!gate.isSessionActive) {

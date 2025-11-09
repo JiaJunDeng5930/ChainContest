@@ -187,7 +187,7 @@ export const buildFallbackContestMetadata = ({
   const initializeConfirmedAt =
     (initializeTx.confirmedAt as string | undefined) ?? registrationOpensAt;
 
-  const metadata = sanitizeMetadata({
+  const chainGatewayDefinition = sanitizeMetadata({
     contest: {
       contestId: payload.contestId,
       chainId: networkId,
@@ -244,7 +244,7 @@ export const buildFallbackContestMetadata = ({
       result: 'pass'
     },
     derivedAt: {
-      blockNumber: initializeBlockNumber,
+      blockNumber: initializeBlockNumber ?? '0',
       blockHash: initializeBlockHash,
       timestamp: initializeConfirmedAt
     },
@@ -276,6 +276,95 @@ export const buildFallbackContestMetadata = ({
     },
     participants: {},
     events: { events: [] }
+  });
+
+  const metadata = sanitizeMetadata({
+    contest: {
+      contestId: payload.contestId,
+      chainId: networkId,
+      gatewayVersion: 'creation-gateway/v1',
+      addresses: {
+        registrar: contestAddress,
+        vaultFactory: vaultFactoryAddress,
+        treasury: fallbackAddress,
+        settlement: fallbackAddress,
+        rewards: fallbackAddress
+      }
+    },
+    phase: 'registering',
+    timeline: {
+      registrationOpensAt: normalizedRegistrationOpensAt,
+      registrationClosesAt,
+      tradingOpensAt: registrationClosesAt,
+      tradingClosesAt: liveEndsAt,
+      rewardAvailableAt: claimEndsAt,
+      redemptionAvailableAt: claimEndsAt
+    },
+    prizePool: {
+      currentBalance: payload.initialPrizeAmount.toString(),
+      accumulatedInflow: payload.initialPrizeAmount.toString()
+    },
+    rebalance: {
+      whitelist: [payload.config.entryAsset.toLowerCase()],
+      maxTradeAmount: (payload.config.entryAmount * 10n).toString(),
+      cooldownSeconds: 0,
+      priceFreshnessSeconds: 0,
+      priceSource: lowercaseAddress(payload.config.priceSource),
+      lastPriceUpdatedAt: normalizedRegistrationOpensAt,
+      spender: fallbackAddress,
+      router: fallbackAddress,
+      slippageBps: 0,
+      deadlineSeconds: 0,
+      rollbackAdvice: 'Rebalance temporarily unavailable.',
+      approvals: [] as Array<Record<string, unknown>>,
+      defaultRoute: {
+        steps: [`${payload.config.entryAsset.toLowerCase()}->${payload.config.entryAsset.toLowerCase()}`],
+        minimumOutput: '0',
+        maximumSlippageBps: 0
+      },
+      baseAsset: lowercaseAddress(payload.config.entryAsset),
+      quoteAsset: lowercaseAddress(payload.config.entryAsset),
+      poolAddress: undefined
+    },
+    registrationCapacity: {
+      registered: 0,
+      maximum: payload.config.maxParticipants,
+      isFull: false
+    },
+    derivedAt: {
+      blockNumber: initializeBlockNumber ?? '0',
+      blockHash: initializeBlockHash,
+      timestamp: initializeConfirmedAt
+    },
+    registration: {
+      window: {
+        opensAt: normalizedRegistrationOpensAt,
+        closesAt: registrationClosesAt
+      },
+      requirement: {
+        tokenAddress: lowercaseAddress(payload.config.entryAsset),
+        amount: (payload.config.entryAmount + payload.config.entryFee).toString(),
+        spender: contestAddress,
+        symbol: 'TOKEN',
+        decimals: 18,
+        reason: 'contest-entry'
+      },
+      template: {
+        call: {
+          to: contestAddress,
+          data: '0x',
+          value: '0'
+        },
+        estimatedFees: {
+          currency: 'ETH',
+          estimatedCost: '0'
+        }
+      },
+      approvals: []
+    },
+    participants: {},
+    events: { events: [] },
+    chainGatewayDefinition
   });
 
   return {

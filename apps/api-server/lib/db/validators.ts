@@ -211,6 +211,26 @@ const contestDomainWriteSchema = z.discriminatedUnion('action', [
     actorContext: actorContextSchema.optional()
   }),
   z.object({
+    action: z.literal('update_phase'),
+    payload: z.object({
+      contestId: z.string().uuid(),
+      phase: z.string().min(1),
+      status: z.enum(toMutableEnumValues(contestStatusValues)).optional(),
+      sealedAt: z.string().min(1).optional(),
+      settlement: z.record(z.string(), z.unknown()).optional()
+    }),
+    actorContext: actorContextSchema.optional()
+  }),
+  z.object({
+    action: z.literal('update_participant'),
+    payload: z.object({
+      contestId: z.string().uuid(),
+      walletAddress: z.string().regex(/^0x[a-fA-F0-9]{40}$/),
+      updates: z.record(z.string(), z.unknown())
+    }),
+    actorContext: actorContextSchema.optional()
+  }),
+  z.object({
     action: z.literal('append_reward_claim'),
     payload: z.object({
       contestId: z.string().uuid(),

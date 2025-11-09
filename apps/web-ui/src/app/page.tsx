@@ -180,7 +180,7 @@ function AuthenticatedDashboard({ address }: AuthenticatedDashboardProps) {
   const stats = useMemo(() => {
     const createdCount = createdRecords.length;
     const activeCreations = createdRecords.filter((record) =>
-      isActiveContestStatus(record.contest?.status ?? record.status)
+      isActiveContestStatus(record.contest?.phase ?? record.contest?.status ?? record.status)
     ).length;
 
     const participationCount = participationRecords.length;
@@ -320,7 +320,7 @@ function CreatedContestList({ records }: { records: CreatorContestRecord[] }) {
         ];
 
         const displayTitle = titleCandidates.find((value) => typeof value === "string" && value.trim().length > 0);
-        const status = formatContestStatus(contest?.status ?? record.status);
+        const status = formatContestStatus(contest?.phase ?? contest?.status ?? record.status);
         const createdAt = artifact?.createdAt ?? record.request.createdAt;
         const contestAddress = contest?.contractAddress ?? artifact?.contestAddress ?? "待部署";
         const chainId = contest?.chainId ?? artifact?.networkId ?? record.request.networkId;
@@ -482,6 +482,8 @@ function formatContestStatus(status: string | number | null | undefined) {
     case "active":
     case "live":
       return "进行中";
+    case "frozen":
+      return "已冻结";
     case "settled":
     case "sealed":
       return "已结算";

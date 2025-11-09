@@ -204,7 +204,8 @@ const contestDomainWriteSchema = z.discriminatedUnion('action', [
       contestId: z.string().uuid(),
       phase: z.string().min(1),
       status: z.enum(contestStatusValues).optional(),
-      sealedAt: z.string().min(1).optional()
+      sealedAt: z.string().min(1).optional(),
+      settlement: z.record(z.string(), z.unknown()).optional()
     }),
     actorContext: actorContextSchema.optional()
   }),

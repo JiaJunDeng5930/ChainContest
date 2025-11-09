@@ -154,7 +154,8 @@ export const synchronizeContestPhase = async (
         status: transition.status
       },
       actorContext: {
-        source: 'api.contest.phaseSync',
+        actorId: 'api.contest.phaseSync',
+        source: 'auto_inferred',
         reason: context.reason ?? 'timeline_auto_transition'
       }
     });

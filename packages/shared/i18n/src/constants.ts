@@ -1,12 +1,13 @@
 export const SUPPORTED_LOCALES = ["en", "zh-CN"] as const;
 export type SupportedLocale = (typeof SUPPORTED_LOCALES)[number];
 
-export const CONTEST_PHASES = ["registration", "active", "settled", "closed"] as const;
+export const CONTEST_PHASES = ["registration", "active", "frozen", "settled", "closed"] as const;
 export type ContestPhase = (typeof CONTEST_PHASES)[number];
 
 export const CONTEST_PHASE_LABEL_KEYS: Record<ContestPhase, string> = {
   registration: "contests.status.registration",
   active: "contests.status.active",
+  frozen: "contests.status.frozen",
   settled: "contests.status.settled",
   closed: "contests.status.closed"
 };

@@ -1,6 +1,6 @@
 "use client";
 
-import { QUERY_KEYS, type ContestPhase } from "@chaincontest/shared-i18n";
+import { QUERY_KEYS } from "@chaincontest/shared-i18n";
 import { useQuery, type UseQueryResult } from "@tanstack/react-query";
 import { useLocale, useTranslations } from "next-intl";
 
@@ -11,6 +11,7 @@ import {
   formatPrizeAmount,
   getChainLabel,
   getPhaseLabel,
+  normalizeContestPhase,
   truncateIdentifier,
   useContestDateTimeFormatter,
   useContestNumberFormatter
@@ -18,6 +19,7 @@ import {
 import RegistrationPanel from "../../participation/components/RegistrationPanel";
 import RewardClaimPanel from "../../participation/components/RewardClaimPanel";
 import PostgamePanel from "../../participation/components/PostgamePanel";
+import OrganizerControls from "./OrganizerControls";
 
 type ContestDetailProps = {
   contestId: string;
@@ -82,23 +84,7 @@ export function ContestDetail({ contestId }: ContestDetailProps) {
     );
   }
 
-  const normalisePhase = (phase: string): ContestPhase => {
-    switch (phase) {
-      case "registered":
-        return "registration";
-      case "sealed":
-        return "settled";
-      case "registration":
-      case "active":
-      case "settled":
-      case "closed":
-        return phase;
-      default:
-        return "registration";
-    }
-  };
-
-  const normalizedPhase = normalisePhase(contest.phase);
+  const normalizedPhase = normalizeContestPhase(contest.phase);
 
   const chainLabel = getChainLabel(contest.chainId, t);
   const phaseLabel = getPhaseLabel(normalizedPhase, t);
@@ -159,6 +145,13 @@ export function ContestDetail({ contestId }: ContestDetailProps) {
       {query.isFetching ? (
         <p className="text-xs text-slate-400">{t("common.status.loading")}</p>
       ) : null}
+
+      <OrganizerControls
+        contest={contest}
+        onActionComplete={async () => {
+          await query.refetch();
+        }}
+      />
 
       <dl className="grid gap-6 lg:grid-cols-3">
         <div className="space-y-2 rounded-xl border border-slate-800/60 bg-slate-900/40 p-4">
@@ -226,11 +219,11 @@ export function ContestDetail({ contestId }: ContestDetailProps) {
         <RegistrationPanel contestId={contestId} contest={contest} />
       ) : null}
 
-      {normalizedPhase === "settled" || normalizedPhase === "closed" ? (
+      {normalizedPhase === "frozen" || normalizedPhase === "settled" || normalizedPhase === "closed" ? (
         <RewardClaimPanel contestId={contestId} contest={contest} />
       ) : null}
 
-      {normalizedPhase === "active" || normalizedPhase === "settled" || normalizedPhase === "closed" ? (
+      {["active", "frozen", "settled", "closed"].includes(normalizedPhase) ? (
         <PostgamePanel contestId={contestId} contest={contest} />
       ) : null}
 
