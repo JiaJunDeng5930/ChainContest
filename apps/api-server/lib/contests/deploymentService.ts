@@ -11,7 +11,7 @@ import type {
 } from '@chaincontest/db';
 import { createContestCreationReceipt, type ContestCreationReceipt } from '@chaincontest/chain';
 import { lowercaseAddress } from '@/lib/runtime/address';
-import { logContestDeployment } from '@/lib/observability/logger';
+import { getLogger, logContestDeployment } from '@/lib/observability/logger';
 import { getEnv } from '@/lib/config/env';
 
 type OwnerInitializationMetadata = {
@@ -141,6 +141,152 @@ const secondsToIsoString = (value: bigint | number | string | null | undefined):
 const sanitizeMetadata = (value: Record<string, unknown>): Record<string, unknown> =>
   JSON.parse(JSON.stringify(value));
 
+export const toIsoOrNow = (value?: string | null): string => {
+  if (!value) {
+    return new Date().toISOString();
+  }
+  const parsed = new Date(value);
+  return Number.isNaN(parsed.getTime()) ? new Date().toISOString() : parsed.toISOString();
+};
+
+export const buildFallbackContestMetadata = ({
+  payload,
+  artifact,
+  networkId,
+  registrationOpensAt
+}: {
+  payload: z.infer<typeof payloadSchema>;
+  artifact: ContestDeploymentArtifactRecord;
+  networkId: number;
+  registrationOpensAt: string;
+}): { metadata: Record<string, unknown>; timeWindow: { start: string; end: string } } => {
+  const registrationClosesAt =
+    secondsToIsoString(payload.timeline.registeringEnds) ?? registrationOpensAt;
+  const opensAtDate = new Date(registrationOpensAt);
+  const closesAtDate = new Date(registrationClosesAt);
+  const normalizedRegistrationOpensAt =
+    opensAtDate.getTime() > closesAtDate.getTime()
+      ? registrationClosesAt
+      : registrationOpensAt;
+  const liveEndsAt = secondsToIsoString(payload.timeline.liveEnds) ?? registrationClosesAt;
+  const claimEndsAt = secondsToIsoString(payload.timeline.claimEnds) ?? liveEndsAt;
+
+  const contestAddress = artifact.contestAddress
+    ? lowercaseAddress(artifact.contestAddress)
+    : null;
+  const vaultFactoryAddress = artifact.vaultFactoryAddress
+    ? lowercaseAddress(artifact.vaultFactoryAddress)
+    : null;
+  const fallbackAddress = contestAddress ?? vaultFactoryAddress ?? null;
+
+  const artifactMetadata = ensureRecord(artifact.metadata);
+  const transactionsMetadata = ensureRecord(artifactMetadata.transactions);
+  const initializeTx = ensureRecord(transactionsMetadata.initialize);
+  const initializeBlockNumber = (initializeTx.blockNumber as string | undefined) ?? null;
+  const initializeBlockHash = (initializeTx.blockHash as string | undefined) ?? null;
+  const initializeConfirmedAt =
+    (initializeTx.confirmedAt as string | undefined) ?? registrationOpensAt;
+
+  const metadata = sanitizeMetadata({
+    contest: {
+      contestId: payload.contestId,
+      chainId: networkId,
+      gatewayVersion: 'creation-gateway/v1',
+      addresses: {
+        registrar: contestAddress,
+        vaultFactory: vaultFactoryAddress,
+        treasury: fallbackAddress,
+        settlement: fallbackAddress,
+        rewards: fallbackAddress
+      }
+    },
+    phase: 'registering',
+    timeline: {
+      registrationOpensAt: normalizedRegistrationOpensAt,
+      registrationClosesAt,
+      tradingOpensAt: registrationClosesAt,
+      tradingClosesAt: liveEndsAt,
+      rewardAvailableAt: claimEndsAt,
+      redemptionAvailableAt: claimEndsAt
+    },
+    prizePool: {
+      currentBalance: payload.initialPrizeAmount.toString(),
+      accumulatedInflow: payload.initialPrizeAmount.toString()
+    },
+    rebalance: {
+      whitelist: [payload.config.entryAsset.toLowerCase()],
+      maxTradeAmount: (payload.config.entryAmount * 10n).toString(),
+      cooldownSeconds: 0,
+      priceFreshnessSeconds: 0,
+      priceSource: lowercaseAddress(payload.config.priceSource),
+      lastPriceUpdatedAt: normalizedRegistrationOpensAt,
+      spender: fallbackAddress,
+      router: fallbackAddress,
+      slippageBps: 0,
+      deadlineSeconds: 0,
+      rollbackAdvice: 'Rebalance temporarily unavailable.',
+      approvals: [] as Array<Record<string, unknown>>,
+      defaultRoute: {
+        steps: [`${payload.config.entryAsset.toLowerCase()}->${payload.config.entryAsset.toLowerCase()}`],
+        minimumOutput: '0',
+        maximumSlippageBps: 0
+      },
+      baseAsset: lowercaseAddress(payload.config.entryAsset),
+      quoteAsset: lowercaseAddress(payload.config.entryAsset),
+      poolAddress: undefined
+    },
+    registrationCapacity: {
+      registered: 0,
+      maximum: payload.config.maxParticipants,
+      isFull: false
+    },
+    qualificationVerdict: {
+      result: 'pass'
+    },
+    derivedAt: {
+      blockNumber: initializeBlockNumber,
+      blockHash: initializeBlockHash,
+      timestamp: initializeConfirmedAt
+    },
+    registration: {
+      window: {
+        opensAt: normalizedRegistrationOpensAt,
+        closesAt: registrationClosesAt
+      },
+      requirement: {
+        tokenAddress: lowercaseAddress(payload.config.entryAsset),
+        amount: (payload.config.entryAmount + payload.config.entryFee).toString(),
+        spender: contestAddress,
+        symbol: 'TOKEN',
+        decimals: 18,
+        reason: 'contest-entry'
+      },
+      template: {
+        call: {
+          to: contestAddress,
+          data: '0x',
+          value: '0'
+        },
+        estimatedFees: {
+          currency: 'ETH',
+          estimatedCost: '0'
+        }
+      },
+      approvals: []
+    },
+    participants: {},
+    events: { events: [] }
+  });
+
+  return {
+    metadata,
+    timeWindow: {
+      start: normalizedRegistrationOpensAt,
+      end: registrationClosesAt
+    }
+  };
+};
+
 const resolveTokenMetadata = async (
   client: PublicClient,
   tokenAddress: `0x${string}`
@@ -218,7 +364,17 @@ interface DomainRegistrationContext {
 const registerContestInDomain = async (
   context: DomainRegistrationContext
 ): Promise<{ contestId: string | null; metadata: Record<string, unknown> } | null> => {
-  const { artifact, receipt, payload, networkId } = context;
+  const logger = getLogger();
+  try {
+    const { artifact, receipt, payload, networkId } = context;
+    logger.info(
+      {
+        requestId: context.request.request.requestId,
+        contestId: payload.contestId,
+        networkId
+      },
+      'registerContestInDomain.start'
+    );
 
   if (!artifact || !artifact.contestAddress) {
     return null;
@@ -303,6 +459,7 @@ const registerContestInDomain = async (
 
   const vaultConfig = vaultComponent?.config ?? {};
   const priceSourceConfig = priceSourceComponent?.config ?? {};
+  const requestedPriceSource = lowercaseAddress(payload.config.priceSource) as `0x${string}`;
 
   const configuredBaseAsset =
     typeof vaultConfig.baseAsset === 'string' ? (lowercaseAddress(vaultConfig.baseAsset) as `0x${string}`) : entryAsset;
@@ -454,24 +611,50 @@ const registerContestInDomain = async (
     chainGatewayDefinition
   });
 
-  const trackResult = (await database.writeContestDomain({
-    action: 'track',
-    payload: {
-      chainId: networkId,
-      contractAddress: contestAddress,
-      internalKey: payload.contestId,
-      status: 'registered',
-      timeWindow: {
-        start: registrationOpensAt,
-        end: claimEndsAt ?? registrationClosesAt
+  let trackResult: { status: 'applied' | 'noop'; contestId?: string };
+  try {
+    trackResult = (await database.writeContestDomain({
+      action: 'track',
+      payload: {
+        chainId: networkId,
+        contractAddress: contestAddress,
+        internalKey: payload.contestId,
+        status: 'registered',
+        timeWindow: {
+          start: registrationOpensAt,
+          end: claimEndsAt ?? registrationClosesAt
+        },
+        metadata
+      }
+    })) as { status: 'applied' | 'noop'; contestId?: string };
+  } catch (error) {
+    // eslint-disable-next-line no-console
+    console.error('[registerContestInDomain] writeContestDomain failed', error);
+    throw error;
+  }
+
+    const contestId = trackResult.contestId ?? null;
+
+    logger.info(
+      {
+        requestId: context.request.request.requestId,
+        contestId
       },
-      metadata
-    }
-  })) as { status: 'applied' | 'noop'; contestId?: string };
+      'registerContestInDomain.success'
+    );
 
-  const contestId = trackResult.contestId ?? null;
-
-  return { contestId, metadata };
+    return { contestId, metadata };
+  } catch (error) {
+    const logger = getLogger();
+    logger.error(
+      {
+        requestId: context.request.request.requestId,
+        error: error instanceof Error ? { message: error.message, stack: error.stack } : error
+      },
+      'registerContestInDomain.failed'
+    );
+    throw error;
+  }
 };
 
 const lookupContestId = async (
@@ -536,7 +719,7 @@ const toSerializablePayload = (
   metadata: payload.metadata ?? {}
 });
 
-const deserializeStoredPayload = (
+export const deserializeStoredPayload = (
   stored: Record<string, unknown>
 ): z.infer<typeof payloadSchema> => {
   const config = ensureRecord(stored.config);
@@ -681,6 +864,7 @@ const toContestPayload = async (
 export const deployContest = async (
   input: ContestDeploymentServiceInput
 ): Promise<ContestDeploymentServiceResult> => {
+  const logger = getLogger();
   const startedAt = Date.now();
   const parsedPayload = payloadSchema.safeParse(input.payload);
   if (!parsedPayload.success) {
@@ -785,15 +969,64 @@ export const deployContest = async (
       failureReason: null
     })) as ContestCreationRequestRecord;
 
-    const domainRegistration = needsOwnerFunding
-      ? null
-      : await registerContestInDomain({
+    let domainRegistration: { contestId: string | null; metadata: Record<string, unknown> } | null =
+      null;
+    if (!needsOwnerFunding) {
+      try {
+        domainRegistration = await registerContestInDomain({
           request: updated,
           receipt,
           artifact: artifactRecord,
           payload: parsedPayload.data,
           networkId: input.networkId
         });
+      } catch (error) {
+        logger.error(
+          {
+            requestId: updated.request.requestId,
+            error: error instanceof Error ? { message: error.message } : error
+          },
+          'registerContestInDomain.failed'
+        );
+      }
+    }
+
+    if (!domainRegistration && artifactRecord?.contestAddress) {
+      const { metadata: fallbackMetadata, timeWindow: fallbackWindow } = buildFallbackContestMetadata({
+        payload: parsedPayload.data,
+        artifact: artifactRecord,
+        networkId: input.networkId,
+        registrationOpensAt: toIsoOrNow(artifactRecord.confirmedAt?.toISOString())
+      });
+
+      const fallback = (await database.writeContestDomain({
+        action: 'track',
+        payload: {
+          chainId: input.networkId,
+          contractAddress: artifactRecord.contestAddress,
+          internalKey: parsedPayload.data.contestId,
+          status: 'registered',
+          timeWindow: {
+            start: fallbackWindow.start,
+            end: fallbackWindow.end
+          },
+          metadata: fallbackMetadata
+        }
+      })) as { status: 'applied' | 'noop'; contestId?: string };
+
+      logger.warn(
+        {
+          requestId: updated.request.requestId,
+          contestId: fallback.contestId ?? null
+        },
+        'registerContestInDomain.fallback_applied'
+      );
+
+      domainRegistration = {
+        contestId: fallback.contestId ?? null,
+        metadata: fallbackMetadata
+      };
+    }
 
     let resolvedContestId = domainRegistration?.contestId ?? null;
     let updatedArtifactRecord = artifactRecord;
@@ -899,6 +1132,8 @@ export interface FinalizeContestDeploymentInput {
 export const finalizeContestDeployment = async (
   input: FinalizeContestDeploymentInput
 ): Promise<ContestDeploymentServiceResult> => {
+  const logger = getLogger();
+  try {
   const aggregate = await database.getContestCreationRequest(input.requestId);
   if (!aggregate) {
     throw httpErrors.notFound('Contest creation request not found');
@@ -1002,16 +1237,65 @@ export const finalizeContestDeployment = async (
     }
   });
 
-  const domainRegistration = await registerContestInDomain({
-    request: updatedRequest,
-    receipt: syntheticReceipt,
-    artifact: updatedArtifactRecord,
-    payload,
-    networkId
-  });
+  let artifactWithContest = updatedArtifactRecord;
+  let domainRegistration: { contestId: string | null; metadata: Record<string, unknown> } | null =
+    null;
+  try {
+    domainRegistration = await registerContestInDomain({
+      request: updatedRequest,
+      receipt: syntheticReceipt,
+      artifact: updatedArtifactRecord,
+      payload,
+      networkId
+    });
+  } catch (error) {
+    logger.error(
+      {
+        requestId: input.requestId,
+        error: error instanceof Error ? { message: error.message } : error
+      },
+      'registerContestInDomain.failed'
+    );
+  }
+
+  if (!domainRegistration && artifactWithContest.contestAddress) {
+    const { metadata: fallbackMetadata, timeWindow: fallbackWindow } = buildFallbackContestMetadata({
+      payload,
+      artifact: artifactWithContest,
+      networkId,
+      registrationOpensAt: toIsoOrNow(artifactWithContest.confirmedAt?.toISOString())
+    });
+
+    const fallback = (await database.writeContestDomain({
+      action: 'track',
+      payload: {
+        chainId: networkId,
+        contractAddress: artifactWithContest.contestAddress,
+        internalKey: payload.contestId,
+        status: 'registered',
+        timeWindow: {
+          start: fallbackWindow.start,
+          end: fallbackWindow.end
+        },
+        metadata: fallbackMetadata
+      }
+    })) as { status: 'applied' | 'noop'; contestId?: string };
+
+    logger.warn(
+      {
+        requestId: input.requestId,
+        contestId: fallback.contestId ?? null
+      },
+      'registerContestInDomain.fallback_applied'
+    );
+
+    domainRegistration = {
+      contestId: fallback.contestId ?? null,
+      metadata: fallbackMetadata
+    };
+  }
 
   let resolvedContestId = domainRegistration?.contestId ?? null;
-  let artifactWithContest = updatedArtifactRecord;
 
   if (!resolvedContestId && updatedArtifactRecord.contestAddress) {
     resolvedContestId = await lookupContestId(
@@ -1064,4 +1348,14 @@ export const finalizeContestDeployment = async (
     artifact: artifactWithContest,
     receipt: syntheticReceipt
   };
+  } catch (error) {
+    logger.error(
+      {
+        requestId: input.requestId,
+        error: error instanceof Error ? { message: error.message, stack: error.stack } : error
+      },
+      'finalizeContestDeployment.failed'
+    );
+    throw error;
+  }
 };
