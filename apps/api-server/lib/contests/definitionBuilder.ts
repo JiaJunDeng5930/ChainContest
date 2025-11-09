@@ -812,6 +812,10 @@ const enrichContestDefinition = async (
     }
     const profile = mutableParticipants[normalized] ?? createMutableParticipant(normalized);
     profile.registered = true;
+    const normalizedVault = normalizeAddress(record.vaultReference);
+    if (normalizedVault) {
+      profile.vaultReference = normalizedVault;
+    }
     mutableParticipants[normalized] = profile;
     registeredAddresses.add(normalized);
   }
