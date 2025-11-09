@@ -261,10 +261,10 @@ export default function CreateContestForm() {
   });
 
   useEffect(() => {
-    if (requiredChainId) {
+    if (requiredChainId && !getValues("networkId")) {
       setValue("networkId", String(requiredChainId));
     }
-  }, [requiredChainId, setValue]);
+  }, [getValues, requiredChainId, setValue]);
 
   const networkIdValue = watch("networkId");
   const normalizedNetworkId = useMemo(() => {
@@ -512,7 +512,6 @@ export default function CreateContestForm() {
               <input
                 className="rounded border border-slate-800 bg-slate-900 p-2 text-slate-100"
                 {...register("networkId")}
-                disabled
               />
               {errors.networkId ? (
                 <span className="text-xs text-rose-400">{errors.networkId.message}</span>
