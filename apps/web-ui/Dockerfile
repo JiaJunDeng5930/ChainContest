@@ -15,7 +15,7 @@ COPY tools ./tools
 COPY specs ./specs
 COPY tsconfig.base.json ./
 
-RUN pnpm install --frozen-lockfile
+RUN pnpm install --frozen-lockfile && pnpm --filter @chaincontest/shared-i18n build
 
 EXPOSE 3000
 CMD ["pnpm", "--filter", "@chaincontest/web-ui", "exec", "next", "dev", "-H", "0.0.0.0", "-p", "3000"]

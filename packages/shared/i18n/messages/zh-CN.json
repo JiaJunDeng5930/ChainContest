@@ -215,7 +215,6 @@
   "contests.organizer.sectionDescription": "在此执行冻结、封存等管理动作。",
   "contests.organizer.goLiveAction": "开启实盘",
   "contests.organizer.goLiveBlocked": "报名阶段尚未结束，暂时无法开启。",
-  "contests.organizer.goLiveUnavailable": "比赛已处于实盘或后续阶段。",
   "contests.organizer.freezeAction": "冻结比赛",
   "contests.organizer.sealAction": "封存比赛",
   "contests.organizer.freezeBlocked": "直播阶段尚未结束，暂时无法冻结。",

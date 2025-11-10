@@ -110,11 +110,7 @@ export function OrganizerControls({ contest, onActionComplete }: OrganizerContro
 
   const now = Date.now();
   const goLiveDisabledReason =
-    contest.phase !== "registration"
-      ? t("contests.organizer.goLiveUnavailable")
-      : registrationClosesAt && now < registrationClosesAt
-        ? t("contests.organizer.goLiveBlocked")
-        : null;
+    registrationClosesAt && now < registrationClosesAt ? t("contests.organizer.goLiveBlocked") : null;
 
   const freezeAvailable = !tradingClosesAt || now >= tradingClosesAt;
   const freezeDisabledReason = freezeAvailable ? null : t("contests.organizer.freezeBlocked");
