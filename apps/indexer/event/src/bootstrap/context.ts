@@ -116,6 +116,14 @@ export const bootstrapContext = (options: BootstrapOptions = {}): AppContext => 
   };
 
   const runLiveCycle = async (): Promise<void> => {
+    try {
+      await registry.ensureFresh(config.registry.refreshIntervalMs);
+    } catch (error) {
+      logger.error(
+        { err: error instanceof Error ? { message: error.message, stack: error.stack } : { message: String(error) } },
+        'failed to refresh ingestion registry',
+      );
+    }
     const streams = registry.list();
     for (const stream of streams) {
       const mode = health.getMode({ contestId: stream.contestId, chainId: stream.chainId });

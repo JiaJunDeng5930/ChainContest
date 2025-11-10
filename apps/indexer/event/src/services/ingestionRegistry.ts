@@ -1,7 +1,4 @@
-import { promises as fs } from 'node:fs';
-import path from 'node:path';
 import type { Logger } from 'pino';
-import { z } from 'zod';
 import type { AppConfig } from '../config/loadConfig.js';
 import type { DbClient } from './dbClient.js';
 import type { ContestContractAddresses } from '@chaincontest/chain';
@@ -24,14 +21,13 @@ export class IngestionRegistry {
 
   private readonly listeners = new Set<RegistrySubscriber>();
 
-  private readonly sourcePath?: string;
+  private lastRefreshedAt = 0;
 
   constructor(
     private readonly config: AppConfig,
     private readonly logger: Logger,
     private readonly db: DbClient,
   ) {
-    this.sourcePath = config.registry.sourcePath;
   }
 
   public async initialise(): Promise<void> {
@@ -57,43 +53,21 @@ export class IngestionRegistry {
   public async reload(): Promise<void> {
     const next = new Map<string, RegistryStream>();
 
-    const fileStreams = await this.loadFileStreams();
-    fileStreams.forEach((stream) => next.set(this.key(stream.contestId, stream.chainId), stream));
-
     const databaseStreams = await this.loadDatabaseStreams();
     databaseStreams.forEach((stream) => next.set(this.key(stream.contestId, stream.chainId), stream));
 
     this.entries.clear();
     next.forEach((stream, key) => this.entries.set(key, stream));
-    this.logger.info(
-      { source: this.sourcePath ?? 'database', count: this.entries.size },
-      'ingestion registry reloaded',
-    );
+    this.lastRefreshedAt = Date.now();
+    this.logger.info({ source: 'database', count: this.entries.size }, 'ingestion registry reloaded');
     this.notify();
   }
 
-  private async loadFileStreams(): Promise<RegistryStream[]> {
-    if (!this.sourcePath) {
-      this.logger.warn('no registry source configured, falling back to database tracked contests');
-      return [];
+  public async ensureFresh(maxAgeMs: number): Promise<void> {
+    if (this.entries.size > 0 && Date.now() - this.lastRefreshedAt < maxAgeMs) {
+      return;
     }
-
-    const filePath = resolveAbsolutePath(this.sourcePath);
-
-    try {
-      const data = await fs.readFile(filePath, 'utf8');
-      const parsed = registrySchema.parse(JSON.parse(data));
-      return parsed.streams.map((stream) => ({
-        contestId: stream.contestId,
-        chainId: stream.chainId,
-        addresses: normalizeAddresses(stream.addresses),
-        startBlock: BigInt(stream.startBlock),
-        metadata: stream.metadata ?? {},
-      }));
-    } catch (error) {
-      this.logger.error({ err: normalizeError(error), source: filePath }, 'failed to load ingestion registry');
-      throw error;
-    }
+    await this.reload();
   }
 
   private async loadDatabaseStreams(): Promise<RegistryStream[]> {
@@ -124,48 +98,6 @@ export class IngestionRegistry {
     });
   }
 }
-
-const streamSchema = z.object({
-  contestId: z.string().min(1),
-  chainId: z.number().int(),
-  addresses: z.object({
-    registrar: z.string().min(1),
-    treasury: z.string().optional(),
-    settlement: z.string().optional(),
-    rewards: z.string().optional(),
-    redemption: z.string().optional(),
-    oracle: z.string().optional(),
-    policy: z.string().optional(),
-  }),
-  startBlock: z.union([z.string(), z.number(), z.bigint()]).default(0),
-  metadata: z.record(z.unknown()).optional(),
-});
-
-const registrySchema = z.object({
-  streams: z.array(streamSchema).default([]),
-});
-
-const resolveAbsolutePath = (input: string): string =>
-  path.isAbsolute(input) ? input : path.resolve(process.cwd(), input);
-
-type StreamSchema = z.infer<typeof streamSchema>;
-
-const normalizeAddresses = (addresses: StreamSchema['addresses']): ContestContractAddresses => {
-  const { registrar, ...rest } = addresses;
-  const normalised: ContestContractAddresses = {
-    registrar: ensureLowercaseHex(registrar),
-  };
-
-  Object.entries(rest).forEach(([key, value]) => {
-    if (typeof value === 'string' && value.length > 0) {
-      (normalised as unknown as Record<string, string>)[key] = ensureLowercaseHex(value);
-    }
-  });
-
-  return normalised;
-};
-
-const ensureLowercaseHex = (value: string): `0x${string}` => value.toLowerCase() as `0x${string}`;
 
 const toRegistryStream = (
   stream: TrackedContestStream,
