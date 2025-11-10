@@ -243,7 +243,8 @@ export default function CreateContestForm() {
     formState: { errors, isSubmitting },
     reset,
     watch,
-    setValue
+    setValue,
+    getValues
   } = useForm<ContestFormInput>({
     resolver: zodResolver(formSchema),
     defaultValues: {
