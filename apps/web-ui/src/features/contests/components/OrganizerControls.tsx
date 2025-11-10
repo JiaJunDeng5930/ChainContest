@@ -12,7 +12,8 @@ import {
   requestFreezePlan,
   requestSealPlan,
   confirmFreezeAction,
-  confirmSealAction
+  confirmSealAction,
+  requestGoLivePlan
 } from "../api/admin";
 
 type OrganizerControlsProps = {
@@ -95,6 +96,11 @@ export function OrganizerControls({ contest, onActionComplete }: OrganizerContro
     return null;
   }
 
+  const registrationClosesAt = extractTimestamp(contest.metadata as Record<string, unknown> | null, [
+    ["chainGatewayDefinition", "timeline", "registrationClosesAt"],
+    ["timeline", "registrationClosesAt"]
+  ]);
+
   const tradingClosesAt = extractTimestamp(contest.metadata as Record<string, unknown> | null, [
     ["chainGatewayDefinition", "timeline", "tradingClosesAt"],
     ["chainGatewayDefinition", "timeline", "liveEnds"],
@@ -103,6 +109,13 @@ export function OrganizerControls({ contest, onActionComplete }: OrganizerContro
   ]);
 
   const now = Date.now();
+  const goLiveDisabledReason =
+    contest.phase !== "registration"
+      ? t("contests.organizer.goLiveUnavailable")
+      : registrationClosesAt && now < registrationClosesAt
+        ? t("contests.organizer.goLiveBlocked")
+        : null;
+
   const freezeAvailable = !tradingClosesAt || now >= tradingClosesAt;
   const freezeDisabledReason = freezeAvailable ? null : t("contests.organizer.freezeBlocked");
 
@@ -124,6 +137,19 @@ export function OrganizerControls({ contest, onActionComplete }: OrganizerContro
       }
       const { hash } = await sendExecutionCall(plan.transaction);
       await confirmFreezeAction(contest.contestId, { transactionHash: hash });
+    },
+    onSuccess: async () => {
+      await invalidateContest();
+    }
+  });
+
+  const goLiveMutation = useMutation({
+    mutationFn: async () => {
+      const plan = await requestGoLivePlan(contest.contestId);
+      if (plan.status !== "ready" || !plan.transaction) {
+        throw new Error(plan.reason?.message ?? t("contests.organizer.goLiveBlocked"));
+      }
+      await sendExecutionCall(plan.transaction);
     },
     onSuccess: async () => {
       await invalidateContest();
@@ -156,6 +182,15 @@ export function OrganizerControls({ contest, onActionComplete }: OrganizerContro
       <div className="flex flex-wrap gap-3">
         <button
           type="button"
+          onClick={() => goLiveMutation.mutate()}
+          disabled={Boolean(goLiveDisabledReason) || goLiveMutation.isPending || !walletReady}
+          className="rounded border border-amber-600/70 bg-amber-600/10 px-4 py-2 text-sm font-medium text-amber-100 transition hover:border-amber-400 hover:text-amber-50 disabled:cursor-not-allowed disabled:opacity-60"
+        >
+          {goLiveMutation.isPending ? t("contests.organizer.actionPending") : t("contests.organizer.goLiveAction")}
+        </button>
+
+        <button
+          type="button"
           onClick={() => freezeMutation.mutate()}
           disabled={Boolean(freezeDisabledReason) || freezeMutation.isPending || !walletReady}
           className="rounded border border-emerald-600/70 bg-emerald-600/10 px-4 py-2 text-sm font-medium text-emerald-100 transition hover:border-emerald-400 hover:text-emerald-50 disabled:cursor-not-allowed disabled:opacity-60"
@@ -173,6 +208,9 @@ export function OrganizerControls({ contest, onActionComplete }: OrganizerContro
         </button>
       </div>
 
+      {goLiveDisabledReason ? (
+        <p className="text-xs text-amber-300">{goLiveDisabledReason}</p>
+      ) : null}
       {freezeDisabledReason ? (
         <p className="text-xs text-amber-300">{freezeDisabledReason}</p>
       ) : null}
@@ -180,6 +218,9 @@ export function OrganizerControls({ contest, onActionComplete }: OrganizerContro
         <p className="text-xs text-amber-300">{sealDisabledReason}</p>
       ) : null}
 
+      {goLiveMutation.isError ? (
+        <p className="text-xs text-rose-300">{goLiveMutation.error?.message ?? t("common.status.error")}</p>
+      ) : null}
       {freezeMutation.isError ? (
         <p className="text-xs text-rose-300">{freezeMutation.error?.message ?? t("common.status.error")}</p>
       ) : null}

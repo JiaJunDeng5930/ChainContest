@@ -5,6 +5,7 @@ import { applyTestEnv } from '../utils/env';
 import { createRouteRequest } from '../utils/request';
 
 const FREEZE_ROUTE = '/api/contests/contest-123/freeze-plan';
+const GO_LIVE_ROUTE = '/api/contests/contest-123/live-plan';
 const SEAL_ROUTE = '/api/contests/contest-123/seal-plan';
 const FREEZE_CONFIRM_ROUTE = '/api/contests/contest-123/freeze-plan/confirm';
 const SEAL_CONFIRM_ROUTE = '/api/contests/contest-123/seal-plan/confirm';
@@ -144,6 +145,79 @@ describe('contest admin plan routes', () => {
     const body = (await response.json()) as { status: string; reason: { code: string } };
     expect(body.status).toBe('blocked');
     expect(body.reason.code).toBe('contest_live');
+  });
+
+  it('returns ready go-live plan when registration window has elapsed', async () => {
+    const snapshot = {
+      ...baseContest,
+      phase: 'registration',
+      metadata: {
+        ...baseContest.metadata,
+        chainGatewayDefinition: {
+          ...baseContest.metadata?.chainGatewayDefinition,
+          timeline: {
+            registrationClosesAt: '2020-01-01T00:00:00.000Z'
+          }
+        }
+      }
+    };
+
+    vi.doMock('@/lib/contests/repository', () => ({
+      getContest: vi.fn().mockResolvedValue(snapshot)
+    }));
+    vi.doMock('@/lib/auth/session', () => ({
+      requireSession: vi.fn().mockResolvedValue(sessionStub)
+    }));
+
+    const { POST } = await import('../../app/api/contests/[contestId]/live-plan/route');
+
+    const response = await POST(
+      createRouteRequest(GO_LIVE_ROUTE, { method: 'POST' }),
+      { params: { contestId: snapshot.contestId } }
+    );
+
+    expect(response.status).toBe(200);
+    const body = (await response.json()) as { status: string; transaction: { to: string; data: string } };
+    expect(body.status).toBe('ready');
+    expect(body.transaction.to).toBe(CONTEST_ADDRESS);
+    expect(body.transaction.data).toBe(
+      encodeFunctionData({ abi: contestArtifact.abi, functionName: 'syncState' })
+    );
+  });
+
+  it('blocks go-live plan when registration is still open', async () => {
+    const snapshot = {
+      ...baseContest,
+      phase: 'registration',
+      metadata: {
+        ...baseContest.metadata,
+        chainGatewayDefinition: {
+          ...baseContest.metadata?.chainGatewayDefinition,
+          timeline: {
+            registrationClosesAt: '2999-01-01T00:00:00.000Z'
+          }
+        }
+      }
+    };
+
+    vi.doMock('@/lib/contests/repository', () => ({
+      getContest: vi.fn().mockResolvedValue(snapshot)
+    }));
+    vi.doMock('@/lib/auth/session', () => ({
+      requireSession: vi.fn().mockResolvedValue(sessionStub)
+    }));
+
+    const { POST } = await import('../../app/api/contests/[contestId]/live-plan/route');
+
+    const response = await POST(
+      createRouteRequest(GO_LIVE_ROUTE, { method: 'POST' }),
+      { params: { contestId: snapshot.contestId } }
+    );
+
+    expect(response.status).toBe(200);
+    const body = (await response.json()) as { status: string; reason: { code?: string } };
+    expect(body.status).toBe('blocked');
+    expect(body.reason?.code).toBe('contest_registration_open');
   });
 
   it('rejects seal plan when caller is not organizer', async () => {

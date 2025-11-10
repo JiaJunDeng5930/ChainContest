@@ -21,6 +21,10 @@ export async function requestFreezePlan(contestId: string): Promise<AdminPlanRes
   return apiClient.post<AdminPlanResponse>(buildEndpoint(contestId, "freeze-plan"));
 }
 
+export async function requestGoLivePlan(contestId: string): Promise<AdminPlanResponse> {
+  return apiClient.post<AdminPlanResponse>(buildEndpoint(contestId, "live-plan"));
+}
+
 export async function requestSealPlan(contestId: string): Promise<AdminPlanResponse> {
   return apiClient.post<AdminPlanResponse>(buildEndpoint(contestId, "seal-plan"));
 }
